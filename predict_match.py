@@ -61,7 +61,7 @@ class TennisSetPredictor:
         ]
         
         self.feature_columns = (player_stats + set_stats + serve_stats + 
-                               return_stats + opponent_stats + match_context)
+                            return_stats + opponent_stats + match_context)
         
         return df[self.feature_columns]
     
