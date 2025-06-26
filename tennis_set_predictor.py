@@ -1,11 +1,20 @@
 import pandas as pd
 import numpy as np
+from typing import Dict, List, Tuple, Optional  # ИСПРАВЛЕНО: добавлен импорт Dict
 from sklearn.model_selection import train_test_split, TimeSeriesSplit, cross_val_score
 from sklearn.preprocessing import StandardScaler, RobustScaler
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, roc_curve
-import xgboost as xgb
+
+# ИСПРАВЛЕНО: проверяем доступность xgboost
+try:
+    import xgboost as xgb
+    XGBOOST_AVAILABLE = True
+except ImportError:
+    print("⚠️ XGBoost не установлен. Установите: pip install xgboost")
+    XGBOOST_AVAILABLE = False
+
 import tensorflow as tf
 from tensorflow import keras
 from keras.models import Sequential
@@ -21,7 +30,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 class EnhancedTennisPredictor:
-    def __init__(self, model_dir="tennis_models"):
+    def __init__(self, model_dir: str = "tennis_models"):
         self.model_dir = model_dir
         self.scaler = RobustScaler()  # Более устойчив к выбросам
         self.models = {}
@@ -147,9 +156,9 @@ class EnhancedTennisPredictor:
         return model
     
     def train_ensemble_models(self, X_train: pd.DataFrame, y_train: pd.Series, 
-                        X_val: pd.DataFrame, y_val: pd.Series) -> Dict:
+                            X_val: pd.DataFrame, y_val: pd.Series) -> Dict[str, float]:
         """
-        НОВОЕ: Обучение ансамбля моделей
+        ИСПРАВЛЕНО: Обучение ансамбля моделей с правильными типами
         """
         print("🧠 Обучение ансамбля моделей...")
         
@@ -184,34 +193,37 @@ class EnhancedTennisPredictor:
         
         print(f"✅ Нейронная сеть: AUC = {nn_auc:.4f}")
         
-        # 2. XGBoost
-        print("🔸 Обучение XGBoost...")
-        xgb_model = xgb.XGBClassifier(
-            n_estimators=300,
-            max_depth=6,
-            learning_rate=0.05,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            random_state=42,
-            eval_metric='auc'
-        )
-        
-        xgb_model.fit(
-            X_train, y_train,
-            eval_set=[(X_val, y_val)],
-            early_stopping_rounds=20,
-            verbose=False
-        )
-        
-        xgb_pred = xgb_model.predict_proba(X_val)[:, 1]
-        xgb_auc = roc_auc_score(y_val, xgb_pred)
-        models_performance['xgboost'] = xgb_auc
-        self.models['xgboost'] = xgb_model
-        
-        # Сохраняем важность признаков
-        self.feature_importance['xgboost'] = dict(zip(X_train.columns, xgb_model.feature_importances_))
-        
-        print(f"✅ XGBoost: AUC = {xgb_auc:.4f}")
+        # 2. XGBoost (ИСПРАВЛЕНО: проверка доступности)
+        if XGBOOST_AVAILABLE:
+            print("🔸 Обучение XGBoost...")
+            xgb_model = xgb.XGBClassifier(
+                n_estimators=300,
+                max_depth=6,
+                learning_rate=0.05,
+                subsample=0.8,
+                colsample_bytree=0.8,
+                random_state=42,
+                eval_metric='auc'
+            )
+            
+            xgb_model.fit(
+                X_train, y_train,
+                eval_set=[(X_val, y_val)],
+                early_stopping_rounds=20,
+                verbose=False
+            )
+            
+            xgb_pred = xgb_model.predict_proba(X_val)[:, 1]
+            xgb_auc = roc_auc_score(y_val, xgb_pred)
+            models_performance['xgboost'] = xgb_auc
+            self.models['xgboost'] = xgb_model
+            
+            # Сохраняем важность признаков
+            self.feature_importance['xgboost'] = dict(zip(X_train.columns, xgb_model.feature_importances_))
+            
+            print(f"✅ XGBoost: AUC = {xgb_auc:.4f}")
+        else:
+            print("⚠️ XGBoost пропущен - не установлен")
         
         # 3. Random Forest
         print("🔸 Обучение Random Forest...")
@@ -303,9 +315,9 @@ class EnhancedTennisPredictor:
         
         return ensemble_prediction
     
-    def evaluate_models(self, X_test: pd.DataFrame, y_test: pd.Series) -> Dict:
+    def evaluate_models(self, X_test: pd.DataFrame, y_test: pd.Series) -> Dict[str, Dict[str, float]]:
         """
-        НОВОЕ: Подробная оценка всех моделей
+        ИСПРАВЛЕНО: Подробная оценка всех моделей с правильными типами
         """
         print("📊 Оценка моделей на тестовых данных...")
         
@@ -353,9 +365,9 @@ class EnhancedTennisPredictor:
         
         return results
     
-    def plot_feature_importance(self, top_n: int = 20):
+    def plot_feature_importance(self, top_n: int = 20) -> None:
         """
-        НОВОЕ: Визуализация важности признаков
+        ИСПРАВЛЕНО: Визуализация важности признаков
         """
         if not self.feature_importance:
             print("❌ Нет данных о важности признаков")
@@ -384,9 +396,9 @@ class EnhancedTennisPredictor:
         plt.tight_layout()
         plt.show()
     
-    def plot_model_comparison(self, results: Dict):
+    def plot_model_comparison(self, results: Dict[str, Dict[str, float]]) -> None:
         """
-        НОВОЕ: Сравнение производительности моделей
+        ИСПРАВЛЕНО: Сравнение производительности моделей
         """
         models = list(results.keys())
         auc_scores = [results[model]['auc'] for model in models]
@@ -421,7 +433,7 @@ class EnhancedTennisPredictor:
         plt.tight_layout()
         plt.show()
     
-    def save_models(self):
+    def save_models(self) -> None:
         """
         НОВОЕ: Сохранение всех моделей
         """
@@ -451,7 +463,7 @@ class EnhancedTennisPredictor:
         
         print(f"✅ Все модели сохранены в: {self.model_dir}")
     
-    def load_models(self):
+    def load_models(self) -> None:
         """
         НОВОЕ: Загрузка сохраненных моделей
         """
@@ -484,9 +496,9 @@ class EnhancedTennisPredictor:
         print(f"✅ Модели загружены из: {self.model_dir}")
 
 def time_series_split_validation(df: pd.DataFrame, predictor: EnhancedTennisPredictor, 
-                                n_splits: int = 5) -> Dict:
+                                n_splits: int = 5) -> Dict[str, float]:
     """
-    НОВОЕ: Валидация с учетом временной структуры данных
+    ИСПРАВЛЕНО: Валидация с учетом временной структуры данных
     """
     print("⏰ Временная валидация моделей...")
     
@@ -529,7 +541,33 @@ def time_series_split_validation(df: pd.DataFrame, predictor: EnhancedTennisPred
         'fold_scores': cv_scores
     }
 
-def main():
+def install_requirements() -> None:
+    """
+    НОВОЕ: Проверка и установка зависимостей
+    """
+    required_packages = [
+        'pandas', 'numpy', 'scikit-learn', 'tensorflow', 
+        'xgboost', 'matplotlib', 'seaborn', 'joblib'
+    ]
+    
+    missing_packages = []
+    
+    for package in required_packages:
+        try:
+            __import__(package)
+        except ImportError:
+            missing_packages.append(package)
+    
+    if missing_packages:
+        print(f"⚠️ Отсутствующие пакеты: {missing_packages}")
+        print("📦 Установите их командой:")
+        print(f"pip install {' '.join(missing_packages)}")
+        return False
+    
+    print("✅ Все необходимые пакеты установлены")
+    return True
+
+def main() -> None:
     """
     ПРИМЕР ИСПОЛЬЗОВАНИЯ: Обучение улучшенной модели
     """
@@ -541,6 +579,10 @@ def main():
     print("• Временная валидация")
     print("• Анализ важности признаков")
     print("=" * 70)
+    
+    # Проверяем зависимости
+    if not install_requirements():
+        return
     
     # Пример с синтетическими данными (замените на ваши реальные данные)
     print("\n📊 Загрузка данных...")
@@ -615,8 +657,12 @@ def main():
     
     # Визуализация результатов
     print("\n📈 Создание визуализаций...")
-    predictor.plot_model_comparison(test_results)
-    predictor.plot_feature_importance()
+    try:
+        predictor.plot_model_comparison(test_results)
+        predictor.plot_feature_importance()
+    except Exception as e:
+        print(f"⚠️ Ошибка визуализации: {e}")
+        print("💡 Возможно, отсутствует графическая среда. Пропускаем визуализацию.")
     
     # Временная валидация
     print("\n⏰ Временная кросс-валидация...")
