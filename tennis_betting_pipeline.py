@@ -12,15 +12,30 @@ from datetime import datetime, timedelta
 import argparse
 import logging
 import json
-import schedule
 import time
 from typing import Dict, List, Optional, Tuple
 import warnings
 
+# Попытка импорта schedule с обработкой ошибки
+try:
+    import schedule
+    SCHEDULE_AVAILABLE = True
+except ImportError:
+    SCHEDULE_AVAILABLE = False
+    logging.warning("⚠️ Библиотека 'schedule' не установлена. Установите: pip install schedule")
+
 # Импорты наших модулей
-from enhanced_data_collector import EnhancedTennisDataCollector
-from enhanced_predictor import EnhancedTennisPredictor, time_series_split_validation
-from enhanced_betting_system import EnhancedTennisBettingSystem, OddsCollector, ValueBet, BettingMetrics
+try:
+    from enhanced_data_collector import EnhancedTennisDataCollector
+    from enhanced_predictor import EnhancedTennisPredictor, time_series_split_validation
+    from enhanced_betting_system import (
+        EnhancedTennisBettingSystem, OddsCollector, ValueBet, BettingMetrics,
+        create_sample_matches_and_enhanced_odds, backtest_betting_strategy
+    )
+except ImportError as e:
+    logging.error(f"❌ Ошибка импорта модулей: {e}")
+    logging.error("💡 Убедитесь, что файлы enhanced_*.py находятся в том же каталоге")
+    sys.exit(1)
 
 warnings.filterwarnings('ignore')
 
@@ -320,7 +335,6 @@ class TennisPipeline:
             
             # Здесь должен быть код для получения сегодняшних матчей
             # Для демонстрации создаем примеры
-            from enhanced_betting_system import create_sample_matches_and_enhanced_odds
             matches_df, enhanced_odds = create_sample_matches_and_enhanced_odds()
             
             # Фильтруем только сегодняшние матчи
@@ -431,6 +445,10 @@ class TennisPipeline:
     
     def setup_scheduler(self):
         """Настройка планировщика задач"""
+        if not SCHEDULE_AVAILABLE:
+            logging.error("❌ Библиотека schedule не доступна. Запуск в ручном режиме.")
+            return False
+        
         # Ежедневный запуск в 08:00
         schedule.every().day.at("08:00").do(self.run_daily_pipeline)
         
@@ -441,9 +459,15 @@ class TennisPipeline:
         schedule.every(2).hours.do(self.find_daily_bets)
         
         logging.info("⏰ Планировщик настроен")
+        return True
     
     def run_scheduler(self):
         """Запуск планировщика"""
+        if not SCHEDULE_AVAILABLE:
+            logging.error("❌ Планировщик не может быть запущен без библиотеки schedule")
+            logging.info("💡 Выполните: pip install schedule")
+            return
+        
         logging.info("🔄 Запуск планировщика...")
         
         # Первый запуск
@@ -460,6 +484,76 @@ class TennisPipeline:
             except Exception as e:
                 logging.error(f"❌ Ошибка в планировщике: {e}")
                 time.sleep(300)  # Ждем 5 минут перед повтором
+    
+    def run_manual_mode(self):
+        """Ручной режим без планировщика"""
+        logging.info("🔄 Запуск в ручном режиме...")
+        
+        while True:
+            try:
+                print("\n" + "="*50)
+                print("🎾 TENNIS PIPELINE - РУЧНОЙ РЕЖИМ")
+                print("="*50)
+                print("1. Обновить данные")
+                print("2. Обучить модели")
+                print("3. Найти ценные ставки")
+                print("4. Запустить полный pipeline")
+                print("5. Показать статистику")
+                print("0. Выход")
+                
+                choice = input("\nВыберите действие (0-5): ").strip()
+                
+                if choice == "0":
+                    print("👋 До свидания!")
+                    break
+                elif choice == "1":
+                    self.update_data(force=True)
+                elif choice == "2":
+                    self.train_models(force=True)
+                elif choice == "3":
+                    self.find_daily_bets()
+                elif choice == "4":
+                    self.run_daily_pipeline()
+                elif choice == "5":
+                    self.show_statistics()
+                else:
+                    print("❌ Неверный выбор")
+                
+                input("\nНажмите Enter для продолжения...")
+                
+            except KeyboardInterrupt:
+                print("\n⏹️ Выход из программы")
+                break
+            except Exception as e:
+                logging.error(f"❌ Ошибка: {e}")
+    
+    def show_statistics(self):
+        """Показать статистику"""
+        print("\n📊 СТАТИСТИКА PIPELINE")
+        print("-" * 30)
+        
+        if self.last_data_update:
+            print(f"📅 Последнее обновление данных: {self.last_data_update.strftime('%Y-%m-%d %H:%M')}")
+        else:
+            print("📅 Данные еще не обновлялись")
+        
+        if self.last_model_training:
+            print(f"🧠 Последнее обучение модели: {self.last_model_training.strftime('%Y-%m-%d %H:%M')}")
+        else:
+            print("🧠 Модели еще не обучались")
+        
+        if self.model_performance:
+            print("\n🎯 Производительность моделей:")
+            for model_name, metrics in self.model_performance.items():
+                print(f"  {model_name}: AUC = {metrics['auc']:.3f}")
+        
+        # Проверяем файлы
+        print(f"\n📁 Статус файлов:")
+        data_file = os.path.join(self.data_collector.data_dir, 'enhanced_tennis_dataset.csv')
+        print(f"  Данные: {'✅' if os.path.exists(data_file) else '❌'}")
+        
+        models_file = os.path.join(self.predictor.models_dir, 'ensemble_models.pkl')
+        print(f"  Модели: {'✅' if os.path.exists(models_file) else '❌'}")
 
 def create_sample_config():
     """Создание примера конфигурации"""
@@ -478,8 +572,8 @@ def main():
     """Главная функция для запуска pipeline"""
     parser = argparse.ArgumentParser(description='🎾 Tennis Prediction & Betting Pipeline')
     
-    parser.add_argument('--mode', choices=['setup', 'train', 'predict', 'backtest', 'run'], 
-                       default='run', help='Режим работы')
+    parser.add_argument('--mode', choices=['setup', 'train', 'predict', 'backtest', 'run', 'manual'], 
+                       default='manual', help='Режим работы')
     parser.add_argument('--config', default='config.json', help='Файл конфигурации')
     parser.add_argument('--force-update', action='store_true', help='Принудительное обновление данных')
     parser.add_argument('--force-train', action='store_true', help='Принудительное переобучение')
@@ -561,7 +655,6 @@ def main():
             pipeline.predictor.load_models()
             
             # Запускаем бэктест
-            from enhanced_betting_system import backtest_betting_strategy
             metrics = backtest_betting_strategy(pipeline.predictor, '2024-01-01', '2024-06-30')
             
             print(f"\n📈 Результаты бэктестинга:")
@@ -577,18 +670,24 @@ def main():
     
     elif args.mode == 'run':
         print("\n🔄 Режим автоматического запуска...")
-        print("⏰ Настройка планировщика...")
         
-        pipeline.setup_scheduler()
-        
-        print("🚀 Pipeline запущен!")
-        print("📱 Уведомления будут отправлены при нахождении ценных ставок")
-        print("⏹️ Нажмите Ctrl+C для остановки")
-        
-        try:
-            pipeline.run_scheduler()
-        except KeyboardInterrupt:
-            print("\n⏹️ Pipeline остановлен")
+        if pipeline.setup_scheduler():
+            print("⏰ Настройка планировщика...")
+            print("🚀 Pipeline запущен!")
+            print("📱 Уведомления будут отправлены при нахождении ценных ставок")
+            print("⏹️ Нажмите Ctrl+C для остановки")
+            
+            try:
+                pipeline.run_scheduler()
+            except KeyboardInterrupt:
+                print("\n⏹️ Pipeline остановлен")
+        else:
+            print("❌ Не удалось настроить планировщик")
+            print("💡 Используйте режим --mode manual")
+    
+    elif args.mode == 'manual':
+        print("\n🔄 Ручной режим...")
+        pipeline.run_manual_mode()
 
 def run_web_interface():
     """Веб-интерфейс для мониторинга (опционально)"""
@@ -601,20 +700,42 @@ def run_web_interface():
         @app.route('/')
         def index():
             return """
+            <!DOCTYPE html>
             <html>
-            <head><title>Tennis Pipeline Dashboard</title></head>
+            <head>
+                <title>Tennis Pipeline Dashboard</title>
+                <meta charset="utf-8">
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 40px; }
+                    .card { border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 8px; }
+                    .status { font-size: 18px; }
+                </style>
+            </head>
             <body>
                 <h1>🎾 Tennis Pipeline Dashboard</h1>
-                <div id="status">Загрузка...</div>
+                <div class="card">
+                    <h2>Статус системы</h2>
+                    <div id="status" class="status">Загрузка...</div>
+                </div>
                 <script>
-                    fetch('/api/status')
-                        .then(response => response.json())
-                        .then(data => {
-                            document.getElementById('status').innerHTML = 
-                                '<p>Последнее обновление: ' + data.last_update + '</p>' +
-                                '<p>Производительность модели: ' + data.model_performance + '</p>' +
-                                '<p>Ценных ставок сегодня: ' + data.today_bets + '</p>';
-                        });
+                    function updateStatus() {
+                        fetch('/api/status')
+                            .then(response => response.json())
+                            .then(data => {
+                                document.getElementById('status').innerHTML = 
+                                    '<p>📅 Последнее обновление: ' + data.last_update + '</p>' +
+                                    '<p>🧠 Производительность модели: ' + data.model_performance + '</p>' +
+                                    '<p>💰 Ценных ставок сегодня: ' + data.today_bets + '</p>' +
+                                    '<p>📊 ROI: ' + data.roi + '%</p>';
+                            })
+                            .catch(error => {
+                                document.getElementById('status').innerHTML = 
+                                    '<p style="color: red;">❌ Ошибка загрузки данных</p>';
+                            });
+                    }
+                    
+                    updateStatus();
+                    setInterval(updateStatus, 30000); // Обновляем каждые 30 секунд
                 </script>
             </body>
             </html>
@@ -623,9 +744,10 @@ def run_web_interface():
         @app.route('/api/status')
         def api_status():
             return jsonify({
-                'last_update': datetime.now().isoformat(),
+                'last_update': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'model_performance': 'AUC: 0.72',
-                'today_bets': 3
+                'today_bets': 3,
+                'roi': 7.5
             })
         
         print("🌐 Веб-интерфейс запущен на http://localhost:5000")
