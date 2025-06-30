@@ -1,0 +1,327 @@
+# ========================================
+# СЕКРЕТНЫЕ ДАННЫЕ И API КЛЮЧИ
+# ========================================
+.env
+.env.production
+.env.local
+.env.*.local
+config_production.json
+config.json
+**/config_production.json
+**/config.json
+
+# API ключи и токены
+api_keys.txt
+secrets.json
+credentials.json
+
+# ========================================
+# ДАННЫЕ И КЭШИ
+# ========================================
+# Данные тенниса
+tennis_data_enhanced/
+tennis_models/
+betting_data/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Логи
+logs/
+*.log
+server.log
+tennis_app.log
+
+# Кэш и временные файлы
+*.tmp
+*.temp
+.cache/
+.pytest_cache/
+
+# ========================================
+# МОДЕЛИ И БОЛЬШИЕ ФАЙЛЫ
+# ========================================
+# Обученные модели ML
+*.pkl
+*.joblib
+*.h5
+*.hdf5
+*.model
+models/
+*.weights
+*.ckpt
+
+# Большие CSV файлы с данными
+*.csv
+!sample_data.csv  # исключение для примера
+data/
+raw_data/
+
+# ========================================
+# PYTHON И ВИРТУАЛЬНЫЕ ОКРУЖЕНИЯ
+# ========================================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# pdm
+.pdm.toml
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# ========================================
+# IDE И РЕДАКТОРЫ
+# ========================================
+# VSCode
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ========================================
+# ОПЕРАЦИОННЫЕ СИСТЕМЫ
+# ========================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ========================================
+# DOCKER И РАЗВЕРТЫВАНИЕ
+# ========================================
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Kubernetes
+*.kubeconfig
+
+# ========================================
+# БЭКАПЫ И АРХИВЫ
+# ========================================
+*.bak
+*.backup
+*.old
+*.orig
+*.rej
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+
+# ========================================
+# СПЕЦИФИЧНЫЕ ДЛЯ ПРОЕКТА
+# ========================================
+# Nginx конфиги с секретами
+tennis_nginx.conf
+
+# Скрипты развертывания с паролями
+deployment_preparation.sh
+deploy.sh
+
+# Результаты мониторинга
+monitor.sh
+
+# Временные файлы предсказаний
+predictions_*.json
+temp_*.csv
+
+# Файлы сессий
+flask_session/
+sessions/
+
+# Статические файлы (если генерируются)
+static/generated/
+static/build/
+
+# Загруженные файлы пользователей
+uploads/
+user_data/

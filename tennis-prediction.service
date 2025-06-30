@@ -1,0 +1,25 @@
+[Unit]
+Description=Tennis Prediction System
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/tennis_prediction
+Environment=PATH=/opt/tennis_prediction/venv/bin
+ExecStart=/opt/tennis_prediction/venv/bin/python web_backend.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/tennis_prediction
+
+[Install]
+WantedBy=multi-user.target

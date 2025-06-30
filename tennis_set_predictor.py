@@ -194,6 +194,9 @@ class EnhancedTennisPredictor:
         print(f"✅ Нейронная сеть: AUC = {nn_auc:.4f}")
         
         # 2. XGBoost (ИСПРАВЛЕНО: проверка доступности)
+        # Замените блок обучения XGBoost (строки примерно 195-220) на этот код:
+
+        # 2. XGBoost (ИСПРАВЛЕНО: проверка доступности и новый API)
         if XGBOOST_AVAILABLE:
             print("🔸 Обучение XGBoost...")
             xgb_model = xgb.XGBClassifier(
@@ -203,13 +206,14 @@ class EnhancedTennisPredictor:
                 subsample=0.8,
                 colsample_bytree=0.8,
                 random_state=42,
-                eval_metric='auc'
+                eval_metric='auc',
+                early_stopping_rounds=20  # Этот параметр теперь здесь
             )
             
+            # ИСПРАВЛЕНО: новый способ с eval_set
             xgb_model.fit(
                 X_train, y_train,
                 eval_set=[(X_val, y_val)],
-                early_stopping_rounds=20,
                 verbose=False
             )
             
@@ -543,10 +547,10 @@ def time_series_split_validation(df: pd.DataFrame, predictor: EnhancedTennisPred
 
 def install_requirements() -> None:
     """
-    НОВОЕ: Проверка и установка зависимостей
+    ИСПРАВЛЕНО: Проверка и установка зависимостей
     """
     required_packages = [
-        'pandas', 'numpy', 'scikit-learn', 'tensorflow', 
+        'pandas', 'numpy', 'sklearn', 'tensorflow',  # ИСПРАВЛЕНО: sklearn вместо scikit-learn
         'xgboost', 'matplotlib', 'seaborn', 'joblib'
     ]
     
@@ -561,7 +565,14 @@ def install_requirements() -> None:
     if missing_packages:
         print(f"⚠️ Отсутствующие пакеты: {missing_packages}")
         print("📦 Установите их командой:")
-        print(f"pip install {' '.join(missing_packages)}")
+        # Для sklearn показываем правильное имя для установки
+        install_names = []
+        for pkg in missing_packages:
+            if pkg == 'sklearn':
+                install_names.append('scikit-learn')
+            else:
+                install_names.append(pkg)
+        print(f"pip install {' '.join(install_names)}")
         return False
     
     print("✅ Все необходимые пакеты установлены")
