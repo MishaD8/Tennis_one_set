@@ -1,0 +1,37 @@
+2025-06-30 17:10:18.388643: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:32] Could not find cuda drivers on your machine, GPU will not be used.
+2025-06-30 17:10:18.391276: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:32] Could not find cuda drivers on your machine, GPU will not be used.
+2025-06-30 17:10:18.398457: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1751303418.409685   36853 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1751303418.414330   36853 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1751303418.422961   36853 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1751303418.422994   36853 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1751303418.422998   36853 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1751303418.422999   36853 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-06-30 17:10:18.425725: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-06-30 17:10:20.117469: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: UNKNOWN ERROR (303)
+2025-06-30 17:10:20,383 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2025-06-30 17:10:20,501 - INFO - ✅ Prediction service initialized with models
+📂 Загружаем модели прогнозирования...
+✅ Загружено 5 моделей
+🔧 Ожидается 13 признаков
+🎾 TENNIS PREDICTION BACKEND - MINIMAL VERSION
+============================================================
+🌐 Starting server on http://0.0.0.0:5001
+🔮 Prediction service: ✅ Active
+📡 Available endpoints:
+  • GET  /api/health
+  • GET  /api/stats
+  • GET  /api/matches
+  • POST /api/predict
+  • POST /api/predict/batch
+  • GET  /api/refresh
+============================================================
+ * Serving Flask app 'web_backend_minimal'
+ * Debug mode: off
+2025-06-30 17:10:20,507 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://65.109.135.2:5001
+2025-06-30 17:10:20,507 - INFO - [33mPress CTRL+C to quit[0m
