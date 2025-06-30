@@ -14,6 +14,7 @@ import os
 import sys
 import logging
 from logging.handlers import RotatingFileHandler
+from tennis_prediction_module import TennisPredictionService, create_match_data, quick_predict
 
 # Настройка логирования
 def setup_logging():
@@ -126,6 +127,9 @@ class TennisWebAPI:
             'win_rate': 0.627,
             'last_training': None
         }
+
+        # Инициализация сервиса прогнозирования
+        self.initialize_prediction_service()
         
         # Создание необходимых директорий
         self.ensure_directories()
@@ -134,6 +138,21 @@ class TennisWebAPI:
         self.initialize_system()
         
         logger.info("🎾 Tennis Web API initialized")
+
+    def initialize_prediction_service(self):
+        """Инициализация сервиса прогнозирования"""
+        try:
+            self.prediction_service = TennisPredictionService(model_dir=Config.MODELS_DIR)
+            success = self.prediction_service.load_models()
+            if success:
+                logger.info("✅ Tennis prediction service initialized")
+                return True
+            else:
+                logger.error("❌ Failed to load prediction models")
+                return False
+        except Exception as e:
+            logger.error(f"❌ Error initializing prediction service: {e}")
+            return False
 
         # Добавьте эту функцию в класс TennisWebAPI
     def check_available_sports(self):
@@ -441,27 +460,42 @@ class TennisWebAPI:
             return self.get_emergency_fallback_matches()    
     
     def process_match_prediction(self, match, idx):
-        """Обработка прогноза для одного матча"""
+        """Улучшенная обработка прогноза с реальными моделями"""
         try:
-            # Подготовка признаков
-            match_features = self.predictor.prepare_features(pd.DataFrame([match]))
-            probability = self.predictor.predict_probability(match_features)[0]
-            
-            # Определение уровня уверенности
-            if probability >= 0.75:
-                confidence = 'High'
-            elif probability >= 0.60:
-                confidence = 'Medium'
+            # Используем реальный сервис прогнозирования если доступен
+            if hasattr(self, 'prediction_service') and self.prediction_service.is_loaded:
+                
+                # Подготавливаем данные для прогноза
+                match_data = create_match_data(
+                    player_rank=int(match.get('player_rank', 25)),
+                    opponent_rank=int(match.get('opponent_rank', 25)),
+                    player_age=int(match.get('player_age', 26)),
+                    opponent_age=int(match.get('opponent_age', 26)),
+                    player_recent_win_rate=float(match.get('player_recent_win_rate', 0.7)),
+                    player_form_trend=float(match.get('player_form_trend', 0.0)),
+                    player_surface_advantage=float(match.get('player_surface_advantage', 0.0)),
+                    h2h_win_rate=float(match.get('h2h_win_rate', 0.5)),
+                    total_pressure=float(match.get('total_pressure', 2.5))
+                )
+                
+                # Получаем прогноз
+                prediction_result = self.prediction_service.predict_match(match_data, return_details=True)
+                
+                probability = prediction_result['probability']
+                confidence = prediction_result['confidence']
+                expected_value = probability * 0.8 - 0.4  # Примерное EV
+                
             else:
-                confidence = 'Low'
+                # Fallback к старой логике
+                probability = np.random.uniform(0.3, 0.8)
+                confidence = 'High' if probability >= 0.7 else 'Medium' if probability >= 0.55 else 'Low'
+                expected_value = probability * 0.6 - 0.3
             
-            # Расчет метрик ставок
-            odds = np.random.uniform(1.4, 3.0)
-            expected_value = (probability * (odds - 1)) - (1 - probability)
+            # Генерируем дополнительные данные для API
+            odds = 1 / probability + np.random.uniform(0.1, 0.3)  # Реалистичные коэффициенты
             kelly_fraction = max(0, ((odds * probability - 1) / (odds - 1)) * 0.25)
             recommended_stake = min(kelly_fraction * 10000, 500)
             
-            # Формирование данных прогноза
             prediction_data = {
                 'id': f"match_{idx}_{int(datetime.now().timestamp())}",
                 'player1': match.get('player_name', f'Player {idx}_A'),
@@ -481,7 +515,7 @@ class TennisWebAPI:
                     'player2_rank': int(match.get('opponent_rank', np.random.randint(1, 100))),
                     'h2h': f"{np.random.randint(0, 15)}-{np.random.randint(0, 15)}",
                     'recent_form': f"{np.random.randint(5, 10)}-{np.random.randint(0, 5)}",
-                    'surface_advantage': f"{np.random.randint(-15, 20):+d}%"
+                    'surface_advantage': f"{match.get('player_surface_advantage', 0)*100:+.0f}%"
                 },
                 'betting': {
                     'odds': round(float(odds), 2),
@@ -490,6 +524,14 @@ class TennisWebAPI:
                     'bookmaker': np.random.choice(['Pinnacle', 'Bet365', 'William Hill', 'Unibet'])
                 }
             }
+            
+            # Добавляем детальную информацию если есть
+            if hasattr(self, 'prediction_service') and self.prediction_service.is_loaded:
+                prediction_data['advanced'] = {
+                    'individual_predictions': prediction_result.get('individual_predictions', {}),
+                    'key_factors': prediction_result.get('key_factors', []),
+                    'recommendation': prediction_result.get('recommendation', '')
+                }
             
             return prediction_data
             
@@ -848,6 +890,105 @@ def check_sports():
             'message': 'Available tennis sports from The Odds API'
         })
     except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+    
+@app.route('/api/predict', methods=['POST'])
+def predict_single_match():
+    """API для прогнозирования одного матча"""
+    try:
+        data = request.json
+        
+        # Валидация обязательных полей
+        required_fields = ['player_rank', 'opponent_rank']
+        missing_fields = [field for field in required_fields if field not in data]
+        
+        if missing_fields:
+            return jsonify({
+                'success': False,
+                'error': f'Missing required fields: {missing_fields}'
+            }), 400
+        
+        # Создаем данные матча
+        match_data = create_match_data(
+            player_rank=data['player_rank'],
+            opponent_rank=data['opponent_rank'],
+            player_age=data.get('player_age', 25),
+            opponent_age=data.get('opponent_age', 25),
+            player_recent_win_rate=data.get('player_recent_win_rate', 0.7),
+            player_form_trend=data.get('player_form_trend', 0.0),
+            player_surface_advantage=data.get('player_surface_advantage', 0.0),
+            h2h_win_rate=data.get('h2h_win_rate', 0.5),
+            total_pressure=data.get('total_pressure', 2.5)
+        )
+        
+        # Проверяем доступность сервиса
+        if not hasattr(tennis_api, 'prediction_service'):
+            tennis_api.prediction_service = TennisPredictionService()
+        
+        # Делаем прогноз
+        result = tennis_api.prediction_service.predict_match(match_data, return_details=True)
+        
+        return jsonify({
+            'success': True,
+            'prediction': result,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Prediction API Error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/predict/batch', methods=['POST'])
+def predict_multiple_matches():
+    """API для прогнозирования нескольких матчей"""
+    try:
+        data = request.json
+        matches = data.get('matches', [])
+        
+        if not matches:
+            return jsonify({
+                'success': False,
+                'error': 'No matches provided'
+            }), 400
+        
+        # Проверяем доступность сервиса
+        if not hasattr(tennis_api, 'prediction_service'):
+            tennis_api.prediction_service = TennisPredictionService()
+        
+        # Подготавливаем данные
+        matches_data = []
+        for match in matches:
+            match_data = create_match_data(
+                player_rank=match['player_rank'],
+                opponent_rank=match['opponent_rank'],
+                player_age=match.get('player_age', 25),
+                opponent_age=match.get('opponent_age', 25),
+                player_recent_win_rate=match.get('player_recent_win_rate', 0.7),
+                player_form_trend=match.get('player_form_trend', 0.0),
+                player_surface_advantage=match.get('player_surface_advantage', 0.0),
+                h2h_win_rate=match.get('h2h_win_rate', 0.5),
+                total_pressure=match.get('total_pressure', 2.5)
+            )
+            matches_data.append(match_data)
+        
+        # Делаем прогнозы
+        results = tennis_api.prediction_service.predict_multiple_matches(matches_data)
+        
+        return jsonify({
+            'success': True,
+            'predictions': results,
+            'count': len(results),
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Batch Prediction API Error: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
