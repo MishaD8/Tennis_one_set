@@ -515,14 +515,12 @@ def get_stats():
     """Получение статистики системы"""
     try:
         stats = {
-            'total_matches': 8 if REAL_DATA_AVAILABLE else 1,
+            'total_matches': 3,
             'prediction_service_active': prediction_service is not None,
             'models_loaded': getattr(prediction_service, 'is_loaded', False) if prediction_service else False,
             'last_update': datetime.now().isoformat(),
             'accuracy_rate': 0.724,
-            'api_calls_today': 145,
-            'real_data_active': REAL_DATA_AVAILABLE,
-            'tournament_status': 'Wimbledon 2025 - LIVE' if REAL_DATA_AVAILABLE else 'Demo Mode'
+            'api_calls_today': 145
         }
         
         return jsonify({
@@ -567,25 +565,23 @@ def get_matches():
                     'matches': processed_matches,
                     'count': len(processed_matches),
                     'source': 'REAL_WIMBLEDON_2025',
-                    'tournament': 'Wimbledon 2025 - Live Tournament',
                     'timestamp': datetime.now().isoformat()
                 })
         
-        # Fallback к demo данным с предупреждением
+        # Fallback к demo данным
         demo_matches = [
             {
                 'id': 'demo_001',
-                'player1': '⚠️ DEMO Player A',
-                'player2': '⚠️ DEMO Player B',
-                'tournament': '⚠️ DEMO Tournament - Not Real Data',
+                'player1': 'Demo Player A',
+                'player2': 'Demo Player B',
+                'tournament': '⚠️ DEMO Tournament',
                 'surface': 'Hard',
                 'date': datetime.now().strftime('%Y-%m-%d'),
                 'time': '19:00',
                 'prediction': {'probability': 0.68, 'confidence': 'High'},
                 'odds': {'player1': 1.75, 'player2': 2.25},
-                'head_to_head': 'DEMO DATA',
-                'warning': 'DEMONSTRATION DATA - NOT REAL MATCH',
-                'source': 'DEMO_DATA'
+                'head_to_head': 'DEMO',
+                'warning': 'DEMONSTRATION DATA - NOT REAL MATCH'
             }
         ]
         
@@ -594,7 +590,6 @@ def get_matches():
             'matches': demo_matches,
             'count': len(demo_matches),
             'source': 'DEMO_DATA',
-            'warning': 'Real data collector not available',
             'timestamp': datetime.now().isoformat()
         })
         
@@ -604,7 +599,42 @@ def get_matches():
             'success': False,
             'error': str(e),
             'matches': []
-        }), 500@app.route('/api/predict', methods=['POST'])
+        }), 500,
+                'head_to_head': '30-29'
+            },
+            {
+                'id': 'demo_002',
+                'player1': 'Carlos Alcaraz',
+                'player2': 'Jannik Sinner',
+                'tournament': 'Wimbledon',
+                'surface': 'Grass',
+                'date': (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d'),
+                'time': '14:00',
+                'prediction': {
+                    'probability': 0.72,
+                    'confidence': 'High'
+                },
+                'odds': {'player1': 1.45, 'player2': 2.95},
+                'head_to_head': '5-4'
+            }
+        ]
+        
+        return jsonify({
+            'success': True,
+            'matches': demo_matches,
+            'count': len(demo_matches),
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Matches error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'matches': []
+        }), 500
+
+@app.route('/api/predict', methods=['POST'])
 def predict_match():
     """Прогнозирование матча"""
     try:

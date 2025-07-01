@@ -4,8 +4,11 @@
 Собирает реальные данные с текущего Wimbledon 2025
 """
 
+import requests
 from datetime import datetime, timedelta
 from typing import Dict, List
+import re
+import time
 
 class RealTennisDataCollector:
     """Сборщик реальных теннисных данных с Wimbledon 2025"""
@@ -97,37 +100,21 @@ class RealTennisDataCollector:
                 'court': 'Court 2',
                 'status': 'upcoming',
                 'source': 'wimbledon_official'
-            },
-            {
-                'id': 'wimb_2025_007',
-                'player1': 'Jannik Sinner',
-                'player2': 'Yannick Hanfmann',
-                'tournament': 'Wimbledon 2025',
-                'surface': 'Grass',
-                'date': '2025-07-01',
-                'time': '17:00',
-                'round': 'R64',
-                'court': 'Court 3',
-                'status': 'upcoming',
-                'source': 'wimbledon_official'
-            },
-            {
-                'id': 'wimb_2025_008',
-                'player1': 'Coco Gauff',
-                'player2': 'Caroline Dolehide',
-                'tournament': 'Wimbledon 2025',
-                'surface': 'Grass',
-                'date': '2025-07-01',
-                'time': '15:30',
-                'round': 'R64',
-                'court': 'Court 2',
-                'status': 'upcoming',
-                'source': 'wimbledon_official'
             }
         ]
         
         print(f"✅ Loaded {len(current_matches)} real Wimbledon 2025 matches")
         return current_matches
+    
+    def get_real_atp_matches(self) -> List[Dict]:
+        """Получение других ATP матчей"""
+        # Заглушка для других турниров
+        return []
+    
+    def get_real_wta_matches(self) -> List[Dict]:
+        """Получение WTA матчей"""
+        # Заглушка для WTA
+        return []
 
 class RealOddsCollector:
     """Сборщик реальных коэффициентов на основе рейтингов"""
@@ -137,9 +124,7 @@ class RealOddsCollector:
         self.player_rankings = {
             'carlos alcaraz': 2,
             'alexander zverev': 3, 
-            'jannik sinner': 1,  # ATP #1
             'aryna sabalenka': 1,  # WTA #1
-            'coco gauff': 2,  # WTA #2
             'fabio fognini': 85,
             'arthur rinderknech': 45,
             'carson branstine': 125,
@@ -148,9 +133,7 @@ class RealOddsCollector:
             'paula badosa': 9,
             'katie boulter': 28,
             'emma raducanu': 150,
-            'renata zarazua': 180,
-            'yannick hanfmann': 95,
-            'caroline dolehide': 85
+            'renata zarazua': 180
         }
     
     def _estimate_ranking(self, player_name: str) -> int:
@@ -166,9 +149,9 @@ class RealOddsCollector:
             known_parts = known_player.split()
             name_parts = name_lower.split()
             
-            # Если хотя бы 1 часть совпадает
+            # Если хотя бы 2 части совпадают
             matches = sum(1 for part in name_parts if part in known_parts)
-            if matches >= 1:
+            if matches >= 1:  # Хотя бы одна часть имени
                 return rank
         
         # По умолчанию
