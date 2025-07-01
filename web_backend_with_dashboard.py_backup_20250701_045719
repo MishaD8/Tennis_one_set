@@ -10,16 +10,6 @@ import os
 import logging
 from datetime import datetime, timedelta
 
-# ДОБАВЛЕНО: Импорт реальных данных
-try:
-    from real_tennis_data_collector import RealTennisDataCollector, RealOddsCollector
-    REAL_DATA_AVAILABLE = True
-    print("✅ Real tennis data collector imported")
-except ImportError as e:
-    print(f"⚠️ Real data collector not available: {e}")
-    REAL_DATA_AVAILABLE = False
-
-
 # Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
