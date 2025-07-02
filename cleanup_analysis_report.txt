@@ -1,0 +1,15 @@
+PROJECT CLEANUP ANALYSIS REPORT\nGenerated: 
+2025-07-02 05:20:57.310715\n==================================================
+\n\nSAFE TO DELETE:\n\nPROBABLY DELETE:\
+n  backend_integration_fix.py (duplicate of web_backend_fixed_ml.py)
+\n  working_tennis_predictor.py\n  api_integretion.py
+\n  final_integration_script.py\n  tennis_odds_tester.py
+\n  test_real_data_integration.py\n  launch_system.py
+\n  system_restart_script.py\n  start_real_dashboard.py
+\n  universal_tennis_integration.py\n  gunicorn.conf.py
+\n  project_cleanup_analyzer.py\n  tennis_betting_pipeline.py
+\n\nDEFINITELY KEEP:\n  config.json\n  web_backend_with_dashboard.py
+\n  web_backend_with_live_odds.py\n  web_backend_fixed_ml.py
+\n  backend_integration_fix.py\n  tennis_prediction_module.py
+\n  tennis_set_predictor.py\n  real_tennis_predictor_integration.py
+\n  docker-compose.yml\n
