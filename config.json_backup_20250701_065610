@@ -1,28 +1,25 @@
 {
   "web_interface": {
     "host": "0.0.0.0",
-    "port": 5001,
-    "debug": false,
+    "port": 5000,
+    "debug": true,
     "auto_open_browser": true
   },
   "data_sources": {
-    "the_odds_api": {
-      "enabled": true,
-      "api_key": "a1b20d709d4bacb2d95ddab880f91009",
-      "base_url": "https://api.the-odds-api.com/v4",
-      "regions": "us,uk,eu,au",
-      "markets": "h2h",
-      "cache_minutes": 10
-    },
     "atp_api": {
-      "enabled": false,
+      "enabled": true,
       "base_url": "https://api.atptour.com/",
       "api_key": ""
     },
     "wta_api": {
-      "enabled": false,
+      "enabled": true,
       "base_url": "https://api.wtatennis.com/",
       "api_key": ""
+    },
+    "github_backup": {
+      "enabled": true,
+      "atp_url": "https://raw.githubusercontent.com/JeffSackmann/tennis_atp/master/",
+      "wta_url": "https://raw.githubusercontent.com/JeffSackmann/tennis_wta/master/"
     }
   },
   "betting_apis": {
@@ -32,16 +29,10 @@
       "password": "",
       "api_url": "https://api.pinnacle.com/v1/"
     },
-    "betfair": {
+    "oddsapi": {
       "enabled": false,
-      "app_key": "",
-      "username": "",
-      "password": ""
-    },
-    "the_odds_api": {
-      "enabled": true,
-      "api_key": "a1b20d709d4bacb2d95ddab880f91009",
-      "priority": 1
+      "api_key": "",
+      "api_url": "https://api.the-odds-api.com/v4/"
     }
   },
   "model_settings": {
@@ -50,14 +41,21 @@
     "ensemble_weights": {
       "neural_network": 0.25,
       "xgboost": 0.25,
-      "random_forest": 0.2,
-      "gradient_boosting": 0.2,
-      "logistic_regression": 0.1
+      "random_forest": 0.20,
+      "gradient_boosting": 0.20,
+      "logistic_regression": 0.10
     }
+  },
+  "betting_settings": {
+    "bankroll": 10000,
+    "max_stake_percentage": 0.05,
+    "min_edge": 0.02,
+    "kelly_multiplier": 0.25,
+    "max_daily_stakes": 5
   },
   "dashboard_settings": {
     "refresh_interval_minutes": 15,
-    "show_real_odds": true,
+    "show_demo_data": true,
     "max_matches_display": 20,
     "default_days_ahead": 7
   },
@@ -70,8 +68,14 @@
     "email": {
       "enabled": false,
       "smtp_server": "",
+      "smtp_port": 587,
       "username": "",
-      "password": ""
+      "password": "",
+      "to_email": ""
+    },
+    "discord": {
+      "enabled": false,
+      "webhook_url": ""
     }
   },
   "logging": {
