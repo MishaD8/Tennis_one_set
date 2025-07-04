@@ -1,14 +1,26 @@
 #!/usr/bin/env python3
 """
-🎾 Simple Tennis Backend - Гарантированно работает
-Умная система прогнозирования без сложных зависимостей
+🎾 Simple Tennis Backend - Production Ready
+Умная система прогнозирования для 65.109.135.2:5001
 """
 
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import random
 import json
 from datetime import datetime
+import logging
+
+# Настройка логирования
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('tennis_server.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
@@ -17,6 +29,12 @@ CORS(app)
 class SmartTennisPredictor:
     def __init__(self):
         self.is_ready = True
+        self.server_info = {
+            'ip': '65.109.135.2',
+            'port': 5001,
+            'status': 'production',
+            'started_at': datetime.now().isoformat()
+        }
         
         # База данных игроков с реальными характеристиками
         self.players = {
@@ -72,6 +90,8 @@ class SmartTennisPredictor:
             }
         }
         
+        logger.info(f"✅ Smart Tennis Predictor initialized with {len(self.players)} players")
+        
     def get_player_data(self, name):
         """Получение данных игрока"""
         name_clean = name.lower().strip().replace('🎾 ', '')
@@ -85,12 +105,13 @@ class SmartTennisPredictor:
             name_parts = name_clean.split()
             player_parts = player_name.split()
             
-            # Если хотя бы 2 части совпадают или фамилия совпадает
+            # Если хотя бы 1 часть совпадает
             matches = sum(1 for part in name_parts if part in player_parts)
-            if matches >= 1 or (len(name_parts) > 1 and name_parts[-1] in player_parts):
+            if matches >= 1:
                 return data
         
         # Если не найден, генерируем средние данные
+        logger.warning(f"Player not found in database: {name_clean}")
         return {
             'rank': random.randint(40, 80), 'form': 0.65, 'age': 25,
             'grass': 0.0, 'clay': 0.0, 'hard': 0.0,
@@ -99,6 +120,7 @@ class SmartTennisPredictor:
     
     def predict_match(self, player1, player2, tournament, surface):
         """Умное прогнозирование матча"""
+        logger.info(f"🎾 Predicting: {player1} vs {player2} at {tournament} ({surface})")
         
         # Получаем данные игроков
         p1_data = self.get_player_data(player1)
@@ -156,6 +178,27 @@ class SmartTennisPredictor:
             confidence = "Low"
         
         # АНАЛИЗИРУЕМ КЛЮЧЕВЫЕ ФАКТОРЫ
+        factors = self._analyze_key_factors(p1_data, p2_data, surface, tournament_importance)
+        
+        result = {
+            'probability': final_probability,
+            'confidence': confidence,
+            'key_factors': factors,
+            'prediction_type': 'SMART_ANALYSIS',
+            'analysis_details': {
+                'rank_factor': rank_factor,
+                'form_factor': form_advantage,
+                'surface_factor': surface_advantage,
+                'big_match_factor': big_match_advantage,
+                'tournament_importance': tournament_importance
+            }
+        }
+        
+        logger.info(f"✅ Prediction completed: {final_probability:.1%} confidence {confidence}")
+        return result
+    
+    def _analyze_key_factors(self, p1_data, p2_data, surface, tournament_importance):
+        """Анализ ключевых факторов"""
         factors = []
         
         # Рейтинг
@@ -173,6 +216,7 @@ class SmartTennisPredictor:
             factors.append("❄️ Проблемы с формой (<60%)")
         
         # Покрытие
+        surface_key = surface.lower()
         if surface_key in p1_data and p1_data[surface_key] > 0.1:
             factors.append(f"🏟️ Сильное преимущество на {surface} (+{p1_data[surface_key]:.0%})")
         elif surface_key in p1_data and p1_data[surface_key] < -0.05:
@@ -192,26 +236,9 @@ class SmartTennisPredictor:
         
         # Если нет факторов, добавляем общий
         if not factors:
-            if final_probability > 0.55:
-                factors.append("📊 Небольшое общее преимущество")
-            elif final_probability < 0.45:
-                factors.append("📊 Небольшое отставание по факторам")
-            else:
-                factors.append("⚖️ Примерно равные силы")
+            factors.append("⚖️ Примерно равные силы")
         
-        return {
-            'probability': final_probability,
-            'confidence': confidence,
-            'key_factors': factors,
-            'prediction_type': 'SMART_ANALYSIS',
-            'analysis_details': {
-                'rank_factor': rank_factor,
-                'form_factor': form_advantage,
-                'surface_factor': surface_advantage,
-                'big_match_factor': big_match_advantage,
-                'tournament_importance': tournament_importance
-            }
-        }
+        return factors
     
     def _get_tournament_importance(self, tournament):
         """Важность турнира (0-1)"""
@@ -232,7 +259,6 @@ class SmartTennisPredictor:
     
     def _calculate_age_factor(self, age1, age2):
         """Фактор возраста"""
-        # Оптимальный возраст для тенниса: 22-28
         def age_performance(age):
             if 22 <= age <= 28:
                 return 1.0
@@ -250,13 +276,13 @@ predictor = SmartTennisPredictor()
 
 @app.route('/')
 def dashboard():
-    """Главная страница"""
+    """Главная страница с обновленным дизайном"""
     return '''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎾 Smart Tennis Analytics</title>
+    <title>🎾 Smart Tennis Analytics - Production</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -269,6 +295,12 @@ def dashboard():
             background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px);
             border-radius: 20px; padding: 30px; margin-bottom: 30px; text-align: center;
         }
+        .server-banner {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            padding: 15px; border-radius: 10px; margin-bottom: 20px;
+            text-align: center; animation: glow 2s infinite alternate;
+        }
+        @keyframes glow { 0% { box-shadow: 0 0 5px rgba(231, 76, 60, 0.5); } 100% { box-shadow: 0 0 20px rgba(231, 76, 60, 0.8); } }
         .smart-banner {
             background: linear-gradient(135deg, #27ae60, #2ecc71);
             padding: 20px; border-radius: 15px; margin-bottom: 20px;
@@ -305,6 +337,10 @@ def dashboard():
 <body>
     <div class="container">
         <div class="header">
+            <div class="server-banner">
+                🖥️ <strong>PRODUCTION SERVER</strong> • 65.109.135.2:5001 • <span class="success">ONLINE</span>
+            </div>
+            
             <div class="smart-banner">
                 <h2>🧠 SMART TENNIS PREDICTION SYSTEM</h2>
                 <p>Multi-factor analysis • Real player database • Professional accuracy</p>
@@ -327,8 +363,8 @@ def dashboard():
                     <div class="stat-label">Algorithm</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">Fast</div>
-                    <div class="stat-label">Response</div>
+                    <div class="stat-value">5001</div>
+                    <div class="stat-label">Port</div>
                 </div>
             </div>
             
@@ -336,6 +372,7 @@ def dashboard():
                 <button class="btn" onclick="loadMatches()">🎾 Get Smart Predictions</button>
                 <button class="btn" onclick="testSystem()">🔮 Test System</button>
                 <button class="btn" onclick="showFactors()">📊 Show Factors</button>
+                <button class="btn" onclick="checkServer()">🖥️ Server Status</button>
             </div>
         </div>
         
@@ -356,7 +393,7 @@ def dashboard():
                 const data = await response.json();
                 
                 if (data.success && data.matches) {
-                    let html = '<div style="background: linear-gradient(135deg, #27ae60, #2ecc71); padding: 20px; border-radius: 15px; margin-bottom: 25px; text-align: center;"><h2>🧠 SMART TENNIS PREDICTIONS</h2><p>Multi-factor analysis with real player data</p></div>';
+                    let html = '<div style="background: linear-gradient(135deg, #27ae60, #2ecc71); padding: 20px; border-radius: 15px; margin-bottom: 25px; text-align: center;"><h2>🧠 SMART TENNIS PREDICTIONS</h2><p>Generated on production server 65.109.135.2</p></div>';
                     
                     data.matches.forEach(match => {
                         const prob = match.prediction?.probability || 0.5;
@@ -385,7 +422,7 @@ def dashboard():
                                 ` : ''}
                                 
                                 <div style="margin-top: 15px; text-align: center; font-size: 0.9rem; opacity: 0.8;">
-                                    🧠 Type: ${match.prediction_type || 'Smart Analysis'} • Quality: Professional
+                                    🧠 Type: ${match.prediction_type || 'Smart Analysis'} • Server: 65.109.135.2:5001
                                 </div>
                             </div>
                         `;
@@ -418,13 +455,13 @@ def dashboard():
                 
                 if (data.success) {
                     const result = data.prediction;
-                    alert(`🧠 Smart System Test Result:\\n\\n` +
+                    alert(`🧠 Production Server Test Result:\\n\\n` +
                           `Match: Carlos Alcaraz vs Novak Djokovic\\n` +
                           `Smart Prediction: ${(result.probability * 100).toFixed(1)}%\\n` +
                           `Confidence: ${result.confidence}\\n` +
                           `Analysis Type: ${result.prediction_type}\\n\\n` +
                           `Key Factors: ${result.key_factors.slice(0, 2).join(', ')}\\n\\n` +
-                          `✅ Smart system working perfectly!`);
+                          `✅ Production server 65.109.135.2:5001 working perfectly!`);
                 } else {
                     alert(`❌ Test failed: ${data.error}`);
                 }
@@ -440,9 +477,27 @@ def dashboard():
                   `🏟️ Surface Advantages (20%)\\n` +
                   `💎 Big Match Experience (15%)\\n` +
                   `⚡ Age & Stamina (10%)\\n\\n` +
-                  `Plus: Head-to-head, tournament pressure,\\n` +
-                  `surface specialists, and more!\\n\\n` +
+                  `Plus: Head-to-head analysis, tournament pressure,\\n` +
+                  `surface specialists, and momentum factors!\\n\\n` +
                   `🎯 Much smarter than simple odds conversion!`);
+        }
+        
+        async function checkServer() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                
+                alert(`🖥️ PRODUCTION SERVER STATUS:\\n\\n` +
+                      `🌐 IP: 65.109.135.2\\n` +
+                      `🔌 Port: 5001\\n` +
+                      `📡 Status: ${data.status}\\n` +
+                      `🧠 System: ${data.system}\\n` +
+                      `⚡ Ready: ${data.ready ? 'Yes' : 'No'}\\n` +
+                      `🕐 Checked: ${new Date().toLocaleTimeString()}\\n\\n` +
+                      `✅ All systems operational!`);
+            } catch (error) {
+                alert(`❌ Server check failed: ${error.message}`);
+            }
         }
         
         // Auto-load on page ready
@@ -455,18 +510,23 @@ def dashboard():
 
 @app.route('/api/health')
 def health_check():
-    """Health check"""
-    return {
+    """Health check с расширенной информацией"""
+    return jsonify({
         'status': 'healthy',
         'system': 'smart_tennis_predictor',
         'ready': predictor.is_ready,
+        'server': predictor.server_info,
+        'version': '2.0',
+        'players_in_database': len(predictor.players),
         'timestamp': datetime.now().isoformat()
-    }
+    })
 
 @app.route('/api/matches')
 def get_matches():
     """Получение матчей с умными прогнозами"""
     try:
+        logger.info("📊 Generating smart predictions for matches")
+        
         # Тестовые матчи
         test_matches = [
             ('Carlos Alcaraz', 'Novak Djokovic', 'Wimbledon', 'Grass'),
@@ -500,15 +560,20 @@ def get_matches():
             
             processed_matches.append(match)
         
-        return {
+        logger.info(f"✅ Generated {len(processed_matches)} smart predictions")
+        
+        return jsonify({
             'success': True,
             'matches': processed_matches,
             'count': len(processed_matches),
-            'timestamp': datetime.now().isoformat()
-        }
+            'server': '65.109.135.2:5001',
+            'generated_at': datetime.now().isoformat(),
+            'prediction_engine': 'SmartTennisPredictor'
+        })
         
     except Exception as e:
-        return {'success': False, 'error': str(e)}, 500
+        logger.error(f"❌ Error generating matches: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/test', methods=['POST'])
 def test_system():
@@ -521,31 +586,126 @@ def test_system():
         tournament = data.get('tournament', 'Wimbledon')
         surface = data.get('surface', 'Grass')
         
+        logger.info(f"🔮 Testing system with: {player1} vs {player2}")
+        
         prediction = predictor.predict_match(player1, player2, tournament, surface)
         
-        return {
+        return jsonify({
             'success': True,
             'prediction': prediction,
-            'timestamp': datetime.now().isoformat()
-        }
+            'server': '65.109.135.2:5001',
+            'test_completed_at': datetime.now().isoformat()
+        })
         
     except Exception as e:
-        return {'success': False, 'error': str(e)}, 500
+        logger.error(f"❌ Test error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/stats')
+def get_stats():
+    """Статистика системы"""
+    try:
+        stats = {
+            'server_ip': '65.109.135.2',
+            'server_port': 5001,
+            'system_status': 'production',
+            'predictor_ready': predictor.is_ready,
+            'players_in_database': len(predictor.players),
+            'prediction_engine': 'SmartTennisPredictor',
+            'version': '2.0',
+            'started_at': predictor.server_info['started_at'],
+            'current_time': datetime.now().isoformat(),
+            'features': [
+                'Smart Player Analysis',
+                'Multi-Factor Predictions', 
+                'Surface Advantages',
+                'Form Analysis',
+                'Tournament Pressure',
+                'Age & Experience Factors',
+                'Real-time Calculations',
+                'Professional Grade Results'
+            ]
+        }
+        
+        return jsonify({
+            'success': True,
+            'stats': stats,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Stats error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/player/<player_name>')
+def get_player_info(player_name):
+    """Информация об игроке"""
+    try:
+        player_data = predictor.get_player_data(player_name)
+        
+        return jsonify({
+            'success': True,
+            'player': player_name,
+            'data': player_data,
+            'server': '65.109.135.2:5001',
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Error handlers
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({
+        'success': False,
+        'error': 'Endpoint not found',
+        'server': '65.109.135.2:5001'
+    }), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    logger.error(f"Internal server error: {error}")
+    return jsonify({
+        'success': False,
+        'error': 'Internal server error',
+        'server': '65.109.135.2:5001'
+    }), 500
 
 if __name__ == '__main__':
-    print("🧠 SMART TENNIS PREDICTION BACKEND")
-    print("=" * 50)
-    print("✅ Guaranteed to work")
-    print("🧠 Multi-factor smart analysis")
-    print("🎯 8+ analysis factors")
-    print("⚡ Fast and reliable")
-    print("📊 Real player database")
-    print("=" * 50)
+    print("🧠 SMART TENNIS PREDICTION BACKEND - PRODUCTION")
+    print("=" * 70)
+    print("✅ Production-ready smart tennis analytics")
+    print("🧠 Multi-factor intelligent analysis")
+    print("🎯 8+ sophisticated prediction factors")
+    print("⚡ Fast and reliable predictions")
+    print("📊 Real player database with 10+ players")
+    print("🔒 Production server configuration")
+    print("=" * 70)
     
-    print(f"🌐 Dashboard: http://localhost:5003")
-    print(f"📡 API: http://localhost:5003/api/*")
+    print(f"🌐 Production Dashboard: http://65.109.135.2:5001")
+    print(f"📡 API Endpoints: http://65.109.135.2:5001/api/*")
+    print(f"🖥️ Server IP: 65.109.135.2")
+    print(f"🔌 Server Port: 5001")
+    print(f"📅 Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 70)
     
     try:
-        app.run(host='0.0.0.0', port=5003, debug=False)
+        logger.info("🚀 Starting Tennis Analytics Server...")
+        
+        # Запускаем на всех интерфейсах (0.0.0.0) порт 5001
+        app.run(
+            host='0.0.0.0', 
+            port=5001, 
+            debug=False,
+            threaded=True
+        )
     except Exception as e:
-        print(f"❌ Server error: {e}")
+        print(f"❌ Server startup error: {e}")
+        logger.error(f"Failed to start server: {e}")
+    except KeyboardInterrupt:
+        print("\n⏹️ Server stopped by user")
+        logger.info("Server stopped by user interrupt")
+    finally:
+        print("🏁 Tennis Analytics Server shutdown complete")
+        logger.info("Server shutdown complete")
