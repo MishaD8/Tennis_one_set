@@ -14,6 +14,13 @@ import random
 import math
 from datetime import datetime, timedelta
 import numpy as np
+from api_economy_patch import init_api_economy, economical_tennis_request, get_api_usage
+
+init_api_economy(
+    api_key="a1b20d709d4bacb2d95ddab880f91009",  # ваш API ключ
+    max_per_hour=30,     # ваш лимит запросов в час
+    cache_minutes=20     # время жизни кеша в минутах
+)
 
 # НОВОЕ: Импорт универсальной системы данных
 try:
