@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-🌍 УНИВЕРСАЛЬНАЯ ИНТЕГРАЦИЯ ТЕННИСНЫХ ДАННЫХ
+🌍 ИСПРАВЛЕННАЯ УНИВЕРСАЛЬНАЯ ИНТЕГРАЦИЯ ТЕННИСНЫХ ДАННЫХ
 Работает круглый год с любыми активными турнирами
 """
 
@@ -17,19 +17,24 @@ class UniversalTennisDataFix:
         self.api_key = os.getenv('ODDS_API_KEY', 'a1b20d709d4bacb2d95ddab880f91009')
         self.base_url = "https://api.the-odds-api.com/v4"
         
-        # Календарь теннисных турниров
+        # ИСПРАВЛЕНО: Все возможные теннисные ключи
         self.tennis_sport_keys = [
-            # Grand Slams (сезонные)
-            'tennis_atp_australian_open',
-            'tennis_wta_australian_open', 
-            'tennis_atp_french_open',
-            'tennis_wta_french_open',
+            # Grand Slams (активные ключи)
             'tennis_atp_wimbledon',
-            'tennis_wta_wimbledon',
+            'tennis_wta_wimbledon', 
             'tennis_atp_us_open',
             'tennis_wta_us_open',
+            'tennis_atp_french_open',
+            'tennis_wta_french_open',
+            'tennis_atp_australian_open',
+            'tennis_wta_australian_open',
             
-            # Masters/WTA 1000 (возможные ключи)
+            # Основные теннисные ключи (всегда пробуем)
+            'tennis',
+            'tennis_atp',
+            'tennis_wta',
+            
+            # Masters и крупные турниры
             'tennis_atp_indian_wells',
             'tennis_wta_indian_wells',
             'tennis_atp_miami',
@@ -42,15 +47,9 @@ class UniversalTennisDataFix:
             'tennis_wta_cincinnati',
             'tennis_atp_shanghai',
             'tennis_wta_beijing',
-            
-            # Общие теннисные ключи
-            'tennis',
-            'tennis_atp',
-            'tennis_wta',
-            
-            # ATP Finals
-            'tennis_atp_finals',
-            'tennis_wta_finals'
+            'tennis_atp_paris',
+            'tennis_wta_finals',
+            'tennis_atp_finals'
         ]
     
     def discover_active_tennis_sports(self) -> List[Dict]:
@@ -99,24 +98,16 @@ class UniversalTennisDataFix:
         print(f"\n🎾 ПОЛУЧЕНИЕ МАТЧЕЙ ИЗ ВСЕХ АКТИВНЫХ ТУРНИРОВ")
         print("=" * 50)
         
-        # Находим активные турниры
-        active_sports = self.discover_active_tennis_sports()
-        
-        if not active_sports:
-            print("❌ Нет активных теннисных турниров")
-            return []
-        
+        # ИСПРАВЛЕНО: Сначала пробуем все основные ключи
+        priority_keys = ['tennis', 'tennis_atp', 'tennis_wta']
         all_matches = []
         successful_tournaments = 0
         
-        # Пытаемся получить матчи из каждого турнира
-        for sport in active_sports:
-            sport_key = sport['key']
-            sport_title = sport['title']
+        # 1. Сначала пробуем основные ключи
+        for sport_key in priority_keys:
+            print(f"\n🎾 Проверяем основной ключ: {sport_key}...")
             
-            print(f"\n🎾 Проверяем {sport_title} ({sport_key})...")
-            
-            matches = self._get_tournament_matches(sport_key, sport_title)
+            matches = self._get_tournament_matches(sport_key, f"Tennis ({sport_key})")
             
             if matches:
                 all_matches.extend(matches)
@@ -124,6 +115,28 @@ class UniversalTennisDataFix:
                 print(f"   ✅ Получено {len(matches)} матчей")
             else:
                 print(f"   ⚪ Нет матчей")
+        
+        # 2. Если основные не сработали, пробуем все остальные
+        if not all_matches:
+            print(f"\n🔍 Основные ключи не дали результата, пробуем специфичные турниры...")
+            
+            # Находим активные турниры
+            active_sports = self.discover_active_tennis_sports()
+            
+            for sport in active_sports:
+                sport_key = sport['key']
+                sport_title = sport['title']
+                
+                print(f"\n🎾 Проверяем {sport_title} ({sport_key})...")
+                
+                matches = self._get_tournament_matches(sport_key, sport_title)
+                
+                if matches:
+                    all_matches.extend(matches)
+                    successful_tournaments += 1
+                    print(f"   ✅ Получено {len(matches)} матчей")
+                else:
+                    print(f"   ⚪ Нет матчей")
         
         print(f"\n📊 ИТОГО:")
         print(f"   🏆 Успешных турниров: {successful_tournaments}")
@@ -143,7 +156,7 @@ class UniversalTennisDataFix:
                 'dateFormat': 'iso'
             }
             
-            response = requests.get(url, params=params, timeout=10)
+            response = requests.get(url, params=params, timeout=15)
             
             if response.status_code == 200:
                 matches = response.json()
@@ -156,10 +169,18 @@ class UniversalTennisDataFix:
                     match['tournament_level'] = self._detect_tournament_level(sport_key, sport_title)
                 
                 return matches
+            elif response.status_code == 422:
+                # Нет данных для этого спорта
+                return []
+            elif response.status_code == 401:
+                print(f"❌ Неверный API ключ!")
+                return []
             else:
+                print(f"❌ API ошибка {response.status_code} для {sport_key}")
                 return []
                 
         except Exception as e:
+            print(f"❌ Ошибка запроса для {sport_key}: {e}")
             return []
     
     def _detect_surface(self, sport_key: str, sport_title: str) -> str:
@@ -189,7 +210,7 @@ class UniversalTennisDataFix:
             return 'Grand Slam'
         
         # Masters/WTA 1000
-        elif any(x in key_lower for x in ['indian_wells', 'miami', 'madrid', 'rome', 'cincinnati', 'shanghai']):
+        elif any(x in key_lower for x in ['indian_wells', 'miami', 'madrid', 'rome', 'cincinnati', 'shanghai', 'paris']):
             return 'Masters 1000'
         
         # Finals
@@ -320,6 +341,7 @@ class UniversalTennisDataFix:
             }
             
         except Exception as e:
+            print(f"❌ Ошибка адаптации матча: {e}")
             return None
     
     def _extract_best_odds_with_bookmaker(self, bookmakers: List[Dict]) -> tuple:
@@ -371,7 +393,7 @@ class UniversalTennisDataFix:
         print("=" * 60)
         print(f"🕐 Дата: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"🎾 Сезон: {self.get_season_context()}")
-        print("🎯 Цель: найти underdog возможности в активных турнирах")
+        print(f"🎯 Цель: найти underdog возможности в активных турнирах")
         print("=" * 60)
         
         # 1. Получаем все матчи
@@ -380,9 +402,10 @@ class UniversalTennisDataFix:
         if not all_matches:
             print("\n❌ НЕТ АКТИВНЫХ МАТЧЕЙ")
             print("💡 Возможные причины:")
-            print("   • Межсезонье (декабрь-январь)")
-            print("   • Нет активных турниров сегодня")
+            print("   • Между турнирами")
             print("   • Проблемы с API ключом")
+            print("   • Нет данных в The Odds API")
+            print(f"   • API ключ: {self.api_key[:10]}...{self.api_key[-5:]}")
             return False
         
         # 2. Адаптируем для underdog системы
@@ -394,6 +417,7 @@ class UniversalTennisDataFix:
             print("   • Все коэффициенты вне диапазона 1.8-8.0")
             print("   • Вероятности вне целевого диапазона 45-88%")
             print("   • Слишком очевидные фавориты")
+            print(f"   • Всего матчей было: {len(all_matches)}")
             return False
         
         # 3. Демонстрация результатов
@@ -417,16 +441,20 @@ class UniversalTennisDataFix:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f'universal_tennis_data_{timestamp}.json'
         
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump({
-                'timestamp': datetime.now().isoformat(),
-                'season_context': self.get_season_context(),
-                'total_raw_matches': len(all_matches),
-                'underdog_matches_count': len(underdog_matches),
-                'matches': underdog_matches
-            }, f, indent=2, ensure_ascii=False, default=str)
+        try:
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump({
+                    'timestamp': datetime.now().isoformat(),
+                    'season_context': self.get_season_context(),
+                    'total_raw_matches': len(all_matches),
+                    'underdog_matches_count': len(underdog_matches),
+                    'matches': underdog_matches
+                }, f, indent=2, ensure_ascii=False, default=str)
+            
+            print(f"\n💾 Данные сохранены: {filename}")
+        except Exception as e:
+            print(f"\n⚠️ Не удалось сохранить файл: {e}")
         
-        print(f"\n💾 Данные сохранены: {filename}")
         print(f"📊 Статистика:")
         print(f"   • Всего матчей найдено: {len(all_matches)}")
         print(f"   • Подходящих для underdog: {len(underdog_matches)}")
@@ -449,16 +477,9 @@ def main():
             print("✅ Работает с Grand Slam, Masters, ATP/WTA")
             print("✅ Определяет покрытие и уровень турнира")
             print("✅ Фильтрует качественные underdog возможности")
-            
-            print(f"\n🔄 ИНТЕГРАЦИЯ С BACKEND:")
-            print("1. Замените wimbledon_data_fix.py на этот файл")
-            print("2. Используйте в качестве источника данных")
-            print("3. Система автоматически подстроится под сезон")
-            
         else:
             print(f"\n⚠️ Сейчас нет подходящих матчей")
-            print(f"💡 Это нормально в межсезонье или между турнирами")
-            print(f"🔄 Попробуйте позже или в период активных турниров")
+            print(f"💡 Проверьте API ключ и соединение")
             
     except Exception as e:
         print(f"\n❌ Ошибка: {e}")
