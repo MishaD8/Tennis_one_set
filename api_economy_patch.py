@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-💰 API ECONOMY PATCH
-Добавляется к существующему tennis backend без переписывания
-Просто импортируйте этот модуль в ваш backend!
+💰 API ECONOMY PATCH - МОДИФИЦИРОВАННАЯ ВЕРСИЯ
+Добавлена поддержка ручного обновления данных
 """
 
 import json
@@ -26,6 +25,9 @@ class SimpleAPIEconomy:
         # Файлы для сохранения данных
         self.usage_file = "api_usage.json"
         self.cache_file = "api_cache.json"
+        
+        # НОВОЕ: Файл для ручного обновления
+        self.manual_update_file = "manual_update_trigger.json"
         
         # Загружаем сохраненные данные
         self.load_data()
@@ -123,13 +125,78 @@ class SimpleAPIEconomy:
         self.total_requests += 1
         self.save_data()
     
+    # НОВОЕ: Методы для ручного обновления
+    def check_manual_update_trigger(self) -> bool:
+        """Проверяет нужно ли ручное обновление"""
+        try:
+            if os.path.exists(self.manual_update_file):
+                with open(self.manual_update_file, 'r') as f:
+                    trigger_data = json.load(f)
+                
+                # Проверяем флаг обновления
+                if trigger_data.get('force_update', False):
+                    return True
+                    
+                # Проверяем время последнего обновления
+                last_update = trigger_data.get('last_manual_update')
+                if last_update:
+                    last_time = datetime.fromisoformat(last_update)
+                    # Если последнее обновление было больше часа назад
+                    if (datetime.now() - last_time).seconds > 3600:
+                        return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"Ошибка проверки триггера: {e}")
+            return False
+    
+    def create_manual_update_trigger(self):
+        """Создает триггер для ручного обновления"""
+        trigger_data = {
+            'force_update': True,
+            'created_at': datetime.now().isoformat(),
+            'message': 'Ручное обновление запрошено'
+        }
+        
+        try:
+            with open(self.manual_update_file, 'w') as f:
+                json.dump(trigger_data, f, indent=2)
+            
+            logger.info("✅ Создан триггер ручного обновления")
+            print("✅ Триггер обновления создан! Система обновит данные при следующем запросе.")
+            
+        except Exception as e:
+            logger.error(f"Ошибка создания триггера: {e}")
+    
+    def clear_manual_update_trigger(self):
+        """Очищает триггер после выполнения обновления"""
+        try:
+            trigger_data = {
+                'force_update': False,
+                'last_manual_update': datetime.now().isoformat(),
+                'message': 'Обновление выполнено'
+            }
+            
+            with open(self.manual_update_file, 'w') as f:
+                json.dump(trigger_data, f, indent=2)
+                
+        except Exception as e:
+            logger.error(f"Ошибка очистки триггера: {e}")
+    
     def make_tennis_request(self, sport_key: str = 'tennis', force_fresh: bool = False) -> Dict:
         """
-        ГЛАВНАЯ ФУНКЦИЯ: заменяет ваши прямые API запросы
-        Просто замените requests.get на этот метод!
+        МОДИФИЦИРОВАННАЯ: заменяет ваши прямые API запросы
+        Теперь поддерживает ручное обновление
         """
         
         cache_key = f"tennis_{sport_key}"
+        
+        # НОВОЕ: Проверяем триггер ручного обновления
+        manual_update_needed = self.check_manual_update_trigger()
+        if manual_update_needed:
+            logger.info("🔄 Обнаружен триггер ручного обновления")
+            force_fresh = True
         
         # 1. Проверяем кеш (если не требуется свежие данные)
         if not force_fresh:
@@ -145,7 +212,7 @@ class SimpleAPIEconomy:
         
         # 2. Проверяем лимиты
         can_request, reason = self.can_make_request()
-        if not can_request:
+        if not can_request and not manual_update_needed:
             logger.warning(f"🚦 {reason}")
             
             # Возвращаем устаревший кеш если есть
@@ -176,7 +243,7 @@ class SimpleAPIEconomy:
                 'dateFormat': 'iso'
             }
             
-            logger.info(f"📡 API запрос: {sport_key}")
+            logger.info(f"📡 API запрос: {sport_key} {'(РУЧНОЕ ОБНОВЛЕНИЕ)' if manual_update_needed else ''}")
             response = requests.get(url, params=params, timeout=10)
             
             # Записываем использование
@@ -188,12 +255,17 @@ class SimpleAPIEconomy:
                 # Кешируем успешный ответ
                 self.save_to_cache(cache_key, data)
                 
+                # НОВОЕ: Очищаем триггер после успешного обновления
+                if manual_update_needed:
+                    self.clear_manual_update_trigger()
+                    logger.info("✅ Ручное обновление выполнено успешно")
+                
                 return {
                     'success': True,
                     'data': data,
-                    'source': 'fresh_api',
-                    'emoji': '🔴',
-                    'status': 'LIVE API'
+                    'source': 'fresh_api' if not manual_update_needed else 'manual_update_api',
+                    'emoji': '🔴' if not manual_update_needed else '🔄',
+                    'status': 'LIVE API' if not manual_update_needed else 'MANUAL UPDATE'
                 }
                 
             elif response.status_code == 401:
@@ -222,38 +294,42 @@ class SimpleAPIEconomy:
         """Статистика использования"""
         self.clean_old_requests()
         
+        # НОВОЕ: Добавляем информацию о ручном обновлении
+        manual_status = "не требуется"
+        if os.path.exists(self.manual_update_file):
+            try:
+                with open(self.manual_update_file, 'r') as f:
+                    trigger_data = json.load(f)
+                if trigger_data.get('force_update', False):
+                    manual_status = "запрошено"
+                else:
+                    last_update = trigger_data.get('last_manual_update')
+                    if last_update:
+                        manual_status = f"последнее: {last_update[:19]}"
+            except:
+                pass
+        
         return {
             'requests_this_hour': len(self.hourly_requests),
             'max_per_hour': self.max_per_hour,
             'remaining_hour': self.max_per_hour - len(self.hourly_requests),
             'total_requests_ever': self.total_requests,
             'cache_items': len(self.cache_data),
-            'cache_minutes': self.cache_minutes
+            'cache_minutes': self.cache_minutes,
+            'manual_update_status': manual_status
         }
 
-# ГЛОБАЛЬНАЯ ПЕРЕМЕННАЯ - инициализируется один раз
+# Глобальная переменная
 _api_economy = None
 
 def init_api_economy(api_key: str, max_per_hour: int = 30, cache_minutes: int = 20):
-    """
-    ИНИЦИАЛИЗАЦИЯ: вызовите один раз в начале вашего backend
-    """
+    """Инициализация API Economy"""
     global _api_economy
     _api_economy = SimpleAPIEconomy(api_key, max_per_hour, cache_minutes)
     logger.info(f"💰 API Economy инициализирован: {max_per_hour}/час, кеш {cache_minutes}мин")
 
 def economical_tennis_request(sport_key: str = 'tennis', force_fresh: bool = False) -> Dict:
-    """
-    ЗАМЕНА ДЛЯ ВАШИХ API ЗАПРОСОВ
-    
-    ВМЕСТО:
-        response = requests.get("https://api.the-odds-api.com/v4/sports/tennis/odds", ...)
-        
-    ИСПОЛЬЗУЙТЕ:
-        result = economical_tennis_request('tennis')
-        if result['success']:
-            matches = result['data']
-    """
+    """Замена для ваших API запросов"""
     if _api_economy is None:
         raise Exception("API Economy не инициализирован! Вызовите init_api_economy() первым")
     
@@ -273,70 +349,48 @@ def clear_api_cache():
         _api_economy.save_data()
         logger.info("🧹 Кеш API очищен")
 
-# Пример интеграции в ваш существующий код
-def example_integration():
-    """
-    ПРИМЕР: как интегрировать в ваш существующий backend
-    """
-    
-    # 1. В начале вашего backend файла добавьте:
-    """
-    from api_economy_patch import init_api_economy, economical_tennis_request, get_api_usage
-    
-    # Инициализируйте экономию API
-    init_api_economy(
-        api_key="your_api_key_here",
-        max_per_hour=30,    # ваш лимит
-        cache_minutes=20    # время кеша
-    )
-    """
-    
-    # 2. В вашей функции получения данных замените:
-    """
-    # СТАРЫЙ КОД:
-    def get_tennis_odds():
-        response = requests.get("https://api.the-odds-api.com/v4/sports/tennis/odds", 
-                               params={'apiKey': API_KEY, ...})
-        if response.status_code == 200:
-            return response.json()
-        return None
-    
-    # НОВЫЙ КОД:
-    def get_tennis_odds():
-        result = economical_tennis_request('tennis')
-        if result['success']:
-            return result['data']
-        return None
-    """
-    
-    # 3. Добавьте новые endpoints (опционально):
-    """
-    @app.route('/api/usage')
-    def api_usage():
-        return jsonify(get_api_usage())
-    """
+# НОВЫЕ ФУНКЦИИ ДЛЯ РУЧНОГО УПРАВЛЕНИЯ
+def trigger_manual_update():
+    """Создает триггер для ручного обновления данных"""
+    if _api_economy is not None:
+        _api_economy.create_manual_update_trigger()
+        return True
+    return False
+
+def check_manual_update_status() -> Dict:
+    """Проверяет статус ручного обновления"""
+    if _api_economy is not None:
+        return {
+            'trigger_exists': _api_economy.check_manual_update_trigger(),
+            'usage_stats': _api_economy.get_usage_stats()
+        }
+    return {'error': 'API Economy не инициализирован'}
 
 if __name__ == "__main__":
-    # Тест системы
-    print("💰 ТЕСТИРОВАНИЕ API ECONOMY PATCH")
+    # Демонстрация ручного управления
+    print("💰 API ECONOMY PATCH - РУЧНОЕ УПРАВЛЕНИЕ")
     print("=" * 50)
     
     # Инициализация
     init_api_economy("test_key", max_per_hour=5, cache_minutes=1)
     
-    # Тест запросов
-    print("1️⃣ Первый запрос:")
-    result1 = economical_tennis_request('tennis')
-    print(f"   Результат: {result1.get('source', 'error')}")
+    print("1️⃣ Создание триггера ручного обновления:")
+    trigger_manual_update()
     
-    print("2️⃣ Второй запрос (должен быть из кеша):")
-    result2 = economical_tennis_request('tennis')
-    print(f"   Результат: {result2.get('source', 'error')}")
+    print("2️⃣ Проверка статуса:")
+    status = check_manual_update_status()
+    print(f"   Триггер активен: {status['trigger_exists']}")
     
-    print("3️⃣ Статистика:")
-    stats = get_api_usage()
-    print(f"   Запросов за час: {stats['requests_this_hour']}")
-    print(f"   Элементов в кеше: {stats['cache_items']}")
+    print("3️⃣ Тестовый запрос (должен обновить данные):")
+    result = economical_tennis_request('tennis')
+    print(f"   Результат: {result.get('source', 'error')} - {result.get('status', 'unknown')}")
     
-    print("\n✅ Патч готов к интеграции!")
+    print("4️⃣ Проверка статуса после обновления:")
+    status = check_manual_update_status()
+    print(f"   Триггер активен: {status['trigger_exists']}")
     
+    print("\n✅ Система ручного управления готова!")
+    print("\n📋 КАК ИСПОЛЬЗОВАТЬ:")
+    print("1. Вызовите trigger_manual_update() когда нужно обновить данные")
+    print("2. При следующем API запросе данные будут обновлены принудительно")
+    print("3. Используйте check_manual_update_status() для проверки состояния")

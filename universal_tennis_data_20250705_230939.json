@@ -1,0 +1,328 @@
+{
+  "timestamp": "2025-07-05T23:09:39.098711",
+  "season_context": "Grass Court Season - Wimbledon Period",
+  "total_raw_matches": 8,
+  "underdog_matches_count": 8,
+  "matches": [
+    {
+      "id": "universal_4d6165e036e806050aac10ed7f257626",
+      "player1": "🎾 Marin Cilic",
+      "player2": "🎾 Flavio Cobolli",
+      "tournament": "🏆 Tennis (tennis) - Professional",
+      "surface": "Hard",
+      "date": "2025-07-05",
+      "time": "2025-",
+      "round": "Live",
+      "court": "Tennis (tennis) Court",
+      "status": "upcoming",
+      "odds": {
+        "player1": 1.99,
+        "player2": 2.0
+      },
+      "underdog_analysis": {
+        "underdog": "Flavio Cobolli",
+        "favorite": "Marin Cilic",
+        "underdog_odds": 2.0,
+        "favorite_odds": 1.99,
+        "prediction": {
+          "probability": 0.78,
+          "confidence": "High",
+          "key_factors": [
+            "🏆 Professional - высокий уровень турнира",
+            "🏟️ Хард - сбалансированное покрытие",
+            "💰 Коэффициент 2.0 - хорошая ценность",
+            "📊 78% шанс взять хотя бы один сет"
+          ]
+        },
+        "quality_rating": "HIGH"
+      },
+      "source": "LIVE_TENNIS",
+      "tournament_metadata": {
+        "sport_key": "tennis",
+        "level": "Professional",
+        "surface": "Hard",
+        "bookmaker": "Matchbook"
+      }
+    },
+    {
+      "id": "universal_0aa99d37c73847e3366d61e2b86167d7",
+      "player1": "🎾 Sonay Kartal",
+      "player2": "🎾 Anastasia Pavlyuchenkova",
+      "tournament": "🏆 Tennis (tennis) - Professional",
+      "surface": "Hard",
+      "date": "2025-07-05",
+      "time": "2025-",
+      "round": "Live",
+      "court": "Tennis (tennis) Court",
+      "status": "upcoming",
+      "odds": {
+        "player1": 1.96,
+        "player2": 2.02
+      },
+      "underdog_analysis": {
+        "underdog": "Anastasia Pavlyuchenkova",
+        "favorite": "Sonay Kartal",
+        "underdog_odds": 2.02,
+        "favorite_odds": 1.96,
+        "prediction": {
+          "probability": 0.775,
+          "confidence": "High",
+          "key_factors": [
+            "🏆 Professional - высокий уровень турнира",
+            "🏟️ Хард - сбалансированное покрытие",
+            "💰 Коэффициент 2.0 - хорошая ценность",
+            "📊 78% шанс взять хотя бы один сет"
+          ]
+        },
+        "quality_rating": "HIGH"
+      },
+      "source": "LIVE_TENNIS",
+      "tournament_metadata": {
+        "sport_key": "tennis",
+        "level": "Professional",
+        "surface": "Hard",
+        "bookmaker": "Betfair"
+      }
+    },
+    {
+      "id": "universal_4fd385358a3ed1a76fa6ba7f893fc698",
+      "player1": "🎾 Ekaterina Alexandrova",
+      "player2": "🎾 Belinda Bencic",
+      "tournament": "🏆 Tennis (tennis) - Professional",
+      "surface": "Hard",
+      "date": "2025-07-05",
+      "time": "2025-",
+      "round": "Live",
+      "court": "Tennis (tennis) Court",
+      "status": "upcoming",
+      "odds": {
+        "player1": 2.88,
+        "player2": 1.52
+      },
+      "underdog_analysis": {
+        "underdog": "Ekaterina Alexandrova",
+        "favorite": "Belinda Bencic",
+        "underdog_odds": 2.88,
+        "favorite_odds": 1.52,
+        "prediction": {
+          "probability": 0.627,
+          "confidence": "Medium",
+          "key_factors": [
+            "🏆 Professional - высокий уровень турнира",
+            "🏟️ Хард - сбалансированное покрытие",
+            "💰 Коэффициент 2.9 - хорошая ценность",
+            "📊 63% шанс взять хотя бы один сет"
+          ]
+        },
+        "quality_rating": "MEDIUM"
+      },
+      "source": "LIVE_TENNIS",
+      "tournament_metadata": {
+        "sport_key": "tennis",
+        "level": "Professional",
+        "surface": "Hard",
+        "bookmaker": "Betfair"
+      }
+    },
+    {
+      "id": "universal_800bb667aa6c3356de0b5f98965509df",
+      "player1": "🎾 Karen Khachanov",
+      "player2": "🎾 Kamil Majchrzak",
+      "tournament": "🏆 Tennis (tennis) - Professional",
+      "surface": "Hard",
+      "date": "2025-07-05",
+      "time": "2025-",
+      "round": "Live",
+      "court": "Tennis (tennis) Court",
+      "status": "upcoming",
+      "odds": {
+        "player1": 3.4,
+        "player2": 1.42
+      },
+      "underdog_analysis": {
+        "underdog": "Karen Khachanov",
+        "favorite": "Kamil Majchrzak",
+        "underdog_odds": 3.4,
+        "favorite_odds": 1.42,
+        "prediction": {
+          "probability": 0.574,
+          "confidence": "Medium",
+          "key_factors": [
+            "🏆 Professional - высокий уровень турнира",
+            "🏟️ Хард - сбалансированное покрытие",
+            "💰 Коэффициент 3.4 - хорошая ценность",
+            "📊 57% шанс взять хотя бы один сет"
+          ]
+        },
+        "quality_rating": "MEDIUM"
+      },
+      "source": "LIVE_TENNIS",
+      "tournament_metadata": {
+        "sport_key": "tennis",
+        "level": "Professional",
+        "surface": "Hard",
+        "bookmaker": "Betfair"
+      }
+    },
+    {
+      "id": "universal_317dbbebf8d268f8ad3439b2eab4204f",
+      "player1": "🎾 Ben Shelton",
+      "player2": "🎾 Lorenzo Sonego",
+      "tournament": "🏆 Tennis (tennis) - Professional",
+      "surface": "Hard",
+      "date": "2025-07-05",
+      "time": "2025-",
+      "round": "Live",
+      "court": "Tennis (tennis) Court",
+      "status": "upcoming",
+      "odds": {
+        "player1": 1.36,
+        "player2": 3.85
+      },
+      "underdog_analysis": {
+        "underdog": "Lorenzo Sonego",
+        "favorite": "Ben Shelton",
+        "underdog_odds": 3.85,
+        "favorite_odds": 1.36,
+        "prediction": {
+          "probability": 0.54,
+          "confidence": "Medium",
+          "key_factors": [
+            "🏆 Professional - высокий уровень турнира",
+            "🏟️ Хард - сбалансированное покрытие",
+            "💰 Коэффициент 3.9 - хорошая ценность",
+            "📊 54% шанс взять хотя бы один сет"
+          ]
+        },
+        "quality_rating": "MEDIUM"
+      },
+      "source": "LIVE_TENNIS",
+      "tournament_metadata": {
+        "sport_key": "tennis",
+        "level": "Professional",
+        "surface": "Hard",
+        "bookmaker": "FanDuel"
+      }
+    },
+    {
+      "id": "universal_dc59ad4b2fc7a7b72ffdff55ccd1358c",
+      "player1": "🎾 Iga Swiatek",
+      "player2": "🎾 Clara Tauson",
+      "tournament": "🏆 Tennis (tennis) - Professional",
+      "surface": "Hard",
+      "date": "2025-07-05",
+      "time": "2025-",
+      "round": "Live",
+      "court": "Tennis (tennis) Court",
+      "status": "upcoming",
+      "odds": {
+        "player1": 4.0,
+        "player2": 1.33
+      },
+      "underdog_analysis": {
+        "underdog": "Iga Swiatek",
+        "favorite": "Clara Tauson",
+        "underdog_odds": 4.0,
+        "favorite_odds": 1.33,
+        "prediction": {
+          "probability": 0.53,
+          "confidence": "Medium",
+          "key_factors": [
+            "🏆 Professional - высокий уровень турнира",
+            "🏟️ Хард - сбалансированное покрытие",
+            "💰 Коэффициент 4.0 - хорошая ценность",
+            "📊 53% шанс взять хотя бы один сет"
+          ]
+        },
+        "quality_rating": "MEDIUM"
+      },
+      "source": "LIVE_TENNIS",
+      "tournament_metadata": {
+        "sport_key": "tennis",
+        "level": "Professional",
+        "surface": "Hard",
+        "bookmaker": "Betway"
+      }
+    },
+    {
+      "id": "universal_5788b1c0b3965e547e19d19c23d95614",
+      "player1": "🎾 Alex de Minaur",
+      "player2": "🎾 Novak Djokovic",
+      "tournament": "🏆 Tennis (tennis) - Professional",
+      "surface": "Hard",
+      "date": "2025-07-05",
+      "time": "2025-",
+      "round": "Live",
+      "court": "Tennis (tennis) Court",
+      "status": "upcoming",
+      "odds": {
+        "player1": 4.6,
+        "player2": 1.27
+      },
+      "underdog_analysis": {
+        "underdog": "Alex de Minaur",
+        "favorite": "Novak Djokovic",
+        "underdog_odds": 4.6,
+        "favorite_odds": 1.27,
+        "prediction": {
+          "probability": 0.497,
+          "confidence": "Medium",
+          "key_factors": [
+            "🏆 Professional - высокий уровень турнира",
+            "🏟️ Хард - сбалансированное покрытие",
+            "💰 Коэффициент 4.6 - хорошая ценность",
+            "📊 50% шанс взять хотя бы один сет"
+          ]
+        },
+        "quality_rating": "MEDIUM"
+      },
+      "source": "LIVE_TENNIS",
+      "tournament_metadata": {
+        "sport_key": "tennis",
+        "level": "Professional",
+        "surface": "Hard",
+        "bookmaker": "Smarkets"
+      }
+    },
+    {
+      "id": "universal_aaab8ca8691443bbee40f9002985f82c",
+      "player1": "🎾 Liudmila Samsonova",
+      "player2": "🎾 Jessica Bouzas Maneiro",
+      "tournament": "🏆 Tennis (tennis) - Professional",
+      "surface": "Hard",
+      "date": "2025-07-05",
+      "time": "2025-",
+      "round": "Live",
+      "court": "Tennis (tennis) Court",
+      "status": "upcoming",
+      "odds": {
+        "player1": 5.05,
+        "player2": 1.26
+      },
+      "underdog_analysis": {
+        "underdog": "Liudmila Samsonova",
+        "favorite": "Jessica Bouzas Maneiro",
+        "underdog_odds": 5.05,
+        "favorite_odds": 1.26,
+        "prediction": {
+          "probability": 0.478,
+          "confidence": "Medium",
+          "key_factors": [
+            "🏆 Professional - высокий уровень турнира",
+            "🏟️ Хард - сбалансированное покрытие",
+            "💰 Коэффициент 5.0 - хорошая ценность",
+            "📊 48% шанс взять хотя бы один сет"
+          ]
+        },
+        "quality_rating": "MEDIUM"
+      },
+      "source": "LIVE_TENNIS",
+      "tournament_metadata": {
+        "sport_key": "tennis",
+        "level": "Professional",
+        "surface": "Hard",
+        "bookmaker": "1xBet"
+      }
+    }
+  ]
+}
