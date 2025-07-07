@@ -1,0 +1,70 @@
+{
+  "timestamp": "2025-07-07T05:07:46.815693",
+  "test_results": {
+    "health": null,
+    "dashboard_stats": null,
+    "api_economy": null,
+    "live_matches": null,
+    "ml_tests": [
+      {
+        "match": {
+          "name": "🏆 Grand Slam Final (Top players)",
+          "player1": "Jannik Sinner",
+          "player2": "Carlos Alcaraz",
+          "tournament": "US Open",
+          "surface": "Hard",
+          "expected": "Close match, 45-55% range"
+        },
+        "error": "HTTPConnectionPool(host='localhost', port=5001): Max retries exceeded with url: /api/test-ml (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7caf4198ffe0>: Failed to establish a new connection: [Errno 111] Connection refused'))"
+      },
+      {
+        "match": {
+          "name": "🎯 Clear Favorite",
+          "player1": "Novak Djokovic",
+          "player2": "Unknown Player",
+          "tournament": "Wimbledon",
+          "surface": "Grass",
+          "expected": "High confidence for Djokovic, 75%+"
+        },
+        "error": "HTTPConnectionPool(host='localhost', port=5001): Max retries exceeded with url: /api/test-ml (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7caf419b94c0>: Failed to establish a new connection: [Errno 111] Connection refused'))"
+      },
+      {
+        "match": {
+          "name": "🔄 Equal Ranking",
+          "player1": "Taylor Fritz",
+          "player2": "Tommy Paul",
+          "tournament": "ATP 500",
+          "surface": "Hard",
+          "expected": "Around 50%, medium confidence"
+        },
+        "error": "HTTPConnectionPool(host='localhost', port=5001): Max retries exceeded with url: /api/test-ml (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7caf419b8c80>: Failed to establish a new connection: [Errno 111] Connection refused'))"
+      },
+      {
+        "match": {
+          "name": "🌿 Surface Specialist",
+          "player1": "Rafael Nadal",
+          "player2": "Daniil Medvedev",
+          "tournament": "French Open",
+          "surface": "Clay",
+          "expected": "Nadal advantage on clay, 65%+"
+        },
+        "error": "HTTPConnectionPool(host='localhost', port=5001): Max retries exceeded with url: /api/test-ml (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7caf419b81d0>: Failed to establish a new connection: [Errno 111] Connection refused'))"
+      },
+      {
+        "match": {
+          "name": "🎾 Women's Match",
+          "player1": "Iga Swiatek",
+          "player2": "Aryna Sabalenka",
+          "tournament": "WTA Finals",
+          "surface": "Hard",
+          "expected": "Close match between top players"
+        },
+        "error": "HTTPConnectionPool(host='localhost', port=5001): Max retries exceeded with url: /api/test-ml (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7caf419ba600>: Failed to establish a new connection: [Errno 111] Connection refused'))"
+      }
+    ]
+  },
+  "summary": {
+    "total_tests": 5,
+    "passed_tests": 1
+  }
+}
