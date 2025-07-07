@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-🎾 ИСПРАВЛЕННЫЙ Tennis Backend с Universal Data Integration
-Основной сервер + универсальная система данных
+🎾 СТРОГИЙ Tennis Backend - ТОЛЬКО реальные данные
+БЕЗ демо матчей - показываем только то что есть
 """
 
 import os
 from dotenv import load_dotenv
-from typing import Optional
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import logging
@@ -14,22 +13,23 @@ import random
 import math
 from datetime import datetime, timedelta
 import numpy as np
-from api_economy_patch import init_api_economy, economical_tennis_request, get_api_usage
 
-init_api_economy(
-    api_key="a1b20d709d4bacb2d95ddab880f91009",  # ваш API ключ
-    max_per_hour=30,     # ваш лимит запросов в час
-    cache_minutes=20     # время жизни кеша в минутах
+# ИНТЕГРАЦИЯ API ECONOMY
+from api_economy_patch import (
+    init_api_economy, 
+    economical_tennis_request, 
+    get_api_usage, 
+    trigger_manual_update,
+    check_manual_update_status,
+    clear_api_cache
 )
 
-# НОВОЕ: Импорт универсальной системы данных
-try:
-    from universal_data_fix import UniversalTennisDataFix
-    UNIVERSAL_DATA_AVAILABLE = True
-    print("✅ Universal tennis data system imported")
-except ImportError as e:
-    print(f"⚠️ Universal data system not available: {e}")
-    UNIVERSAL_DATA_AVAILABLE = False
+# ИНИЦИАЛИЗАЦИЯ API ECONOMY ПРИ ЗАПУСКЕ
+init_api_economy(
+    api_key="a1b20d709d4bacb2d95ddab880f91009",
+    max_per_hour=30,
+    cache_minutes=20
+)
 
 load_dotenv()
 
@@ -39,54 +39,33 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
-# Глобальные переменные
-universal_data_collector = None
-
-def initialize_universal_data():
-    """Инициализация универсальной системы данных"""
-    global universal_data_collector
-    
-    if UNIVERSAL_DATA_AVAILABLE:
-        try:
-            universal_data_collector = UniversalTennisDataFix()
-            logger.info("🌍 Universal data collector initialized")
-            return True
-        except Exception as e:
-            logger.error(f"❌ Universal data initialization failed: {e}")
-            return False
-    else:
-        logger.warning("⚠️ Universal data collector not available")
-        return False
-
-# Инициализируем при запуске
-universal_data_ready = initialize_universal_data()
-
-class SmartUnderdogPredictor:
-    """Умный предиктор для андердогов взять хотя бы один сет"""
+class StrictUnderdogPredictor:
+    """СТРОГИЙ предиктор - только качественные возможности"""
     
     def __init__(self):
-        # Реальные данные игроков на июль 2025
+        # Реальные данные игроков
         self.player_database = {
-            # ATP топ-игроки
-            'jannik sinner': {'rank': 1, 'age': 23, 'form': 0.90, 'grass_skill': 0.78, 'set_tenacity': 0.85, 'big_match': 0.85},
-            'carlos alcaraz': {'rank': 2, 'age': 21, 'form': 0.88, 'grass_skill': 0.75, 'set_tenacity': 0.80, 'big_match': 0.82},
-            'alexander zverev': {'rank': 3, 'age': 27, 'form': 0.82, 'grass_skill': 0.68, 'set_tenacity': 0.75, 'big_match': 0.78},
-            'daniil medvedev': {'rank': 4, 'age': 28, 'form': 0.78, 'grass_skill': 0.65, 'set_tenacity': 0.85, 'big_match': 0.82},
-            'novak djokovic': {'rank': 6, 'age': 37, 'form': 0.75, 'grass_skill': 0.95, 'set_tenacity': 0.95, 'big_match': 0.95},
-            
-            # Средние игроки (потенциальные андердоги)
-            'ben shelton': {'rank': 15, 'age': 22, 'form': 0.72, 'grass_skill': 0.70, 'set_tenacity': 0.75, 'big_match': 0.60},
-            'tommy paul': {'rank': 12, 'age': 27, 'form': 0.75, 'grass_skill': 0.72, 'set_tenacity': 0.78, 'big_match': 0.70},
-            'frances tiafoe': {'rank': 18, 'age': 26, 'form': 0.70, 'grass_skill': 0.68, 'set_tenacity': 0.80, 'big_match': 0.65},
-            'brandon nakashima': {'rank': 45, 'age': 23, 'form': 0.68, 'grass_skill': 0.62, 'set_tenacity': 0.72, 'big_match': 0.50},
-            'fabio fognini': {'rank': 85, 'age': 37, 'form': 0.62, 'grass_skill': 0.58, 'set_tenacity': 0.65, 'big_match': 0.75},
+            # ATP
+            'jannik sinner': {'rank': 1, 'age': 23, 'form': 0.90, 'set_tenacity': 0.85},
+            'carlos alcaraz': {'rank': 2, 'age': 21, 'form': 0.88, 'set_tenacity': 0.80},
+            'alexander zverev': {'rank': 3, 'age': 27, 'form': 0.82, 'set_tenacity': 0.75},
+            'daniil medvedev': {'rank': 4, 'age': 28, 'form': 0.78, 'set_tenacity': 0.85},
+            'novak djokovic': {'rank': 5, 'age': 37, 'form': 0.75, 'set_tenacity': 0.95},
+            'ben shelton': {'rank': 15, 'age': 22, 'form': 0.72, 'set_tenacity': 0.75},
+            'tommy paul': {'rank': 12, 'age': 27, 'form': 0.75, 'set_tenacity': 0.78},
+            'frances tiafoe': {'rank': 18, 'age': 26, 'form': 0.70, 'set_tenacity': 0.80},
+            'brandon nakashima': {'rank': 45, 'age': 23, 'form': 0.68, 'set_tenacity': 0.72},
+            'marin cilic': {'rank': 70, 'age': 35, 'form': 0.65, 'set_tenacity': 0.80},
+            'flavio cobolli': {'rank': 85, 'age': 22, 'form': 0.68, 'set_tenacity': 0.70},
+            'cameron norrie': {'rank': 35, 'age': 28, 'form': 0.70, 'set_tenacity': 0.75},
             
             # WTA
-            'aryna sabalenka': {'rank': 1, 'age': 26, 'form': 0.85, 'grass_skill': 0.72, 'set_tenacity': 0.82, 'big_match': 0.80},
-            'iga swiatek': {'rank': 2, 'age': 23, 'form': 0.88, 'grass_skill': 0.65, 'set_tenacity': 0.85, 'big_match': 0.85},
-            'emma raducanu': {'rank': 90, 'age': 22, 'form': 0.62, 'grass_skill': 0.68, 'set_tenacity': 0.70, 'big_match': 0.50},
-            'katie boulter': {'rank': 28, 'age': 27, 'form': 0.68, 'grass_skill': 0.75, 'set_tenacity': 0.72, 'big_match': 0.60},
-            'amanda anisimova': {'rank': 35, 'age': 23, 'form': 0.72, 'grass_skill': 0.58, 'set_tenacity': 0.75, 'big_match': 0.55},
+            'aryna sabalenka': {'rank': 1, 'age': 26, 'form': 0.85, 'set_tenacity': 0.82},
+            'iga swiatek': {'rank': 2, 'age': 23, 'form': 0.88, 'set_tenacity': 0.85},
+            'coco gauff': {'rank': 3, 'age': 20, 'form': 0.80, 'set_tenacity': 0.75},
+            'emma raducanu': {'rank': 90, 'age': 22, 'form': 0.62, 'set_tenacity': 0.70},
+            'katie boulter': {'rank': 28, 'age': 27, 'form': 0.68, 'set_tenacity': 0.72},
+            'amanda anisimova': {'rank': 35, 'age': 23, 'form': 0.72, 'set_tenacity': 0.75},
         }
     
     def get_player_data(self, player_name):
@@ -102,70 +81,81 @@ class SmartUnderdogPredictor:
             if any(part in known_player for part in name_lower.split()):
                 return data
         
-        # Генерируем данные для неизвестного игрока
-        rank = random.randint(40, 150)
-        return {
-            'rank': rank,
-            'age': random.randint(20, 32),
-            'form': max(0.4, 0.8 - rank/200),
-            'grass_skill': random.uniform(0.5, 0.7),
-            'set_tenacity': random.uniform(0.6, 0.8),
-            'big_match': max(0.3, 0.8 - rank/150)
-        }
+        # Возвращаем None если игрок неизвестен
+        return None
     
     def determine_underdog_from_odds(self, player1, player2, odds1, odds2):
-        """Правильное определение андердога по коэффициентам"""
-        # Андердог = игрок с БОЛЬШИМИ коэффициентами (менее вероятная победа)
+        """Определение андердога по коэффициентам"""
         if odds1 > odds2:
             return {
                 'underdog': player1,
                 'favorite': player2,
                 'underdog_odds': odds1,
-                'favorite_odds': odds2,
-                'is_player1_underdog': True
+                'favorite_odds': odds2
             }
         else:
             return {
                 'underdog': player2,
                 'favorite': player1, 
                 'underdog_odds': odds2,
-                'favorite_odds': odds1,
-                'is_player1_underdog': False
+                'favorite_odds': odds1
             }
     
-    def calculate_smart_set_probability(self, underdog_name, favorite_name, underdog_odds, favorite_odds):
-        """Умный расчёт вероятности андердога взять хотя бы один сет"""
+    def calculate_strict_set_probability(self, underdog_name, favorite_name, underdog_odds, favorite_odds):
+        """СТРОГИЙ расчёт вероятности - только если есть данные"""
         
         underdog_data = self.get_player_data(underdog_name)
         favorite_data = self.get_player_data(favorite_name)
         
-        # 1. Базовая вероятность из коэффициентов
+        # Если нет данных об игроках - отклоняем
+        if not underdog_data or not favorite_data:
+            return None
+        
+        # Базовая вероятность из коэффициентов
         match_prob = 1.0 / underdog_odds
+        
+        # СТРОГИЕ критерии для качественной возможности
+        # 1. Коэффициенты должны быть в разумном диапазоне
+        if not (1.8 <= underdog_odds <= 6.0):
+            return None
+        
+        # 2. Андердог должен иметь хорошее упорство в сетах
+        if underdog_data['set_tenacity'] < 0.70:
+            return None
+        
+        # 3. Форма андердога не должна быть ужасной
+        if underdog_data['form'] < 0.60:
+            return None
+        
+        # Рассчитываем вероятность взять сет
         base_set_prob = min(0.85, match_prob + 0.25)
         
-        # 2. Факторы
-        tenacity_factor = underdog_data['set_tenacity'] * 0.3
-        grass_factor = (underdog_data['grass_skill'] - 0.6) * 0.2
-        big_match_factor = underdog_data['big_match'] * 0.15
-        form_factor = (underdog_data['form'] - 0.65) * 0.2
+        # Корректировки
+        tenacity_bonus = (underdog_data['set_tenacity'] - 0.70) * 0.5
+        form_bonus = (underdog_data['form'] - 0.65) * 0.3
         
-        # 3. Возраст
+        # Возрастной фактор
         age_factor = 0
         if underdog_data['age'] < 25:
-            age_factor = 0.05
+            age_factor = 0.05  # Молодость = смелость
         elif underdog_data['age'] > 32:
-            age_factor = -0.03
+            age_factor = -0.05  # Возраст = осторожность
         
-        # 4. Итоговая вероятность
-        final_probability = (base_set_prob + tenacity_factor + grass_factor + 
-                           big_match_factor + form_factor + age_factor)
+        final_probability = base_set_prob + tenacity_bonus + form_bonus + age_factor
+        final_probability = max(0.35, min(0.88, final_probability))
         
-        final_probability = max(0.25, min(0.92, final_probability))
+        # СТРОГИЙ фильтр финальной вероятности
+        if final_probability < 0.55:  # Минимум 55% шанс
+            return None
         
-        confidence = 'Very High' if final_probability > 0.8 else \
-                    'High' if final_probability > 0.7 else 'Medium'
+        confidence = 'Very High' if final_probability > 0.80 else \
+                    'High' if final_probability > 0.70 else 'Medium'
         
-        factors = self._analyze_key_factors(underdog_data, favorite_data, underdog_odds, final_probability)
+        # Только высокая и очень высокая уверенность
+        if confidence not in ['High', 'Very High']:
+            return None
+        
+        factors = self._analyze_factors(underdog_data, favorite_data, underdog_odds)
         
         return {
             'probability': round(final_probability, 3),
@@ -173,135 +163,175 @@ class SmartUnderdogPredictor:
             'key_factors': factors
         }
     
-    def _analyze_key_factors(self, underdog_data, favorite_data, underdog_odds, probability):
-        """Анализ ключевых факторов для андердога"""
+    def _analyze_factors(self, underdog_data, favorite_data, underdog_odds):
+        """Анализ факторов"""
         factors = []
         
         if underdog_data['set_tenacity'] > 0.75:
             factors.append(f"🔥 Высокое упорство в сетах ({underdog_data['set_tenacity']:.0%})")
         
-        if underdog_data['grass_skill'] > 0.70:
-            factors.append(f"🌱 Хорошо играет на траве")
-        
         if underdog_data['form'] > 0.70:
-            factors.append(f"📈 Хорошая текущая форма")
-        elif underdog_data['form'] < 0.60:
-            factors.append(f"📉 Проблемы с формой - но может сыграть без давления")
+            factors.append(f"📈 Хорошая текущая форма ({underdog_data['form']:.0%})")
         
-        if underdog_data['age'] < 24:
-            factors.append(f"⚡ Молодой игрок - может играть без страха")
+        if underdog_data['age'] < 25:
+            factors.append(f"⚡ Молодой игрок ({underdog_data['age']} лет) - может играть без страха")
         
-        if underdog_data['big_match'] > 0.70:
-            factors.append(f"💎 Опыт важных матчей")
+        if 2.0 <= underdog_odds <= 3.5:
+            factors.append(f"⚖️ Разумные коэффициенты ({underdog_odds}) - реальные шансы")
+        elif underdog_odds > 3.5:
+            factors.append(f"🎯 Большой андердог ({underdog_odds}) - потенциал сенсации")
         
-        if underdog_odds > 4.0:
-            factors.append(f"🎯 Большой андердог (коэф. {underdog_odds}) - высокий потенциал сенсации")
-        elif underdog_odds > 2.5:
-            factors.append(f"⚖️ Средний андердог - разумные шансы")
-        
-        return factors[:4]
+        return factors
 
 # Инициализация предиктора
-predictor = SmartUnderdogPredictor()
+predictor = StrictUnderdogPredictor()
 
-def get_live_matches_universal():
-    """НОВОЕ: Получение матчей через универсальную систему"""
+def extract_best_odds_from_api(bookmakers):
+    """Извлекает лучшие коэффициенты из API"""
+    best_odds1 = None
+    best_odds2 = None
     
-    if universal_data_ready and universal_data_collector:
-        try:
-            logger.info("🌍 Using Universal Data System for live matches")
+    for bookmaker in bookmakers:
+        for market in bookmaker.get('markets', []):
+            if market.get('key') == 'h2h':
+                outcomes = market.get('outcomes', [])
+                if len(outcomes) >= 2:
+                    odds1 = outcomes[0].get('price')
+                    odds2 = outcomes[1].get('price')
+                    
+                    if odds1 and odds2:
+                        if not best_odds1 or odds1 > best_odds1:
+                            best_odds1 = odds1
+                        if not best_odds2 or odds2 > best_odds2:
+                            best_odds2 = odds2
+    
+    return best_odds1, best_odds2
+
+def get_live_matches_strict():
+    """СТРОГОЕ получение матчей - только через API"""
+    
+    try:
+        logger.info("🔍 Getting REAL matches via API Economy...")
+        
+        # Получаем данные через API Economy
+        result = economical_tennis_request('tennis')
+        
+        if result['success'] and result.get('data'):
+            raw_data = result['data']
             
-            # Запускаем универсальную интеграцию
-            success = universal_data_collector.run_universal_integration()
+            logger.info(f"📡 API returned {len(raw_data)} matches")
             
-            if success:
-                # Здесь универсальная система сохраняет данные в JSON файл
-                # Мы можем их загрузить или получить напрямую
-                
-                # Для демонстрации возвращаем структурированные данные
-                return {
-                    'matches': get_demo_universal_matches(),
-                    'source': 'UNIVERSAL_LIVE_DATA',
-                    'season_context': universal_data_collector.get_season_context(),
-                    'success': True
-                }
-            else:
-                logger.warning("⚠️ Universal system found no current matches")
-                return {'matches': [], 'source': 'UNIVERSAL_NO_DATA', 'success': False}
-                
-        except Exception as e:
-            logger.error(f"❌ Universal data error: {e}")
-            return {'matches': [], 'source': 'UNIVERSAL_ERROR', 'success': False}
-    
-    # Fallback к demo данным
-    return {
-        'matches': get_fallback_demo_matches(),
-        'source': 'FALLBACK_DEMO', 
-        'success': True
-    }
-
-def get_demo_universal_matches():
-    """Демо матчи в формате универсальной системы"""
-    return [
-        {
-            'player1': 'Jannik Sinner', 'player2': 'Carlos Alcaraz',
-            'odds1': 1.85, 'odds2': 1.95,
-            'tournament': 'Live Tournament - Summer 2025', 'round': 'R32',
-            'court': 'Centre Court', 'time': '14:00',
-            'surface': 'Hard', 'level': 'ATP 1000'
-        },
-        {
-            'player1': 'Emma Raducanu', 'player2': 'Katie Boulter',
-            'odds1': 2.45, 'odds2': 1.55,
-            'tournament': 'WTA 500 Event', 'round': 'R16',
-            'court': 'Court 1', 'time': '16:00',
-            'surface': 'Hard', 'level': 'WTA 500'
+            # Преобразуем данные
+            converted_matches = []
+            
+            for api_match in raw_data:
+                try:
+                    player1 = api_match.get('home_team', '')
+                    player2 = api_match.get('away_team', '')
+                    
+                    if not player1 or not player2:
+                        continue
+                    
+                    # Извлекаем коэффициенты
+                    odds1, odds2 = extract_best_odds_from_api(api_match.get('bookmakers', []))
+                    
+                    if odds1 and odds2 and odds1 > 0 and odds2 > 0:
+                        match = {
+                            'player1': player1,
+                            'player2': player2,
+                            'odds1': odds1,
+                            'odds2': odds2,
+                            'tournament': 'Live Tournament',
+                            'surface': 'Hard',
+                            'round': 'Live',
+                            'time': api_match.get('commence_time', '14:00')[:5] if api_match.get('commence_time') else '14:00'
+                        }
+                        converted_matches.append(match)
+                        
+                except Exception as e:
+                    logger.warning(f"⚠️ Error processing match: {e}")
+                    continue
+            
+            logger.info(f"✅ Converted {len(converted_matches)} matches")
+            
+            return {
+                'matches': converted_matches,
+                'source': f"LIVE_API_{result['status']}",
+                'success': True
+            }
+        else:
+            logger.info(f"📭 API returned no data: {result.get('error', 'Unknown')}")
+            return {
+                'matches': [],
+                'source': 'API_NO_DATA',
+                'success': False,
+                'reason': result.get('error', 'No data from API')
+            }
+            
+    except Exception as e:
+        logger.error(f"❌ API error: {e}")
+        return {
+            'matches': [],
+            'source': 'API_ERROR',
+            'success': False,
+            'reason': str(e)
         }
-    ]
 
-def get_fallback_demo_matches():
-    """Fallback демо матчи"""
-    return [
-        {
-            'player1': 'Demo Player A', 'player2': 'Demo Player B',
-            'odds1': 2.20, 'odds2': 1.75,
-            'tournament': 'Demo Tournament', 'round': 'Demo',
-            'court': 'Demo Court', 'time': 'TBD',
-            'surface': 'Hard', 'level': 'Demo'
-        }
-    ]
-
-def generate_quality_matches():
-    """ОБНОВЛЕНО: Генерация с использованием универсальной системы"""
+def generate_strict_quality_matches():
+    """СТРОГАЯ генерация - только качественные возможности"""
     
-    # Получаем live матчи через универсальную систему
-    live_data = get_live_matches_universal()
+    logger.info("🔍 Strict quality analysis...")
+    
+    # Получаем ТОЛЬКО реальные матчи
+    live_data = get_live_matches_strict()
+    
+    if not live_data['success'] or not live_data['matches']:
+        logger.info(f"📭 No live matches available: {live_data.get('reason', 'Unknown')}")
+        return []
+    
     potential_matches = live_data['matches']
+    logger.info(f"📊 Analyzing {len(potential_matches)} live matches")
     
     quality_matches = []
+    rejected_reasons = {}
     
     for match_data in potential_matches:
-        # Определяем андердога
-        underdog_info = predictor.determine_underdog_from_odds(
-            match_data['player1'], match_data['player2'],
-            match_data['odds1'], match_data['odds2']
-        )
-        
-        # Рассчитываем вероятность взять сет
-        prediction = predictor.calculate_smart_set_probability(
-            underdog_info['underdog'],
-            underdog_info['favorite'], 
-            underdog_info['underdog_odds'],
-            underdog_info['favorite_odds']
-        )
-        
-        # Проверяем качество
-        if (prediction['probability'] >= 0.45 and 
-            prediction['probability'] <= 0.88 and
-            1.8 <= underdog_info['underdog_odds'] <= 8.0):
+        try:
+            # Определяем андердога
+            underdog_info = predictor.determine_underdog_from_odds(
+                match_data['player1'], match_data['player2'],
+                match_data['odds1'], match_data['odds2']
+            )
             
+            # СТРОГИЙ анализ
+            prediction = predictor.calculate_strict_set_probability(
+                underdog_info['underdog'],
+                underdog_info['favorite'], 
+                underdog_info['underdog_odds'],
+                underdog_info['favorite_odds']
+            )
+            
+            if prediction is None:
+                # Определяем причину отклонения
+                underdog_data = predictor.get_player_data(underdog_info['underdog'])
+                
+                if not underdog_data:
+                    reason = "Unknown player"
+                elif not (1.8 <= underdog_info['underdog_odds'] <= 6.0):
+                    reason = f"Odds out of range ({underdog_info['underdog_odds']})"
+                elif underdog_data['set_tenacity'] < 0.70:
+                    reason = f"Low set tenacity ({underdog_data['set_tenacity']:.1%})"
+                elif underdog_data['form'] < 0.60:
+                    reason = f"Poor form ({underdog_data['form']:.1%})"
+                else:
+                    reason = "Low final probability"
+                
+                rejected_reasons[f"{match_data['player1']} vs {match_data['player2']}"] = reason
+                continue
+            
+            # Матч прошел СТРОГИЕ критерии
             match = {
-                'id': f"universal_{len(quality_matches)+1}",
+                'id': f"quality_{len(quality_matches)+1}",
                 'player1': f"🎾 {match_data['player1']}",
                 'player2': f"🎾 {match_data['player2']}",
                 'tournament': f"🏆 {match_data['tournament']}",
@@ -320,7 +350,7 @@ def generate_quality_matches():
                     'favorite': underdog_info['favorite'],
                     'underdog_odds': underdog_info['underdog_odds'],
                     'prediction': prediction,
-                    'quality_rating': 'HIGH' if prediction['probability'] > 0.70 else 'MEDIUM'
+                    'quality_rating': 'PREMIUM'  # Все прошедшие фильтр = премиум
                 },
                 
                 'focus': f"💎 {underdog_info['underdog']} взять хотя бы 1 сет",
@@ -329,21 +359,34 @@ def generate_quality_matches():
             }
             
             quality_matches.append(match)
+            logger.info(f"✅ ACCEPTED: {match_data['player1']} vs {match_data['player2']} ({prediction['probability']:.1%})")
+            
+        except Exception as e:
+            logger.error(f"❌ Error analyzing match: {e}")
+            continue
+    
+    # Логируем отклоненные матчи
+    if rejected_reasons:
+        logger.info(f"❌ REJECTED MATCHES ({len(rejected_reasons)}):")
+        for match, reason in rejected_reasons.items():
+            logger.info(f"   • {match}: {reason}")
     
     # Сортируем по вероятности
     quality_matches.sort(key=lambda x: x['underdog_analysis']['prediction']['probability'], reverse=True)
+    
+    logger.info(f"🎯 STRICT RESULT: {len(quality_matches)} PREMIUM opportunities found")
     
     return quality_matches
 
 @app.route('/')
 def dashboard():
-    """Dashboard с информацией об универсальной системе"""
+    """Dashboard с честной информацией"""
     return '''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎾 Universal Tennis Analytics</title>
+    <title>🎾 Strict Tennis Analysis</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -357,8 +400,8 @@ def dashboard():
             border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 24px;
             padding: 32px; margin-bottom: 32px; text-align: center;
         }
-        .universal-banner {
-            background: linear-gradient(135deg, #27ae60, #2ecc71);
+        .strict-banner {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
             padding: 20px; border-radius: 15px; margin-bottom: 20px;
             text-align: center; animation: pulse 3s infinite;
         }
@@ -396,53 +439,57 @@ def dashboard():
             text-align: center; padding: 80px; background: rgba(255, 255, 255, 0.05);
             border-radius: 20px; font-size: 1.2rem;
         }
+        .no-matches {
+            text-align: center; padding: 60px; background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px; border: 2px solid rgba(255, 193, 7, 0.3);
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div class="universal-banner">
-                <h2>🌍 UNIVERSAL TENNIS DATA SYSTEM</h2>
-                <p>Работает круглый год • Автоматически находит активные турниры • Любой сезон</p>
+            <div class="strict-banner">
+                <h2>🎯 СТРОГИЙ АНАЛИЗ - ТОЛЬКО ПРЕМИУМ</h2>
+                <p>Никаких демо • Только реальные возможности • Высокие стандарты</p>
             </div>
             
-            <div class="main-title">🎾 Smart Underdog Predictor</div>
+            <div class="main-title">🎾 Premium Underdog Analysis</div>
             <p style="font-size: 1.2rem; opacity: 0.8; margin-bottom: 32px;">
-                Универсальная система поиска андердогов в активных турнирах
+                Строгий отбор качественных возможностей
             </p>
             
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-value" id="universal-status">''' + ('✅' if universal_data_ready else '❌') + '''</div>
-                    <div class="stat-label">Universal System</div>
+                    <div class="stat-value" id="api-requests">-</div>
+                    <div class="stat-label">API Requests</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value" id="season-context">-</div>
-                    <div class="stat-label">Current Season</div>
+                    <div class="stat-value" id="live-matches">-</div>
+                    <div class="stat-label">Live Matches</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value" id="quality-matches">-</div>
-                    <div class="stat-label">Quality Matches</div>
+                    <div class="stat-value" id="premium-found">-</div>
+                    <div class="stat-label">Premium Found</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value" id="data-source">-</div>
-                    <div class="stat-label">Data Source</div>
+                    <div class="stat-value" id="success-rate">-</div>
+                    <div class="stat-label">Filter Rate</div>
                 </div>
             </div>
         </div>
         
         <div class="controls">
-            <h3>🎯 Универсальная система - работает всегда!</h3>
-            <p style="margin: 12px 0; opacity: 0.8;">Автоматически подстраивается под текущие турниры</p>
-            <button class="btn" onclick="loadUniversalMatches()">🌍 Найти текущие матчи</button>
-            <button class="btn" onclick="testUniversalSystem()">🧪 Тест универсальной системы</button>
-            <button class="btn" onclick="showSeasonInfo()">📅 Информация о сезоне</button>
+            <h3>🎯 Строгий анализ в реальном времени</h3>
+            <p style="margin: 12px 0; opacity: 0.8;">Только проверенные возможности проходят фильтр</p>
+            <button class="btn" onclick="findPremiumOpportunities()">💎 Найти премиум возможности</button>
+            <button class="btn" onclick="checkAPIStatus()">📊 Статус API</button>
+            <button class="btn" onclick="forceRefresh()">🔄 Принудительное обновление</button>
         </div>
         
         <div id="matches-container" class="matches-container">
             <div class="loading">
-                <h3>🌍 Универсальная система готова</h3>
-                <p>Ищем активные турниры и качественных андердогов...</p>
+                <h3>🎯 Система строгого анализа готова</h3>
+                <p>Нажмите "Найти премиум возможности" для начала</p>
             </div>
         </div>
     </div>
@@ -450,318 +497,228 @@ def dashboard():
     <script>
         const API_BASE = window.location.origin + '/api';
         
-        async function loadUniversalMatches() {
+        async function findPremiumOpportunities() {
             const container = document.getElementById('matches-container');
-            container.innerHTML = '<div class="loading"><h3>🌍 Поиск через универсальную систему...</h3><p>Анализируем активные турниры во всем мире</p></div>';
+            container.innerHTML = '<div class="loading"><h3>🔍 Строгий анализ live матчей...</h3><p>Применяем высокие стандарты качества</p></div>';
             
             try {
-                const response = await fetch(`${API_BASE}/quality-matches`);
+                const response = await fetch(API_BASE + '/premium-matches');
                 const data = await response.json();
                 
                 updateStats(data);
                 
                 if (data.success && data.matches && data.matches.length > 0) {
-                    displayMatches(data.matches, data.source);
+                    displayPremiumMatches(data.matches, data);
                 } else {
-                    container.innerHTML = '<div class="loading"><h3>📅 Сейчас нет активных турниров</h3><p>Универсальная система адаптируется к календарю турниров</p></div>';
+                    showNoMatches(data);
                 }
             } catch (error) {
                 console.error('Error:', error);
-                container.innerHTML = '<div class="loading"><h3>❌ Ошибка подключения</h3></div>';
+                container.innerHTML = '<div class="loading"><h3>❌ Ошибка подключения к API</h3></div>';
             }
         }
         
         function updateStats(data) {
-            document.getElementById('season-context').textContent = data.season_context || 'Unknown';
-            document.getElementById('quality-matches').textContent = data.matches?.length || '0';
-            document.getElementById('data-source').textContent = getSourceEmoji(data.source);
+            document.getElementById('live-matches').textContent = data.stats?.total_analyzed || '0';
+            document.getElementById('premium-found').textContent = data.matches?.length || '0';
+            
+            const total = data.stats?.total_analyzed || 1;
+            const found = data.matches?.length || 0;
+            const rate = ((found / total) * 100).toFixed(1);
+            document.getElementById('success-rate').textContent = rate + '%';
         }
         
-        function getSourceEmoji(source) {
-            if (source?.includes('UNIVERSAL_LIVE')) return '🔴 Live';
-            if (source?.includes('UNIVERSAL')) return '🌍 Auto';
-            if (source?.includes('DEMO')) return '🎯 Demo';
-            return '❓ Unknown';
-        }
-        
-        function displayMatches(matches, source) {
+        function showNoMatches(data) {
             const container = document.getElementById('matches-container');
             
-            let html = `
-                <div style="background: linear-gradient(135deg, rgba(107, 207, 127, 0.1), rgba(255, 217, 61, 0.1)); 
-                           border: 1px solid rgba(107, 207, 127, 0.3); border-radius: 20px; padding: 24px; margin-bottom: 32px; text-align: center;">
-                    <h2>🌍 НАЙДЕНЫ МАТЧИ ЧЕРЕЗ УНИВЕРСАЛЬНУЮ СИСТЕМУ</h2>
-                    <p>Источник: ${source} • Автоматическая адаптация к сезону</p>
-                </div>
-            `;
+            let reason = '';
+            if (data.stats?.api_error) {
+                reason = 'Проблема с API: ' + data.stats.api_error;
+            } else if (data.stats?.total_analyzed === 0) {
+                reason = 'API не вернул активных матчей';
+            } else {
+                reason = 'Ни один матч не прошел строгие критерии качества';
+            }
+            
+            container.innerHTML = '<div class="no-matches"><h3>📅 Сейчас нет премиум возможностей</h3><p style="margin: 20px 0; opacity: 0.8;">' + reason + '</p><div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; margin-top: 20px;"><h4>🎯 Наши строгие критерии:</h4><ul style="text-align: left; margin: 15px 0; margin-left: 20px;"><li>Коэффициенты от 1.8 до 6.0</li><li>Игрок известен системе</li><li>Упорство в сетах > 70%</li><li>Форма > 60%</li><li>Финальная вероятность > 55%</li><li>Только высокая уверенность</li></ul></div><p style="margin-top: 20px; font-size: 0.9rem; opacity: 0.7;">Это нормально - качество важнее количества</p></div>';
+        }
+        
+        function displayPremiumMatches(matches, data) {
+            const container = document.getElementById('matches-container');
+            
+            let html = '<div style="background: linear-gradient(135deg, rgba(231, 76, 60, 0.1), rgba(192, 57, 43, 0.1)); border: 1px solid rgba(231, 76, 60, 0.3); border-radius: 20px; padding: 24px; margin-bottom: 32px; text-align: center;"><h2>💎 НАЙДЕНЫ ПРЕМИУМ ВОЗМОЖНОСТИ</h2><p>Строгий отбор: ' + matches.length + ' из ' + (data.stats?.total_analyzed || 0) + ' матчей прошли фильтр</p></div>';
             
             matches.forEach((match, index) => {
                 const analysis = match.underdog_analysis;
                 const prediction = analysis.prediction;
                 
-                html += `
-                    <div class="match-card">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                            <div>
-                                <div style="font-size: 1.4rem; font-weight: bold;">
-                                    ${match.player1} vs ${match.player2}
-                                </div>
-                                <div style="opacity: 0.8; margin-top: 5px;">
-                                    🏆 ${match.tournament} • ${match.surface} • ${match.round}
-                                </div>
-                                <div style="opacity: 0.7; font-size: 0.9rem;">
-                                    📍 ${match.date} ${match.time} • Источник: ${match.data_source}
-                                </div>
-                            </div>
-                            <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 15px; text-align: center;">
-                                <div style="font-size: 2rem; font-weight: bold; color: #ffd93d;">
-                                    ${(prediction.probability * 100).toFixed(0)}%
-                                </div>
-                                <div style="font-size: 0.9rem;">${prediction.confidence}</div>
-                            </div>
-                        </div>
-                        
-                        <div style="text-align: center; margin: 20px 0; padding: 16px; background: rgba(255, 217, 61, 0.1); border-radius: 12px;">
-                            <div style="font-size: 1.2rem; font-weight: 600; color: #ffd93d;">
-                                ${match.focus}
-                            </div>
-                            <div style="margin-top: 8px; opacity: 0.9;">
-                                ${match.recommendation}
-                            </div>
-                        </div>
-                        
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px;">
-                            <div style="text-align: center; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 10px;">
-                                <div style="font-weight: bold; margin-bottom: 5px;">${match.player1}</div>
-                                <div style="font-size: 1.5rem; color: ${match.player1 === analysis.underdog ? '#ffd93d' : '#6bcf7f'};">
-                                    ${match.odds.player1}
-                                </div>
-                                <div style="font-size: 0.8rem; opacity: 0.7;">
-                                    ${match.player1 === analysis.underdog ? 'АНДЕРДОГ' : 'ФАВОРИТ'}
-                                </div>
-                            </div>
-                            <div style="text-align: center; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 10px;">
-                                <div style="font-weight: bold; margin-bottom: 5px;">${match.player2}</div>
-                                <div style="font-size: 1.5rem; color: ${match.player2 === analysis.underdog ? '#ffd93d' : '#6bcf7f'};">
-                                    ${match.odds.player2}
-                                </div>
-                                <div style="font-size: 0.8rem; opacity: 0.7;">
-                                    ${match.player2 === analysis.underdog ? 'АНДЕРДОГ' : 'ФАВОРИТ'}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        ${prediction.key_factors && prediction.key_factors.length > 0 ? `
-                        <div style="margin-top: 20px;">
-                            <div style="font-weight: 600; margin-bottom: 12px;">🔍 Ключевые факторы:</div>
-                            ${prediction.key_factors.slice(0, 3).map(factor => `
-                                <div style="background: rgba(255,255,255,0.05); margin: 8px 0; padding: 12px; border-radius: 8px; border-left: 3px solid #6bcf7f;">
-                                    ${factor}
-                                </div>
-                            `).join('')}
-                        </div>
-                        ` : ''}
-                        
-                        <div style="margin-top: 16px; text-align: center; font-size: 0.9rem; opacity: 0.6;">
-                            🌍 Данные через универсальную систему • Качество: ${analysis.quality_rating}
-                        </div>
-                    </div>
-                `;
+                html += '<div class="match-card"><div style="position: absolute; top: 15px; right: 15px; background: #e74c3c; color: white; padding: 5px 12px; border-radius: 15px; font-size: 0.8rem; font-weight: bold;">PREMIUM</div>';
+                
+                html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><div><div style="font-size: 1.4rem; font-weight: bold;">' + match.player1 + ' vs ' + match.player2 + '</div><div style="opacity: 0.8; margin-top: 5px;">🏆 ' + match.tournament + ' • ' + match.surface + ' • ' + match.round + '</div></div><div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 15px; text-align: center;"><div style="font-size: 2rem; font-weight: bold; color: #ffd93d;">' + (prediction.probability * 100).toFixed(0) + '%</div><div style="font-size: 0.9rem;">' + prediction.confidence + '</div></div></div>';
+                
+                html += '<div style="text-align: center; margin: 20px 0; padding: 16px; background: rgba(255, 217, 61, 0.1); border-radius: 12px;"><div style="font-size: 1.2rem; font-weight: 600; color: #ffd93d;">' + match.focus + '</div><div style="margin-top: 8px; opacity: 0.9;">' + match.recommendation + '</div></div>';
+                
+                html += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px;"><div style="text-align: center; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 10px;"><div style="font-weight: bold; margin-bottom: 5px;">' + match.player1.replace('🎾 ', '') + '</div><div style="font-size: 1.5rem; color: ' + (match.player1.replace('🎾 ', '') === analysis.underdog ? '#ffd93d' : '#6bcf7f') + ';">' + match.odds.player1 + '</div><div style="font-size: 0.8rem; opacity: 0.7;">' + (match.player1.replace('🎾 ', '') === analysis.underdog ? 'АНДЕРДОГ' : 'ФАВОРИТ') + '</div></div><div style="text-align: center; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 10px;"><div style="font-weight: bold; margin-bottom: 5px;">' + match.player2.replace('🎾 ', '') + '</div><div style="font-size: 1.5rem; color: ' + (match.player2.replace('🎾 ', '') === analysis.underdog ? '#ffd93d' : '#6bcf7f') + ';">' + match.odds.player2 + '</div><div style="font-size: 0.8rem; opacity: 0.7;">' + (match.player2.replace('🎾 ', '') === analysis.underdog ? 'АНДЕРДОГ' : 'ФАВОРИТ') + '</div></div></div>';
+                
+                if (prediction.key_factors && prediction.key_factors.length > 0) {
+                    html += '<div style="margin-top: 20px;"><div style="font-weight: 600; margin-bottom: 12px;">🔍 Ключевые факторы премиум качества:</div>';
+                    prediction.key_factors.forEach(factor => {
+                        html += '<div style="background: rgba(255,255,255,0.05); margin: 8px 0; padding: 12px; border-radius: 8px; border-left: 3px solid #e74c3c;">' + factor + '</div>';
+                    });
+                    html += '</div>';
+                }
+                
+                html += '<div style="margin-top: 16px; text-align: center; font-size: 0.9rem; opacity: 0.6;">🎯 Премиум качество • Строгий отбор • ' + analysis.quality_rating + '</div></div>';
             });
             
             container.innerHTML = html;
         }
         
-        async function testUniversalSystem() {
+        async function checkAPIStatus() {
             try {
-                const response = await fetch(`${API_BASE}/test-universal`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        test_mode: 'universal_system_check'
-                    })
+                const response = await fetch(API_BASE + '/api-status');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const usage = data.api_usage;
+                    alert('📊 СТАТУС API СИСТЕМЫ:\\n\\n' + 
+                          'Запросов сегодня: ' + usage.requests_this_hour + '/' + usage.max_per_hour + '\\n' +
+                          'Остается: ' + usage.remaining_hour + '\\n' +
+                          'Кеш элементов: ' + usage.cache_items + '\\n\\n' +
+                          '🎯 Система строгого анализа активна!');
+                    
+                    document.getElementById('api-requests').textContent = usage.remaining_hour;
+                } else {
+                    alert('❌ Ошибка получения статуса API');
+                }
+            } catch (error) {
+                alert('❌ Ошибка: ' + error.message);
+            }
+        }
+        
+        async function forceRefresh() {
+            try {
+                const response = await fetch(API_BASE + '/force-refresh', {
+                    method: 'POST'
                 });
                 
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert(`🌍 Тест универсальной системы:\\n\\n` +
-                          `Статус: ${data.status}\\n` +
-                          `Сезон: ${data.season_context}\\n` +
-                          `Источник данных: ${data.data_source}\\n` +
-                          `Найдено турниров: ${data.active_tournaments || 0}\\n\\n` +
-                          `✅ Система работает корректно!`);
+                    alert('✅ Принудительное обновление запущено!\\nОбновленные данные будут при следующем анализе.');
                 } else {
-                    alert(`❌ Тест не пройден: ${data.error}`);
+                    alert('❌ Ошибка обновления: ' + data.error);
                 }
             } catch (error) {
-                alert(`❌ Ошибка теста: ${error.message}`);
+                alert('❌ Ошибка: ' + error.message);
             }
         }
         
-        async function showSeasonInfo() {
-            try {
-                const response = await fetch(`${API_BASE}/season-info`);
-                const data = await response.json();
-                
-                if (data.success) {
-                    alert(`📅 ИНФОРМАЦИЯ О СЕЗОНЕ:\\n\\n` +
-                          `Текущий период: ${data.season_context}\\n` +
-                          `Активных турниров: ${data.active_tournaments}\\n` +
-                          `Следующий турнир: ${data.next_tournament || 'TBD'}\\n` +
-                          `Следующий Grand Slam: ${data.next_grand_slam || 'TBD'}\\n\\n` +
-                          `🌍 Универсальная система автоматически подстраивается под календарь!`);
-                } else {
-                    alert(`📅 Информация о сезоне недоступна`);
-                }
-            } catch (error) {
-                alert(`❌ Ошибка: ${error.message}`);
-            }
-        }
-        
-        // Автозагрузка при старте
+        // Автозагрузка статистики
         document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(loadUniversalMatches, 1000);
+            checkAPIStatus();
         });
     </script>
 </body>
 </html>'''
 
-@app.route('/api/quality-matches')
-def get_quality_matches():
-    """ИСПРАВЛЕНО: Использует универсальную систему данных"""
+@app.route('/api/premium-matches')
+def get_premium_matches():
+    """СТРОГИЙ анализ - только премиум возможности"""
     try:
-        logger.info("🌍 Using Universal Data System for quality matches...")
+        logger.info("🎯 Starting STRICT premium analysis...")
         
-        quality_matches = generate_quality_matches()
+        # Получаем строго отобранные матчи
+        premium_matches = generate_strict_quality_matches()
         
-        # Получаем контекст от универсальной системы
-        season_context = "Unknown Season"
-        data_source = "FALLBACK_DEMO"
+        # Статистика для пользователя
+        live_data = get_live_matches_strict()
+        total_analyzed = len(live_data.get('matches', []))
         
-        if universal_data_ready and universal_data_collector:
-            season_context = universal_data_collector.get_season_context()
-            data_source = "UNIVERSAL_SYSTEM"
+        api_error = None
+        if not live_data['success']:
+            api_error = live_data.get('reason', 'Unknown API error')
         
-        if not quality_matches:
-            return jsonify({
-                'success': False,
-                'message': 'No quality matches found in current tournaments',
-                'matches': [],
-                'season_context': season_context,
-                'source': data_source + '_NO_MATCHES'
-            })
+        stats = {
+            'total_analyzed': total_analyzed,
+            'premium_found': len(premium_matches),
+            'filter_rate': f"{(len(premium_matches) / max(total_analyzed, 1) * 100):.1f}%",
+            'api_error': api_error
+        }
         
-        # Статистика
-        probabilities = [m['underdog_analysis']['prediction']['probability'] for m in quality_matches]
-        strong_underdogs = len([p for p in probabilities if p > 0.70])
-        
-        return jsonify({
-            'success': True,
-            'matches': quality_matches,
-            'count': len(quality_matches),
-            'source': data_source,
-            'season_context': season_context,
-            'stats': {
-                'total_matches': len(quality_matches),
-                'strong_underdogs': strong_underdogs,
-                'avg_probability': f"{(sum(probabilities) / len(probabilities) * 100):.0f}%"
-            },
-            'system_info': {
-                'universal_system_active': universal_data_ready,
-                'data_source': data_source,
-                'prediction_type': 'UNIVERSAL_ML_UNDERDOG'
-            },
-            'timestamp': datetime.now().isoformat()
-        })
-        
-    except Exception as e:
-        logger.error(f"❌ Quality matches error: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'matches': []
-        }), 500
-
-@app.route('/api/test-universal', methods=['POST'])
-def test_universal_system():
-    """НОВОЕ: Тестирование универсальной системы"""
-    try:
-        data = request.get_json()
-        
-        logger.info("🧪 Testing Universal Data System...")
-        
-        if universal_data_ready and universal_data_collector:
-            season_context = universal_data_collector.get_season_context()
-            
-            # Тестируем получение данных
-            live_data = get_live_matches_universal()
+        if premium_matches:
+            # Успешно найдены премиум возможности
+            probabilities = [m['underdog_analysis']['prediction']['probability'] for m in premium_matches]
             
             return jsonify({
                 'success': True,
-                'status': 'Universal System Active',
-                'season_context': season_context,
-                'data_source': live_data['source'],
-                'active_tournaments': len(live_data.get('matches', [])),
-                'test_result': 'PASSED',
+                'matches': premium_matches,
+                'count': len(premium_matches),
+                'source': premium_matches[0]['data_source'] if premium_matches else 'NONE',
+                'stats': stats,
+                'quality_summary': {
+                    'avg_probability': f"{(sum(probabilities) / len(probabilities) * 100):.0f}%",
+                    'min_probability': f"{(min(probabilities) * 100):.0f}%",
+                    'max_probability': f"{(max(probabilities) * 100):.0f}%"
+                },
                 'timestamp': datetime.now().isoformat()
             })
         else:
+            # Честно сообщаем что ничего не найдено
             return jsonify({
                 'success': False,
-                'status': 'Universal System Not Available',
-                'error': 'universal_data_fix.py not imported or initialized',
-                'fallback_mode': True,
+                'matches': [],
+                'count': 0,
+                'source': live_data.get('source', 'UNKNOWN'),
+                'stats': stats,
+                'message': 'No matches passed strict quality criteria',
                 'timestamp': datetime.now().isoformat()
             })
         
     except Exception as e:
-        logger.error(f"❌ Universal system test error: {e}")
+        logger.error(f"❌ Premium analysis error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'matches': [],
+            'stats': {'api_error': str(e)}
+        }), 500
+
+@app.route('/api/api-status')
+def get_api_status():
+    """Статус API системы"""
+    try:
+        api_usage = get_api_usage()
+        
+        return jsonify({
+            'success': True,
+            'api_usage': api_usage,
+            'system_type': 'STRICT_ANALYSIS',
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
         return jsonify({
             'success': False,
             'error': str(e)
         }), 500
 
-@app.route('/api/season-info', methods=['GET'])
-def get_season_info():
-    """НОВОЕ: Информация о текущем сезоне"""
+@app.route('/api/force-refresh', methods=['POST'])
+def force_refresh():
+    """Принудительное обновление данных"""
     try:
-        if universal_data_ready and universal_data_collector:
-            season_context = universal_data_collector.get_season_context()
-            
-            # Симулируем информацию о турнирах
-            current_month = datetime.now().month
-            
-            if current_month in [6, 7]:  # Июнь-Июль
-                active_tournaments = 2
-                next_tournament = "Wimbledon or Summer Clay Events"
-                next_grand_slam = "US Open (August 25, 2025)"
-            elif current_month in [1, 2]:  # Январь-Февраль  
-                active_tournaments = 3
-                next_tournament = "Australian Open or Hard Court Events"
-                next_grand_slam = "French Open (May 19, 2025)"
-            else:
-                active_tournaments = 1
-                next_tournament = "Check Tennis Calendar"
-                next_grand_slam = "Next Major Tournament"
-            
+        success = trigger_manual_update()
+        
+        if success:
             return jsonify({
                 'success': True,
-                'season_context': season_context,
-                'active_tournaments': active_tournaments,
-                'next_tournament': next_tournament,
-                'next_grand_slam': next_grand_slam,
-                'universal_system_status': 'Active',
-                'timestamp': datetime.now().isoformat()
+                'message': 'Force refresh triggered - fresh data on next request'
             })
         else:
             return jsonify({
                 'success': False,
-                'error': 'Universal system not available'
+                'error': 'Failed to trigger refresh'
             })
-        
     except Exception as e:
-        logger.error(f"❌ Season info error: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -769,36 +726,14 @@ def get_season_info():
 
 @app.route('/api/health')
 def health_check():
-    """Health check с информацией об универсальной системе"""
+    """Health check"""
     return jsonify({
         'status': 'healthy',
-        'system': 'tennis_backend_with_universal_data',
-        'universal_data_system': universal_data_ready,
-        'data_integration': 'active' if universal_data_ready else 'fallback',
-        'season_adaptive': True,
+        'system': 'strict_tennis_analysis',
+        'mode': 'PREMIUM_ONLY',
+        'demo_matches': False,
         'timestamp': datetime.now().isoformat()
     })
-
-@app.route('/api/stats')
-def get_stats():
-    """Статистика системы"""
-    try:
-        return jsonify({
-            'success': True,
-            'stats': {
-                'system_type': 'Universal Tennis Backend',
-                'universal_data_active': universal_data_ready,
-                'data_source': 'UNIVERSAL_SYSTEM' if universal_data_ready else 'FALLBACK_DEMO',
-                'season_adaptive': True,
-                'works_year_round': True,
-                'last_update': datetime.now().isoformat()
-            }
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
 
 # Error handlers
 @app.errorhandler(404)
@@ -816,19 +751,16 @@ def internal_error(error):
     }), 500
 
 if __name__ == '__main__':
-    print("🎾 TENNIS BACKEND С УНИВЕРСАЛЬНОЙ СИСТЕМОЙ ДАННЫХ")
-    print("=" * 70)
-    print("🌍 НОВЫЕ ВОЗМОЖНОСТИ:")
-    print("• ✅ Работает круглый год - не привязан к конкретному турниру")
-    print("• ✅ Автоматически находит активные турниры")
-    print("• ✅ Адаптируется к любому сезону")  
-    print("• ✅ Универсальная интеграция данных")
-    print("• ✅ Умный поиск андердогов в любое время")
-    print("=" * 70)
-    print(f"🌐 Dashboard: http://localhost:5001")
-    print(f"📡 API: http://localhost:5001/api/*")
-    print(f"🌍 Universal Data: {'✅ Active' if universal_data_ready else '⚠️ Fallback mode'}")
-    print("=" * 70)
+    print("🎾 СТРОГИЙ TENNIS BACKEND - ТОЛЬКО РЕАЛЬНЫЕ ДАННЫЕ")
+    print("=" * 60)
+    print("🎯 Режим: ПРЕМИУМ АНАЛИЗ")
+    print("❌ Демо матчи: ОТКЛЮЧЕНЫ")
+    print("✅ Строгие критерии: АКТИВНЫ")
+    print("🔍 Фильтрация: ВЫСОКИЕ СТАНДАРТЫ")
+    print("=" * 60)
+    print(f"🌐 Dashboard: http://0.0.0.0:5001")
+    print(f"📡 API: http://0.0.0.0:5001/api/*")
+    print("=" * 60)
     
     try:
         app.run(
@@ -838,4 +770,4 @@ if __name__ == '__main__':
             threaded=True
         )
     except Exception as e:
-        print(f"❌ Server error: {e}")
+        print(f"❌ Failed to start server: {e}")
