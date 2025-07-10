@@ -55,7 +55,7 @@ class RealPlayerDataCollector:
             "yannick hanfmann": {"rank": 95, "points": 680, "age": 32},
             "jacob fearnley": {"rank": 320, "points": 145, "age": 23},
             "joao fonseca": {"rank": 145, "points": 385, "age": 18},
-        },
+        
             "carlos alcaraz": {"rank": 2, "points": 8580, "age": 21},
             "alexander zverev": {"rank": 3, "points": 7915, "age": 27},
             "daniil medvedev": {"rank": 4, "points": 6230, "age": 28},
@@ -124,7 +124,7 @@ class RealPlayerDataCollector:
             "emma raducanu": {"rank": 25, "points": 1785, "age": 21},
             "caroline dolehide": {"rank": 85, "points": 780, "age": 25},
             "carson branstine": {"rank": 125, "points": 485, "age": 24},
-        },
+        
             "iga swiatek": {"rank": 2, "points": 8370, "age": 23},
             "coco gauff": {"rank": 3, "points": 6530, "age": 20},
             "jessica pegula": {"rank": 4, "points": 5945, "age": 30},
