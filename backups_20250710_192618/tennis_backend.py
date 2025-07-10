@@ -50,18 +50,6 @@ except ImportError as e:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-# Импорт системы логирования
-try:
-    from prediction_logging_system import PredictionLoggerIntegration
-    LOGGING_AVAILABLE = True
-    prediction_logger = PredictionLoggerIntegration()
-    print("✅ Prediction logging system loaded")
-except ImportError as e:
-    print(f"⚠️ Prediction logging not available: {e}")
-    LOGGING_AVAILABLE = False
-    prediction_logger = None
-
 app = Flask(__name__)
 CORS(app)
 
@@ -869,65 +857,7 @@ def dashboard():
 </body>
 </html>'''
 
-# Добавьте эти роуты в tennis_backend.py ПЕРЕД блоком 
-@app.route('/api/prediction-stats', methods=['GET'])
-def get_prediction_stats():
-    """Статистика прогнозов"""
-    try:
-        if LOGGING_AVAILABLE and prediction_logger:
-            stats = prediction_logger.get_system_performance()
-            return jsonify({
-                'success': True,
-                'stats': stats,
-                'timestamp': datetime.now().isoformat()
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Logging system not available'
-            }), 503
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-@app.route('/api/update-result', methods=['POST'])
-def update_match_result():
-    """Обновление результата матча"""
-    try:
-        data = request.get_json()
-        
-        if not LOGGING_AVAILABLE or not prediction_logger:
-            return jsonify({
-                'success': False,
-                'error': 'Logging system not available'
-            }), 503
-        
-        success = prediction_logger.logger.update_result(
-            player1=data.get('player1'),
-            player2=data.get('player2'),
-            match_date=data.get('match_date'),
-            actual_winner=data.get('actual_winner'),
-            match_score=data.get('match_score', '')
-        )
-        
-        if success:
-            return jsonify({
-                'success': True,
-                'message': 'Result updated successfully'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Match not found or already updated'
-            }), 404
-            
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+# Добавьте эти роуты в tennis_backend.py ПЕРЕД блоком if __name__ == '__main__':
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
