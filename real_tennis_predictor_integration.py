@@ -498,6 +498,133 @@ class RealTennisPredictor:
             factors.append("💎 Опыт больших турниров")
         
         return factors
+    
+    def post_process_prediction(self, prediction: float, player1_data: Dict, player2_data: Dict) -> Dict:
+        """
+        ИСПРАВЛЕНО: Постобработка для UNDERDOG анализа
+        Возвращает вероятность underdog взять хотя бы один сет
+        """
+        p1_rank = player1_data.get('rank', 100)
+        p2_rank = player2_data.get('rank', 100)
+        
+        # Определяем кто underdog, кто фаворит
+        if p1_rank < p2_rank:  # Player1 сильнее (меньший рейтинг)
+            favorite = "player1"
+            underdog = "player2"
+            favorite_rank = p1_rank
+            underdog_rank = p2_rank
+            # prediction - это вероятность player1 выиграть матч
+            # Нам нужна вероятность player2 (underdog) взять хотя бы сет
+            underdog_set_probability = 1 - prediction  # Инвертируем
+        else:  # Player2 сильнее или равны
+            favorite = "player2" 
+            underdog = "player1"
+            favorite_rank = p2_rank
+            underdog_rank = p1_rank
+            # prediction - это вероятность player1 выиграть матч
+            # Player1 - underdog, оставляем как есть
+            underdog_set_probability = prediction
+        
+        rank_diff = abs(favorite_rank - underdog_rank)
+        
+        # Корректировка для underdog взять СЕТ (не матч!)
+        # Даже слабый игрок может взять сет у сильного
+        if rank_diff > 200:
+            # Огромная разница - но даже андердог может взять сет
+            min_set_probability = 0.15  # Минимум 15% взять сет
+            max_set_probability = 0.35  # Максимум 35% для супер-андердога
+        elif rank_diff > 100:
+            min_set_probability = 0.20  # 20% минимум
+            max_set_probability = 0.45  # 45% максимум
+        elif rank_diff > 50:
+            min_set_probability = 0.25  # 25% минимум
+            max_set_probability = 0.55  # 55% максимум
+        else:
+            # Небольшая разница - почти равные шансы на сет
+            min_set_probability = 0.35
+            max_set_probability = 0.65
+        
+        # Применяем ограничения
+        underdog_set_probability = max(min_set_probability, 
+                                    min(underdog_set_probability, max_set_probability))
+        
+        return {
+            'underdog_probability': underdog_set_probability,
+            'favorite': favorite,
+            'underdog': underdog,
+            'favorite_rank': favorite_rank,
+            'underdog_rank': underdog_rank,
+            'rank_difference': rank_diff,
+            'original_prediction': prediction
+        }
+
+    # ТАКЖЕ замените метод predict_match:
+    def predict_match(self, player1: str, player2: str, tournament: str, 
+                    surface: str, round_name: str = "R64") -> Dict:
+        """ИСПРАВЛЕНО: Прогноз для UNDERDOG анализа"""
+        
+        # Создаем признаки на основе реальных данных
+        match_features = self.create_match_features(player1, player2, tournament, surface, round_name)
+        
+        # Получаем данные игроков
+        p1_data = self.data_collector.get_player_data(player1)
+        p2_data = self.data_collector.get_player_data(player2)
+        
+        if self.prediction_service:
+            try:
+                prediction_result = self.prediction_service.predict_match(match_features, return_details=True)
+                
+                # НОВОЕ: Постобработка для underdog анализа
+                underdog_analysis = self.post_process_prediction(
+                    prediction_result['probability'], p1_data, p2_data
+                )
+                
+                print(f"🤖 ML Prediction: {prediction_result['probability']:.1%}")
+                print(f"🎯 Underdog probability (set): {underdog_analysis['underdog_probability']:.1%}")
+                
+                # Определяем underdog игрока
+                if underdog_analysis['underdog'] == 'player1':
+                    underdog_player = player1
+                else:
+                    underdog_player = player2
+                
+                return {
+                    'prediction_type': 'REAL_ML_MODEL_UNDERDOG',
+                    'probability': underdog_analysis['underdog_probability'],  # ГЛАВНОЕ: вероятность underdog
+                    'underdog_player': underdog_player,
+                    'confidence': prediction_result['confidence'],
+                    'confidence_ru': prediction_result.get('confidence_ru', prediction_result['confidence']),
+                    'model_details': prediction_result,
+                    'underdog_analysis': underdog_analysis,
+                    'key_factors': prediction_result.get('key_factors', []),
+                    'individual_predictions': prediction_result.get('individual_predictions', {}),
+                    'match_features': match_features
+                }
+                
+            except Exception as e:
+                print(f"❌ Ошибка ML модели: {e}")
+        
+        # Fallback к симуляции
+        probability = self._advanced_simulation(match_features)
+        underdog_analysis = self.post_process_prediction(probability, p1_data, p2_data)
+        
+        if underdog_analysis['underdog'] == 'player1':
+            underdog_player = player1
+        else:
+            underdog_player = player2
+        
+        confidence = 'High' if underdog_analysis['underdog_probability'] > 0.6 or underdog_analysis['underdog_probability'] < 0.2 else 'Medium'
+        
+        return {
+            'prediction_type': 'ADVANCED_SIMULATION_UNDERDOG',
+            'probability': underdog_analysis['underdog_probability'],  # ГЛАВНОЕ: вероятность underdog
+            'underdog_player': underdog_player,
+            'confidence': confidence,
+            'confidence_ru': 'Высокая' if confidence == 'High' else 'Средняя',
+            'match_features': match_features,
+            'underdog_analysis': underdog_analysis,
+            'key_factors': self._analyze_key_factors(match_features, underdog_analysis['underdog_probability'])
+        }
 
 
 def test_real_predictions():

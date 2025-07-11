@@ -1,0 +1,322 @@
+{
+  "analysis_time": "2025-07-11T16:47:03.260350",
+  "system_components": {},
+  "ml_performance": {
+    "components": {
+      "prediction_service": {
+        "available": true,
+        "models_loaded": true,
+        "models_count": 5,
+        "test_probability": 0.3308,
+        "confidence": "Low"
+      },
+      "real_predictor": {
+        "available": true,
+        "uses_real_ml": true,
+        "prediction_type": "REAL_ML_MODEL_UNDERDOG",
+        "test_probability": 0.5507,
+        "confidence": "Low"
+      },
+      "enhanced_predictor": {
+        "available": true,
+        "features_count": 13,
+        "can_process_data": true
+      }
+    },
+    "ml_score": 1.0,
+    "has_real_ml": true,
+    "integration_quality": "High"
+  },
+  "data_integration": {
+    "components": {
+      "universal_collector": {
+        "working": true,
+        "season_context": "Grass Court Season - Wimbledon Period",
+        "active_tournaments": 1,
+        "matches_available": 0,
+        "odds_generation": false,
+        "next_major": "US Open (in 45 days)"
+      },
+      "api_economy": {
+        "working": true,
+        "requests_available": 30,
+        "cache_items": 3,
+        "manual_update_support": true
+      },
+      "player_data": {
+        "working": true,
+        "known_players": 4,
+        "total_tested": 4,
+        "coverage": 1.0
+      },
+      "api_cache": {
+        "exists": true,
+        "matches_count": 0,
+        "size_bytes": 224187,
+        "has_data": false
+      }
+    },
+    "integration_score": 0.75,
+    "real_data_available": false,
+    "player_data_quality": 1.0
+  },
+  "learning_capability": {
+    "components": {
+      "logging_system": {
+        "working": true,
+        "db_exists": true,
+        "csv_exists": true,
+        "can_log": true,
+        "total_predictions": 0,
+        "accuracy": 0
+      },
+      "data_accumulation": {
+        "working": true,
+        "directories": {
+          "prediction_logs": {
+            "files_count": 2,
+            "total_size": 25311
+          },
+          "tennis_data_enhanced": {
+            "files_count": 3,
+            "total_size": 20771662
+          },
+          "tennis_models": {
+            "files_count": 7,
+            "total_size": 6225428
+          }
+        }
+      },
+      "retraining_capability": {
+        "working": true,
+        "test_auc": 0.5046296296296295,
+        "data_preparable": true
+      }
+    },
+    "learning_score": 1.0,
+    "can_accumulate_data": true,
+    "can_retrain": true
+  },
+  "real_data_flow": {},
+  "overall_assessment": {
+    "overall_score": 93.75,
+    "grade": "🏆 ПРЕВОСХОДНО - Продакшн готов",
+    "component_scores": {
+      "file_completeness": 1.0,
+      "imports_success": 1.0,
+      "ml_capability": 1.0,
+      "data_integration": 0.75,
+      "learning_ability": 1.0,
+      "workflow_success": 1.0,
+      "intelligence_level": 0.75
+    },
+    "ready_for_production": false,
+    "strengths": [
+      "✅ Полная структура файлов - все основные компоненты на месте",
+      "✅ Стабильные импорты - модули загружаются без ошибок",
+      "✅ Реальные ML модели - использует обученные нейросети",
+      "✅ Накопление опыта - система записывает и анализирует результаты",
+      "✅ Использует актуальные рейтинги игроков",
+      "✅ Логичные прогнозы - система понимает силу игроков",
+      "✅ Полный рабочий процесс от данных до результатов"
+    ],
+    "weaknesses": [
+      "❌ Нет доступа к реальным матчам - нужен API ключ",
+      "❌ Мало накопленного опыта - система только начинает обучение"
+    ],
+    "recommendations": [
+      "🔑 Настроить API ключ для The Odds API в config.json",
+      "🔧 Исправить критические ошибки перед запуском",
+      "📊 Начать накапливать реальные результаты матчей",
+      "🎯 Запускать систему во время активных турниров",
+      "📈 Отслеживать точность прогнозов и ROI",
+      "🔄 Регулярно обновлять рейтинги игроков"
+    ],
+    "next_steps": [
+      "🛠️ Критические исправления системы",
+      "📚 Обучение ML моделей на больших данных",
+      "🔑 Настройка всех API интеграций",
+      "🏗️ Полная перестройка проблемных компонентов"
+    ]
+  },
+  "file_structure": {
+    "files": {
+      "main_backend": {
+        "path": "tennis_backend.py",
+        "exists": true,
+        "status": "✅ 78,001 bytes"
+      },
+      "ml_predictor": {
+        "path": "real_tennis_predictor_integration.py",
+        "exists": true,
+        "status": "✅ 37,065 bytes"
+      },
+      "prediction_service": {
+        "path": "tennis_prediction_module.py",
+        "exists": true,
+        "status": "✅ 17,414 bytes"
+      },
+      "api_economy": {
+        "path": "api_economy_patch.py",
+        "exists": true,
+        "status": "✅ 16,904 bytes"
+      },
+      "odds_integration": {
+        "path": "correct_odds_api_integration.py",
+        "exists": true,
+        "status": "✅ 22,073 bytes"
+      },
+      "universal_collector": {
+        "path": "universal_tennis_data_collector.py",
+        "exists": true,
+        "status": "✅ 29,363 bytes"
+      },
+      "advanced_ml": {
+        "path": "advanced_tennis_ml_predictor_fixed.py",
+        "exists": true,
+        "status": "✅ 24,444 bytes"
+      },
+      "set_predictor": {
+        "path": "tennis_set_predictor.py",
+        "exists": true,
+        "status": "✅ 29,396 bytes"
+      },
+      "logging_system": {
+        "path": "prediction_logging_system.py",
+        "exists": true,
+        "status": "✅ 31,004 bytes"
+      },
+      "config": {
+        "path": "config.json",
+        "exists": true,
+        "status": "✅ 2,168 bytes"
+      },
+      "models_dir": {
+        "path": "tennis_models/",
+        "exists": true,
+        "status": "✅ 7 items"
+      },
+      "data_dir": {
+        "path": "tennis_data_enhanced/",
+        "exists": true,
+        "status": "✅ 3 items"
+      },
+      "logs_dir": {
+        "path": "prediction_logs/",
+        "exists": true,
+        "status": "✅ 2 items"
+      },
+      "cache_file": {
+        "path": "api_cache.json",
+        "exists": true,
+        "status": "✅ 224,187 bytes"
+      },
+      "usage_file": {
+        "path": "api_usage.json",
+        "exists": true,
+        "status": "✅ 234 bytes"
+      }
+    },
+    "completeness": 1.0,
+    "critical_missing": []
+  },
+  "imports_modules": {
+    "results": {
+      "real_tennis_predictor_integration": {
+        "status": "✅ Working",
+        "working": true,
+        "class_name": "RealTennisPredictor",
+        "error": null
+      },
+      "tennis_prediction_module": {
+        "status": "✅ Working",
+        "working": true,
+        "class_name": "TennisPredictionService",
+        "error": null
+      },
+      "api_economy_patch": {
+        "status": "✅ Function available",
+        "working": true,
+        "class_name": "economical_tennis_request",
+        "error": null
+      },
+      "correct_odds_api_integration": {
+        "status": "✅ Working",
+        "working": true,
+        "class_name": "TennisOddsIntegrator",
+        "error": null
+      },
+      "universal_tennis_data_collector": {
+        "status": "✅ Working",
+        "working": true,
+        "class_name": "UniversalTennisDataCollector",
+        "error": null
+      },
+      "prediction_logging_system": {
+        "status": "✅ Working",
+        "working": true,
+        "class_name": "CompletePredictionLogger",
+        "error": null
+      },
+      "tennis_set_predictor": {
+        "status": "✅ Working",
+        "working": true,
+        "class_name": "EnhancedTennisPredictor",
+        "error": null
+      }
+    },
+    "success_rate": 1.0,
+    "working_modules": [
+      "real_tennis_predictor_integration",
+      "tennis_prediction_module",
+      "api_economy_patch",
+      "correct_odds_api_integration",
+      "universal_tennis_data_collector",
+      "prediction_logging_system",
+      "tennis_set_predictor"
+    ]
+  },
+  "workflow_test": {
+    "working": true,
+    "steps_completed": 5,
+    "matches_processed": 1,
+    "odds_generated": 1,
+    "predictions_made": 1,
+    "predictions_logged": 1,
+    "system_accuracy": 0,
+    "total_predictions_in_system": 0
+  },
+  "system_intelligence": {
+    "components": {
+      "ranking_quality": {
+        "accurate_count": 4,
+        "total_tested": 4,
+        "accuracy": 1.0,
+        "uses_real_rankings": true
+      },
+      "prediction_logic": {
+        "logical_count": 2,
+        "total_tested": 3,
+        "logic_score": 0.6666666666666666,
+        "makes_sense": true
+      },
+      "seasonal_adaptation": {
+        "understands_season": true,
+        "season_context": "Grass Court Season - Wimbledon Period",
+        "tracks_tournaments": true,
+        "knows_next_major": true
+      },
+      "experience_accumulation": {
+        "total_predictions": 0,
+        "accuracy": 0,
+        "is_learning": false,
+        "has_memory": false
+      }
+    },
+    "intelligence_score": 0.75,
+    "uses_real_data": true,
+    "logical_predictions": true,
+    "adapts_to_context": true,
+    "learns_from_experience": false
+  }
+}

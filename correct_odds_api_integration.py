@@ -236,39 +236,73 @@ class TheOddsAPICorrect:
 
 class TennisOddsIntegrator:
     """
-    Интегратор для подключения The Odds API к твоей системе
+    ИСПРАВЛЕНО: Интегратор для подключения The Odds API к вашей системе
     """
     
-    def __init__(self, api_key: str):
-        self.odds_api = TheOddsAPICorrect(api_key)
+    def __init__(self, api_key: str = None):
+        """
+        ИСПРАВЛЕНО: Инициализация с автоматическим поиском API ключа
+        """
+        if api_key is None:
+            # Пытаемся загрузить из config.json
+            try:
+                import os
+                import json
+                if os.path.exists('config.json'):
+                    with open('config.json', 'r') as f:
+                        config = json.load(f)
+                        api_key = config.get('data_sources', {}).get('the_odds_api', {}).get('api_key')
+                        
+                        # Проверяем что ключ не пустой и не заглушка
+                        if not api_key or api_key in ['YOUR_API_KEY', 'your_api_key_here', '']:
+                            api_key = None
+            except Exception as e:
+                print(f"⚠️ Ошибка чтения config.json: {e}")
+                api_key = None
+        
+        if api_key is None:
+            print("⚠️ API ключ не найден. Интегратор создан в режиме заглушки.")
+            print("💡 Для реальных коэффициентов добавьте API ключ в config.json")
+            self.odds_api = None
+            self.mock_mode = True
+        else:
+            try:
+                self.odds_api = TheOddsAPICorrect(api_key)
+                self.mock_mode = False
+                print(f"✅ TennisOddsIntegrator инициализирован с реальным API")
+            except Exception as e:
+                print(f"⚠️ Ошибка инициализации API: {e}")
+                print("🔄 Переключаемся в режим заглушки")
+                self.odds_api = None
+                self.mock_mode = True
+        
         self.cache = {}
         self.last_update = None
         
     def get_live_tennis_odds(self, force_refresh: bool = False) -> Dict[str, Dict]:
         """
-        Получить актуальные коэффициенты на теннис
-        С кешированием для экономии API запросов
+        ИСПРАВЛЕНО: Получить актуальные коэффициенты (с fallback на заглушку)
         """
+        if self.mock_mode or self.odds_api is None:
+            return self._get_mock_odds()
+        
+        # Реальный API код (как было раньше)
         now = datetime.now()
         
-        # Используем кеш если данные свежие (младше 10 минут)
         if (not force_refresh and self.cache and self.last_update and 
             (now - self.last_update).total_seconds() < 600):
-            logger.info("📋 Using cached odds data")
+            print("📋 Using cached odds data")
             return self.cache
         
-        logger.info("🔄 Fetching fresh odds data...")
+        print("🔄 Fetching fresh odds data...")
         
-        # Пробуем разные теннисные виды спорта
         all_odds = {}
         
-        # Сначала пробуем основной теннис
         tennis_odds = self.odds_api.get_tennis_odds('tennis')
         if tennis_odds:
             converted = self.odds_api.convert_to_tennis_format(tennis_odds)
             all_odds.update(converted)
         
-        # Пробуем ATP и WTA отдельно
         for sport_key in ['tennis_atp', 'tennis_wta']:
             try:
                 sport_odds = self.odds_api.get_tennis_odds(sport_key)
@@ -276,24 +310,55 @@ class TennisOddsIntegrator:
                     converted = self.odds_api.convert_to_tennis_format(sport_odds)
                     all_odds.update(converted)
             except Exception as e:
-                logger.warning(f"⚠️ Could not get {sport_key}: {e}")
+                print(f"⚠️ Could not get {sport_key}: {e}")
         
-        # Обновляем кеш
         self.cache = all_odds
         self.last_update = now
         
-        logger.info(f"✅ Got {len(all_odds)} tennis matches with real odds")
+        print(f"✅ Got {len(all_odds)} tennis matches with real odds")
         return all_odds
     
+    def _get_mock_odds(self) -> Dict[str, Dict]:
+        """Заглушка для коэффициентов когда API недоступен"""
+        print("🎭 Генерируем тестовые коэффициенты (API недоступен)")
+        
+        mock_odds = {
+            'mock_match_1': {
+                'match_info': {
+                    'player1': 'Test Player 1',
+                    'player2': 'Test Player 2',
+                    'tournament': 'Test Tournament',
+                    'surface': 'Hard',
+                    'date': datetime.now().strftime('%Y-%m-%d'),
+                    'source': 'mock_data'
+                },
+                'best_markets': {
+                    'winner': {
+                        'player1': {'odds': 1.85, 'bookmaker': 'Mock Bookmaker'},
+                        'player2': {'odds': 1.95, 'bookmaker': 'Mock Bookmaker'}
+                    }
+                }
+            }
+        }
+        
+        return mock_odds
+    
     def get_integration_status(self) -> Dict:
-        """Статус интеграции"""
+        """ИСПРАВЛЕНО: Статус интеграции"""
+        if self.mock_mode:
+            return {
+                'status': 'mock_mode',
+                'message': 'Working in mock mode - API key not available',
+                'tennis_sports_available': 0,
+                'matches_with_odds': 1,
+                'api_usage': {'requests_used': 0, 'requests_remaining': 'N/A'},
+                'last_check': datetime.now().isoformat()
+            }
+        
+        # Реальный статус (как было раньше)
         try:
-            # Тест подключения
             sports = self.odds_api.get_available_sports()
-            
-            # Тест получения коэффициентов
             odds = self.get_live_tennis_odds()
-            
             usage = self.odds_api.get_usage_stats()
             
             return {
@@ -310,10 +375,13 @@ class TennisOddsIntegrator:
                 'error': str(e),
                 'last_check': datetime.now().isoformat()
             }
-
+        
+    # ДОБАВЬТЕ В КОНЕЦ файла correct_odds_api_integration.py (после класса TennisOddsIntegrator):
 
 def test_integration(api_key: str):
-    """Тестирование интеграции"""
+    """
+    ВОССТАНОВЛЕНО: Тестирование интеграции
+    """
     print("🎾 TESTING THE ODDS API INTEGRATION")
     print("=" * 50)
     
@@ -329,6 +397,12 @@ def test_integration(api_key: str):
         status = integrator.get_integration_status()
         
         print(f"🔌 Status: {status['status']}")
+        
+        if status['status'] == 'mock_mode':
+            print("🎭 Working in mock mode")
+            print(f"🎾 Mock data available: {status.get('matches_with_odds', 0)} matches")
+            return
+        
         print(f"🎾 Tennis sports: {status.get('tennis_sports_available', 0)}")
         print(f"⚽ Matches with odds: {status.get('matches_with_odds', 0)}")
         
@@ -348,7 +422,7 @@ def test_integration(api_key: str):
                 winner_odds = match_data['best_markets']['winner']
                 
                 print(f"\n🎾 Match {i}: {match_info['player1']} vs {match_info['player2']}")
-                print(f"   📅 Date: {match_info['date']} {match_info['time']}")
+                print(f"   📅 Date: {match_info['date']}")
                 print(f"   💰 Odds: {winner_odds['player1']['odds']} ({winner_odds['player1']['bookmaker']}) vs")
                 print(f"           {winner_odds['player2']['odds']} ({winner_odds['player2']['bookmaker']})")
         
@@ -356,7 +430,65 @@ def test_integration(api_key: str):
             print("⚠️ No tennis matches found")
             print("💡 Tennis might be out of season or check sport keys")
         
-        print(f"\n🎯 Ready for integration!")
+        print(f"\n🎯 Integration test completed!")
+        
+    except Exception as e:
+        print(f"❌ Integration test failed: {e}")
+
+
+def test_integration(api_key: str):
+    """
+    ВОССТАНОВЛЕНО: Тестирование интеграции
+    """
+    print("🎾 TESTING THE ODDS API INTEGRATION")
+    print("=" * 50)
+    
+    if not api_key or api_key == "YOUR_API_KEY":
+        print("❌ Please provide a real API key!")
+        return
+    
+    try:
+        # Создаем интегратор
+        integrator = TennisOddsIntegrator(api_key)
+        
+        # Проверяем статус
+        status = integrator.get_integration_status()
+        
+        print(f"🔌 Status: {status['status']}")
+        
+        if status['status'] == 'mock_mode':
+            print("🎭 Working in mock mode")
+            print(f"🎾 Mock data available: {status.get('matches_with_odds', 0)} matches")
+            return
+        
+        print(f"🎾 Tennis sports: {status.get('tennis_sports_available', 0)}")
+        print(f"⚽ Matches with odds: {status.get('matches_with_odds', 0)}")
+        
+        if 'api_usage' in status:
+            usage = status['api_usage']
+            print(f"📊 API Usage: {usage['requests_used']}/{usage['requests_remaining']} remaining")
+        
+        # Получаем реальные коэффициенты
+        print("\n🔍 Getting live tennis odds...")
+        odds = integrator.get_live_tennis_odds(force_refresh=True)
+        
+        if odds:
+            print(f"\n✅ SUCCESS! Got {len(odds)} matches with real odds:")
+            
+            for i, (match_id, match_data) in enumerate(list(odds.items())[:3], 1):
+                match_info = match_data['match_info']
+                winner_odds = match_data['best_markets']['winner']
+                
+                print(f"\n🎾 Match {i}: {match_info['player1']} vs {match_info['player2']}")
+                print(f"   📅 Date: {match_info['date']}")
+                print(f"   💰 Odds: {winner_odds['player1']['odds']} ({winner_odds['player1']['bookmaker']}) vs")
+                print(f"           {winner_odds['player2']['odds']} ({winner_odds['player2']['bookmaker']})")
+        
+        else:
+            print("⚠️ No tennis matches found")
+            print("💡 Tennis might be out of season or check sport keys")
+        
+        print(f"\n🎯 Integration test completed!")
         
     except Exception as e:
         print(f"❌ Integration test failed: {e}")

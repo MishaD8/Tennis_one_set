@@ -36,54 +36,77 @@ class CompletePredictionLogger:
     def _init_database(self):
         """Инициализация SQLite базы данных"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute('''
-                CREATE TABLE IF NOT EXISTS predictions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TEXT NOT NULL,
-                    match_date TEXT NOT NULL,
-                    player1 TEXT NOT NULL,
-                    player2 TEXT NOT NULL,
-                    tournament TEXT,
-                    surface TEXT,
-                    round_name TEXT,
-                    our_probability REAL NOT NULL,
-                    confidence TEXT,
-                    ml_system TEXT,
-                    prediction_type TEXT,
-                    key_factors TEXT,
-                    
-                    -- Букмекерские данные
-                    bookmaker_odds REAL,
-                    bookmaker_probability REAL,
-                    edge REAL,
-                    recommendation TEXT,
-                    
-                    -- Результаты (заполняются позже)
-                    actual_result TEXT,
-                    actual_winner TEXT,
-                    sets_won_p1 INTEGER,
-                    sets_won_p2 INTEGER,
-                    match_score TEXT,
-                    
-                    -- Анализ результата
-                    correct_prediction INTEGER,
-                    profit_loss REAL,
-                    logged_result INTEGER DEFAULT 0,
-                    
-                    -- Метаданные
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-                ''')
+                # ВАЖНО: создаем подключение к базе
+            self.conn = sqlite3.connect(self.db_path)
+            
+            self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS predictions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                match_date TEXT NOT NULL,
+                player1 TEXT NOT NULL,
+                player2 TEXT NOT NULL,
+                tournament TEXT,
+                surface TEXT,
+                round_name TEXT,
+                our_probability REAL NOT NULL,
+                confidence TEXT,
+                ml_system TEXT,
+                prediction_type TEXT,
+                key_factors TEXT,
                 
-                # Индексы для быстрого поиска
-                conn.execute('CREATE INDEX IF NOT EXISTS idx_match_date ON predictions(match_date)')
-                conn.execute('CREATE INDEX IF NOT EXISTS idx_players ON predictions(player1, player2)')
-                conn.execute('CREATE INDEX IF NOT EXISTS idx_logged ON predictions(logged_result)')
+                -- Букмекерские данные
+                bookmaker_odds REAL,
+                bookmaker_probability REAL,
+                edge REAL,
+                recommendation TEXT,
                 
+                -- Результаты (заполняются позже)
+                actual_result TEXT,
+                actual_winner TEXT,
+                sets_won_p1 INTEGER,
+                sets_won_p2 INTEGER,
+                match_score TEXT,
+                
+                -- Анализ результата
+                correct_prediction INTEGER,
+                profit_loss REAL,
+                logged_result INTEGER DEFAULT 0,
+                
+                -- Метаданные
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            ''')
+            
+            # Индексы для быстрого поиска
+            self.conn.execute('CREATE INDEX IF NOT EXISTS idx_match_date ON predictions(match_date)')
+            self.conn.execute('CREATE INDEX IF NOT EXISTS idx_players ON predictions(player1, player2)')
+            self.conn.execute('CREATE INDEX IF NOT EXISTS idx_logged ON predictions(logged_result)')
+            
+            # Сохраняем изменения
+            self.conn.commit()
+            
             print(f"✅ База данных инициализирована: {self.db_path}")
         except Exception as e:
             print(f"❌ Ошибка инициализации БД: {e}")
+
+    # ТАКЖЕ убедитесь что в __init__ вызывается _init_database:
+    def __init__(self, data_dir="prediction_logs"):
+        self.data_dir = data_dir
+        self.db_path = os.path.join(data_dir, "predictions.db")
+        self.csv_path = os.path.join(data_dir, "predictions.csv")
+        self.stats_file = os.path.join(data_dir, "accuracy_stats.json")
+        
+        # Создаем директорию
+        if not os.path.exists(data_dir):
+            os.makedirs(data_dir)
+            print(f"✅ Создана директория: {data_dir}")
+        
+        # ВАЖНО: Инициализируем базу данных (создает self.conn)
+        self._init_database()
+        
+        # Инициализируем CSV
+        self._init_csv()
     
     def _init_csv(self):
         """Инициализация CSV файла"""
@@ -103,54 +126,55 @@ class CompletePredictionLogger:
             
             print(f"✅ CSV файл создан: {self.csv_path}")
     
-    def log_prediction(self, match_data: Dict) -> str:
+    def log_prediction(self, prediction_data):
         """Логирует прогноз на матч в БД и CSV"""
         timestamp = datetime.now().isoformat()
         prediction_id = f"pred_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
         # Извлекаем данные
-        player1 = match_data.get('player1', '')
-        player2 = match_data.get('player2', '')
-        tournament = match_data.get('tournament', '')
-        surface = match_data.get('surface', '')
-        round_name = match_data.get('round', 'R64')
+        player1 = prediction_data.get('player1', '')
+        player2 = prediction_data.get('player2', '')
+        tournament = prediction_data.get('tournament', '')
+        surface = prediction_data.get('surface', '')
+        round_name = prediction_data.get('round', 'R64')
         
-        our_prob = match_data.get('our_probability', 0.5)
-        confidence = match_data.get('confidence', 'Medium')
-        ml_system = match_data.get('ml_system', 'Unknown')
-        prediction_type = match_data.get('prediction_type', 'ML_PREDICTION')
-        key_factors = json.dumps(match_data.get('key_factors', []))
+        our_prob = prediction_data.get('our_probability', 0.5)
+        confidence = prediction_data.get('confidence', 'Medium')
+        ml_system = prediction_data.get('ml_system', 'Unknown')
+        prediction_type = prediction_data.get('prediction_type', 'ML_PREDICTION')
+        key_factors = json.dumps(prediction_data.get('key_factors', []))
         
         # Букмекерские данные
-        bookmaker_odds = match_data.get('bookmaker_odds', 2.0)
+        bookmaker_odds = prediction_data.get('bookmaker_odds', 2.0)
         bookmaker_prob = 1 / bookmaker_odds if bookmaker_odds else 0.5
         edge = our_prob - bookmaker_prob
         recommendation = 'BET' if edge > 0.05 else 'PASS'
         
         try:
-            # Записываем в базу данных
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute('''
+            # ИСПРАВЛЕНО: Используем cursor для получения lastrowid
+            cursor = self.conn.cursor()
+            cursor.execute('''
                 INSERT INTO predictions (
                     timestamp, match_date, player1, player2, tournament, surface, round_name,
                     our_probability, confidence, ml_system, prediction_type, key_factors,
                     bookmaker_odds, bookmaker_probability, edge, recommendation
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    timestamp, match_data.get('match_date', datetime.now().date().isoformat()),
-                    player1, player2, tournament, surface, round_name,
-                    our_prob, confidence, ml_system, prediction_type, key_factors,
-                    bookmaker_odds, bookmaker_prob, edge, recommendation
-                ))
-                
-                # Получаем ID записи
-                db_id = conn.lastrowid
+            ''', (
+                timestamp, prediction_data.get('match_date', datetime.now().date().isoformat()),
+                player1, player2, tournament, surface, round_name,
+                our_prob, confidence, ml_system, prediction_type, key_factors,
+                bookmaker_odds, bookmaker_prob, edge, recommendation
+            ))
+            
+            # ИСПРАВЛЕНО: cursor.lastrowid вместо conn.lastrowid
+            row_id = cursor.lastrowid
+            self.conn.commit()
             
             # Записываем в CSV
             with open(self.csv_path, 'a', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f)
                 writer.writerow([
-                    db_id, timestamp, match_data.get('match_date', datetime.now().date().isoformat()),
+                    row_id, timestamp, prediction_data.get('match_date', datetime.now().date().isoformat()),
                     player1, player2, tournament, surface, round_name,
                     our_prob, confidence, ml_system, prediction_type,
                     bookmaker_odds, edge, recommendation,
@@ -160,13 +184,14 @@ class CompletePredictionLogger:
             print(f"📝 Прогноз залогирован: {player1} vs {player2}")
             print(f"   Наш прогноз: {our_prob:.1%} vs Букмекеры: {bookmaker_prob:.1%}")
             print(f"   Преимущество: {edge:+.1%} → {recommendation}")
-            print(f"   ID в БД: {db_id}")
+            print(f"   ID в БД: {row_id}")
             
-            return str(db_id)
+            return str(row_id)
             
         except Exception as e:
+            self.conn.rollback()
             print(f"❌ Ошибка логирования: {e}")
-            return ""
+            return None
     
     def update_result(self, player1: str, player2: str, match_date: str,
                      actual_winner: str, match_score: str = "") -> bool:
