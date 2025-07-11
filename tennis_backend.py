@@ -325,22 +325,176 @@ class UnderdogAnalyzer:
             'underdog_scenario': scenario
         }
 
+def format_match_for_dashboard(match_data: Dict, source: str = "unknown") -> Dict:
+    """Унифицирует данные матча для dashboard"""
+    try:
+        # Базовые поля
+        formatted = {
+            'id': match_data.get('id', f"match_{datetime.now().timestamp()}"),
+            'player1': match_data.get('player1', 'Unknown Player 1'),
+            'player2': match_data.get('player2', 'Unknown Player 2'),
+            'tournament': match_data.get('tournament', 'Unknown Tournament'),
+            'surface': match_data.get('surface', 'Hard'),
+            'date': match_data.get('date', datetime.now().strftime('%Y-%m-%d')),
+            'time': match_data.get('time', 'TBD'),
+            'round': match_data.get('round', 'R32'),
+            'court': match_data.get('court', 'Court 1'),
+            'status': match_data.get('status', 'upcoming'),
+            'source': source
+        }
+        
+        # Убираем эмодзи если они уже есть, потом добавляем заново
+        formatted['player1'] = formatted['player1'].replace('🎾 ', '')
+        formatted['player2'] = formatted['player2'].replace('🎾 ', '')
+        formatted['tournament'] = formatted['tournament'].replace('🏆 ', '')
+        
+        # Добавляем эмодзи единообразно
+        formatted['player1'] = f"🎾 {formatted['player1']}"
+        formatted['player2'] = f"🎾 {formatted['player2']}"
+        formatted['tournament'] = f"🏆 {formatted['tournament']}"
+        
+        # Коэффициенты
+        odds = match_data.get('odds', {})
+        formatted['odds'] = {
+            'player1': odds.get('player1', 2.0),
+            'player2': odds.get('player2', 2.0)
+        }
+        
+        # Underdog анализ
+        underdog_analysis = match_data.get('underdog_analysis', {})
+        formatted['underdog_analysis'] = underdog_analysis
+        
+        # Prediction данные для совместимости с dashboard
+        prediction = match_data.get('prediction', {})
+        formatted['prediction'] = {
+            'probability': prediction.get('probability', underdog_analysis.get('underdog_probability', 0.5)),
+            'confidence': prediction.get('confidence', underdog_analysis.get('confidence', 'Medium'))
+        }
+        
+        # Key factors
+        formatted['key_factors'] = match_data.get('key_factors', underdog_analysis.get('key_factors', []))
+        formatted['prediction_type'] = match_data.get('prediction_type', underdog_analysis.get('prediction_type', 'ANALYSIS'))
+        
+        # Debug info
+        formatted['debug_info'] = {
+            'original_source': source,
+            'has_underdog_analysis': bool(underdog_analysis),
+            'original_status': match_data.get('status'),
+            'processed_at': datetime.now().isoformat()
+        }
+        
+        return formatted
+        
+    except Exception as e:
+        logger.error(f"❌ Error formatting match data: {e}")
+        # Возвращаем базовый формат в случае ошибки
+        return {
+            'id': 'error_match',
+            'player1': '🎾 Error Player 1',
+            'player2': '🎾 Error Player 2', 
+            'tournament': '🏆 Error Tournament',
+            'surface': 'Hard',
+            'date': datetime.now().strftime('%Y-%m-%d'),
+            'time': 'TBD',
+            'status': 'error',
+            'source': 'format_error',
+            'odds': {'player1': 2.0, 'player2': 2.0},
+            'prediction': {'probability': 0.5, 'confidence': 'Low'},
+            'key_factors': ['Error formatting match'],
+            'prediction_type': 'ERROR'
+        }
+
 def get_live_matches_with_underdog_focus() -> Dict:
     """Получение матчей с фокусом на underdog анализ"""
     
     try:
-        # Сначала пробуем получить реальные данные через API
+        # 1. ПРИОРИТЕТ: Universal Collector (реальные турниры)
+        if UNIVERSAL_COLLECTOR_AVAILABLE and universal_collector and odds_collector:
+            try:
+                logger.info("🌍 Trying Universal Collector first...")
+                current_matches = universal_collector.get_current_matches()
+                
+                # Фильтруем только реальные матчи (не training/preparation)
+                real_matches = [m for m in current_matches if m.get('status') not in ['training', 'preparation']]
+                
+                if real_matches:
+                    logger.info(f"✅ Got {len(real_matches)} real matches from Universal Collector")
+                    odds_data = odds_collector.generate_realistic_odds(real_matches)
+                    
+                    analyzer = UnderdogAnalyzer()
+                    processed_matches = []
+                    
+                    for match in real_matches[:6]:  # Берем первые 6 реальных матчей
+                        try:
+                            player1 = match['player1']
+                            player2 = match['player2']
+                            
+                            # Получаем коэффициенты
+                            match_odds = odds_data.get(match['id'], {})
+                            winner_market = match_odds.get('best_markets', {}).get('winner', {})
+                            
+                            odds = {
+                                'player1': winner_market.get('player1', {}).get('odds', 2.0),
+                                'player2': winner_market.get('player2', {}).get('odds', 2.0)
+                            }
+                            
+                            # Underdog анализ
+                            underdog_analysis = analyzer.calculate_underdog_probability(
+                                player1, player2, match['tournament'], match['surface']
+                            )
+                            
+                            processed_match = {
+                                'id': match['id'],
+                                'player1': f"🎾 {player1}",
+                                'player2': f"🎾 {player2}",
+                                'tournament': f"🏆 {match['tournament']}",
+                                'surface': match['surface'],
+                                'date': match['date'],
+                                'time': match['time'],
+                                'round': match['round'],
+                                'court': match.get('court', 'Court 1'),
+                                'status': f"real_{match['status']}",
+                                'source': 'UNIVERSAL_COLLECTOR_REAL',
+                                'odds': odds,
+                                'underdog_analysis': underdog_analysis,
+                                'prediction': {
+                                    'probability': underdog_analysis['underdog_probability'],
+                                    'confidence': underdog_analysis['confidence']
+                                },
+                                'prediction_type': underdog_analysis['prediction_type'],
+                                'key_factors': underdog_analysis['key_factors']
+                            }
+                            
+                            processed_matches.append(processed_match)
+                            
+                        except Exception as e:
+                            logger.warning(f"Error processing universal match: {e}")
+                            continue
+                    
+                    if processed_matches:
+                        return {
+                            'matches': processed_matches,
+                            'source': 'UNIVERSAL_COLLECTOR_REAL',
+                            'success': True,
+                            'count': len(processed_matches)
+                        }
+                        
+            except Exception as e:
+                logger.warning(f"Universal collector failed: {e}")
+        
+        # 2. ВТОРОЙ ПРИОРИТЕТ: API Economy (если доступно)
         if API_ECONOMY_AVAILABLE:
             try:
+                logger.info("💰 Trying API Economy...")
                 api_result = economical_tennis_request('tennis')
                 if api_result['success'] and api_result['data']:
                     logger.info(f"✅ Got {len(api_result['data'])} matches from API")
                     
-                    # Преобразуем API данные
+                    # Ваш существующий код обработки API данных...
                     processed_matches = []
                     analyzer = UnderdogAnalyzer()
                     
-                    for i, match in enumerate(api_result['data'][:6]):  # Берем первые 6 матчей
+                    for i, match in enumerate(api_result['data'][:6]):
                         try:
                             player1 = match.get('home_team', f'Player {i+1}A')
                             player2 = match.get('away_team', f'Player {i+1}B')
@@ -367,7 +521,7 @@ def get_live_matches_with_underdog_focus() -> Dict:
                                 'id': f"api_match_{i}",
                                 'player1': f"🎾 {player1}",
                                 'player2': f"🎾 {player2}",
-                                'tournament': '🏆 Live Tournament',
+                                'tournament': '🏆 Live Tournament (API)',
                                 'surface': 'Hard',
                                 'date': datetime.now().strftime('%Y-%m-%d'),
                                 'time': '14:00',
@@ -398,80 +552,80 @@ def get_live_matches_with_underdog_focus() -> Dict:
                             'success': True,
                             'count': len(processed_matches)
                         }
-                        
+                            
             except Exception as e:
                 logger.warning(f"API request failed: {e}")
-        
-        # Fallback: используем Universal Collector
-        if UNIVERSAL_COLLECTOR_AVAILABLE and universal_collector and odds_collector:
-            try:
-                current_matches = universal_collector.get_current_matches()
-                odds_data = odds_collector.generate_realistic_odds(current_matches)
-                
-                analyzer = UnderdogAnalyzer()
-                processed_matches = []
-                
-                for match in current_matches[:6]:
-                    try:
-                        player1 = match['player1']
-                        player2 = match['player2']
-                        
-                        # Получаем коэффициенты
-                        match_odds = odds_data.get(match['id'], {})
-                        winner_market = match_odds.get('best_markets', {}).get('winner', {})
-                        
-                        odds = {
-                            'player1': winner_market.get('player1', {}).get('odds', 2.0),
-                            'player2': winner_market.get('player2', {}).get('odds', 2.0)
-                        }
-                        
-                        # Underdog анализ
-                        underdog_analysis = analyzer.calculate_underdog_probability(
-                            player1, player2, match['tournament'], match['surface']
-                        )
-                        
-                        processed_match = {
-                            'id': match['id'],
-                            'player1': f"🎾 {player1}",
-                            'player2': f"🎾 {player2}",
-                            'tournament': f"🏆 {match['tournament']}",
-                            'surface': match['surface'],
-                            'date': match['date'],
-                            'time': match['time'],
-                            'round': match['round'],
-                            'court': match.get('court', 'Court 1'),
-                            'status': match['status'],
-                            'source': 'UNIVERSAL_COLLECTOR',
-                            'odds': odds,
-                            'underdog_analysis': underdog_analysis,
-                            'prediction': {
-                                'probability': underdog_analysis['underdog_probability'],
-                                'confidence': underdog_analysis['confidence']
-                            },
-                            'prediction_type': underdog_analysis['prediction_type'],
-                            'key_factors': underdog_analysis['key_factors']
-                        }
-                        
-                        processed_matches.append(processed_match)
-                        
-                    except Exception as e:
-                        logger.warning(f"Error processing universal match: {e}")
-                        continue
-                
-                if processed_matches:
-                    return {
-                        'matches': processed_matches,
-                        'source': 'UNIVERSAL_COLLECTOR',
-                        'success': True,
-                        'count': len(processed_matches)
-                    }
+            
+            # Fallback: используем Universal Collector
+            if UNIVERSAL_COLLECTOR_AVAILABLE and universal_collector and odds_collector:
+                try:
+                    current_matches = universal_collector.get_current_matches()
+                    odds_data = odds_collector.generate_realistic_odds(current_matches)
                     
-            except Exception as e:
-                logger.warning(f"Universal collector failed: {e}")
-        
-        # Последний fallback: тестовые данные
-        return generate_sample_underdog_matches()
-        
+                    analyzer = UnderdogAnalyzer()
+                    processed_matches = []
+                    
+                    for match in current_matches[:6]:
+                        try:
+                            player1 = match['player1']
+                            player2 = match['player2']
+                            
+                            # Получаем коэффициенты
+                            match_odds = odds_data.get(match['id'], {})
+                            winner_market = match_odds.get('best_markets', {}).get('winner', {})
+                            
+                            odds = {
+                                'player1': winner_market.get('player1', {}).get('odds', 2.0),
+                                'player2': winner_market.get('player2', {}).get('odds', 2.0)
+                            }
+                            
+                            # Underdog анализ
+                            underdog_analysis = analyzer.calculate_underdog_probability(
+                                player1, player2, match['tournament'], match['surface']
+                            )
+                            
+                            processed_match = {
+                                'id': match['id'],
+                                'player1': f"🎾 {player1}",
+                                'player2': f"🎾 {player2}",
+                                'tournament': f"🏆 {match['tournament']}",
+                                'surface': match['surface'],
+                                'date': match['date'],
+                                'time': match['time'],
+                                'round': match['round'],
+                                'court': match.get('court', 'Court 1'),
+                                'status': match['status'],
+                                'source': 'UNIVERSAL_COLLECTOR',
+                                'odds': odds,
+                                'underdog_analysis': underdog_analysis,
+                                'prediction': {
+                                    'probability': underdog_analysis['underdog_probability'],
+                                    'confidence': underdog_analysis['confidence']
+                                },
+                                'prediction_type': underdog_analysis['prediction_type'],
+                                'key_factors': underdog_analysis['key_factors']
+                            }
+                            
+                            processed_matches.append(processed_match)
+                            
+                        except Exception as e:
+                            logger.warning(f"Error processing universal match: {e}")
+                            continue
+                    
+                    if processed_matches:
+                        return {
+                            'matches': processed_matches,
+                            'source': 'UNIVERSAL_COLLECTOR',
+                            'success': True,
+                            'count': len(processed_matches)
+                        }
+                        
+                except Exception as e:
+                    logger.warning(f"Universal collector failed: {e}")
+            
+            # Последний fallback: тестовые данные
+            return generate_sample_underdog_matches()
+            
     except Exception as e:
         logger.error(f"❌ Critical error in get_live_matches: {e}")
         return generate_sample_underdog_matches()
@@ -1043,7 +1197,46 @@ def get_stats():
 def get_matches():
     """Получение матчей с underdog анализом"""
     try:
-        logger.info("🎾 Getting matches with underdog analysis...")
+        # Параметр для контроля источника данных
+        use_real_data_only = request.args.get('real_data_only', 'true').lower() == 'true'
+        force_source = request.args.get('source', None)  # 'universal', 'api', 'test'
+        
+        logger.info(f"🎾 Getting matches (real_data_only={use_real_data_only}, force_source={force_source})")
+        
+        # Получаем матчи
+        matches_result = get_live_matches_with_underdog_focus()
+        
+        if not matches_result['success']:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get matches',
+                'matches': []
+            }), 500
+        
+        # Фильтруем данные если нужны только реальные
+        raw_matches = matches_result['matches']
+        
+        if use_real_data_only:
+            # Убираем тестовые данные
+            real_matches = [
+                match for match in raw_matches 
+                if not any(test_indicator in match.get('source', '').lower() 
+                          for test_indicator in ['test', 'sample', 'underdog_generator', 'fallback'])
+            ]
+            
+            if real_matches:
+                logger.info(f"✅ Filtered to {len(real_matches)} real matches (was {len(raw_matches)})")
+                raw_matches = real_matches
+            else:
+                logger.warning("⚠️ No real matches found, keeping original data")
+        
+        # Унифицируем формат всех матчей
+        formatted_matches = []
+        for match in raw_matches:
+            formatted_match = format_match_for_dashboard(match, matches_result['source'])
+            formatted_matches.append(formatted_match)
+        
+        logger.info(f"📊 Returning {len(formatted_matches)} formatted matches")
         
         # Получаем матчи
         matches_result = get_live_matches_with_underdog_focus()
@@ -1365,6 +1558,135 @@ def get_player_info(player_name):
         
     except Exception as e:
         logger.error(f"❌ Player info error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/test-underdog', methods=['POST'])
+def test_underdog_analysis():
+    """Тестирование underdog анализа (для кнопки 'Test Underdog Analysis')"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            # Используем дефолтные данные если не переданы
+            data = {
+                'player1': 'Flavio Cobolli',
+                'player2': 'Novak Djokovic',
+                'tournament': 'US Open',
+                'surface': 'Hard'
+            }
+        
+        player1 = data.get('player1', 'Flavio Cobolli')
+        player2 = data.get('player2', 'Novak Djokovic') 
+        tournament = data.get('tournament', 'US Open')
+        surface = data.get('surface', 'Hard')
+        
+        logger.info(f"🔮 Testing underdog analysis: {player1} vs {player2}")
+        
+        # Используем UnderdogAnalyzer
+        analyzer = UnderdogAnalyzer()
+        underdog_analysis = analyzer.calculate_underdog_probability(
+            player1, player2, tournament, surface
+        )
+        
+        return jsonify({
+            'success': True,
+            'underdog_analysis': underdog_analysis,
+            'match_info': {
+                'player1': player1,
+                'player2': player2,
+                'tournament': tournament,
+                'surface': surface
+            },
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Test underdog error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+    
+@app.route('/api/manual-api-update', methods=['POST'])
+def manual_api_update():
+    """Ручное обновление API данных (для кнопки 'Manual API Update')"""
+    try:
+        # Если доступен API Economy, запускаем обновление
+        if API_ECONOMY_AVAILABLE:
+            try:
+                from api_economy_patch import trigger_manual_update
+                result = trigger_manual_update()
+                
+                if result:
+                    return jsonify({
+                        'success': True,
+                        'message': 'Manual update triggered successfully',
+                        'timestamp': datetime.now().isoformat()
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'error': 'Failed to trigger manual update'
+                    }), 500
+                    
+            except Exception as e:
+                logger.warning(f"API Economy manual update failed: {e}")
+        
+        # Fallback - просто возвращаем успех
+        return jsonify({
+            'success': True,
+            'message': 'Manual update requested (no API Economy available)',
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Manual update error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/api-economy-status', methods=['GET'])
+def get_api_economy_status():
+    """Статус API Economy (для кнопки 'API Status')"""
+    try:
+        if API_ECONOMY_AVAILABLE:
+            try:
+                from api_economy_patch import get_api_usage
+                usage_stats = get_api_usage()
+                
+                return jsonify({
+                    'success': True,
+                    'api_economy_available': True,
+                    'api_usage': usage_stats,
+                    'timestamp': datetime.now().isoformat()
+                })
+                
+            except Exception as e:
+                logger.warning(f"Failed to get API usage: {e}")
+        
+        # Fallback если API Economy недоступен
+        return jsonify({
+            'success': True,
+            'api_economy_available': False,
+            'api_usage': {
+                'requests_this_hour': 0,
+                'max_per_hour': 30,
+                'remaining_hour': 30,
+                'total_requests_ever': 0,
+                'cache_items': 0,
+                'cache_minutes': 20,
+                'manual_update_status': 'не доступно'
+            },
+            'message': 'API Economy not available',
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ API Economy status error: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
