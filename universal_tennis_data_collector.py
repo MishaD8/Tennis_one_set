@@ -264,30 +264,19 @@ class UniversalTennisDataCollector:
         return random.choice(courts)
     
     def get_current_matches(self) -> List[Dict]:
-        """Главная функция - получает актуальные матчи"""
+        """Возвращает пустой список если нет реальных данных"""
         
-        # Получаем активные турниры
+        # Проверяем активные турниры
         active_tournaments = self.get_current_active_tournaments()
         
         if not active_tournaments:
-            # Если нет активных турниров, показываем ближайшие
-            upcoming = self.get_upcoming_tournaments(7)
-            if upcoming:
-                # Показываем "подготовка к турниру"
-                return self._generate_preparation_matches(upcoming[:2])
-            else:
-                # Показываем тренировочные матчи
-                return self._generate_training_matches()
+            return []
         
-        # Генерируем матчи для активных турниров
-        matches = self.generate_realistic_matches(active_tournaments)
+        # Честно сообщаем что нет реальных расписаний
+        print(f"🏆 Активный турнир: {active_tournaments[0]['name']}")
+        print("💡 Для получения реальных матчей используйте ручное обновление API")
         
-        # Добавляем статусную информацию
-        for match in matches:
-            match["season_context"] = self._get_season_context()
-            match["tournament_status"] = self._get_tournament_status(match["tournament_info"])
-        
-        return matches
+        return []  # Не генерируем выдуманные матчи
     
     def _generate_preparation_matches(self, upcoming_tournaments: List[Dict]) -> List[Dict]:
         """Генерирует подготовительные матчи перед турниром"""

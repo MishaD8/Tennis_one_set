@@ -623,8 +623,14 @@ def get_live_matches_with_underdog_focus() -> Dict:
                 except Exception as e:
                     logger.warning(f"Universal collector failed: {e}")
             
-            # Последний fallback: тестовые данные
-            return generate_sample_underdog_matches()
+            # Последний 
+            return {
+                'matches': [],
+                'source': 'NO_DATA_AVAILABLE',
+                'success': False,
+                'count': 0,
+                'message': 'Нет доступных матчей. Попробуйте позже или проверьте API подключение.'
+            }
             
     except Exception as e:
         logger.error(f"❌ Critical error in get_live_matches: {e}")
