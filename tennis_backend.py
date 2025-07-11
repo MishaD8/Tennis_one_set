@@ -73,6 +73,16 @@ odds_integrator = None
 universal_collector = None
 odds_collector = None
 
+def filter_quality_matches(matches):
+    """Фильтр только ATP/WTA одиночные"""
+    filtered = []
+    for match in matches:
+        sport_title = match.get('sport_title', '')
+        if ('ATP' in sport_title or 'WTA' in sport_title):
+            if not any(word in sport_title.lower() for word in ['doubles', 'double']):
+                filtered.append(match)
+    return filtered
+
 def load_config():
     """Загрузка конфигурации"""
     global config
@@ -490,11 +500,15 @@ def get_live_matches_with_underdog_focus() -> Dict:
                 if api_result['success'] and api_result['data']:
                     logger.info(f"✅ Got {len(api_result['data'])} matches from API")
                     
+                    raw_matches = api_result['data']
+                    filtered_matches = filter_quality_matches(raw_matches)
+                    logger.info(f"🔍 Filtered: {len(raw_matches)} → {len(filtered_matches)} quality matches")
+
                     # Ваш существующий код обработки API данных...
                     processed_matches = []
                     analyzer = UnderdogAnalyzer()
                     
-                    for i, match in enumerate(api_result['data'][:6]):
+                    for i, match in enumerate(filtered_matches[:6]):
                         try:
                             player1 = match.get('home_team', f'Player {i+1}A')
                             player2 = match.get('away_team', f'Player {i+1}B')

@@ -12,7 +12,13 @@
       "base_url": "https://api.the-odds-api.com/v4",
       "regions": "us,uk,eu,au",
       "markets": "h2h",
-      "cache_minutes": 10
+      "cache_minutes": 30,
+      "sport_keys": [
+        "tennis_atp",
+        "tennis_wta"
+      ],
+      "auto_refresh": false,
+      "manual_only": true
     },
     "atp_api": {
       "enabled": false,
@@ -41,7 +47,8 @@
     "the_odds_api": {
       "enabled": true,
       "api_key": "a1b20d709d4bacb2d95ddab880f91009",
-      "priority": 1
+      "priority": 1,
+      "auto_refresh": false
     }
   },
   "model_settings": {
@@ -56,10 +63,18 @@
     }
   },
   "dashboard_settings": {
-    "refresh_interval_minutes": 15,
+    "refresh_interval_minutes": 0,
     "show_real_odds": true,
-    "max_matches_display": 20,
-    "default_days_ahead": 7
+    "max_matches_display": 999,
+    "default_days_ahead": 7,
+    "auto_refresh": false,
+    "manual_control_only": true
+  },
+  "api_limits": {
+    "remove_hourly_limits": true,
+    "remove_match_limits": true,
+    "unlimited_matches": true,
+    "manual_updates_only": true
   },
   "notifications": {
     "telegram": {
