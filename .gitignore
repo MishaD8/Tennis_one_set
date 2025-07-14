@@ -314,6 +314,18 @@ monitor.sh
 predictions_*.json
 temp_*.csv
 
+# Cleanup files and reports
+*_backup_*
+*backup*
+nohup.out
+*_analysis_*.json
+*_report_*.json
+*_report_*.txt
+cleanup_*.txt
+test_system*.py
+cache_info.json
+manual_update_trigger.json
+
 # Файлы сессий
 flask_session/
 sessions/

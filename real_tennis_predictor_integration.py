@@ -55,43 +55,6 @@ class RealPlayerDataCollector:
             "yannick hanfmann": {"rank": 95, "points": 680, "age": 32},
             "jacob fearnley": {"rank": 320, "points": 145, "age": 23},
             "joao fonseca": {"rank": 145, "points": 385, "age": 18},
-        
-            "carlos alcaraz": {"rank": 2, "points": 8580, "age": 21},
-            "alexander zverev": {"rank": 3, "points": 7915, "age": 27},
-            "daniil medvedev": {"rank": 4, "points": 6230, "age": 28},
-            "novak djokovic": {"rank": 5, "points": 5560, "age": 37},
-            "andrey rublev": {"rank": 6, "points": 4805, "age": 26},
-            "casper ruud": {"rank": 7, "points": 4055, "age": 25},
-            "holger rune": {"rank": 8, "points": 3895, "age": 21},
-            "grigor dimitrov": {"rank": 9, "points": 3350, "age": 33},
-            "stefanos tsitsipas": {"rank": 10, "points": 3240, "age": 26},
-            "taylor fritz": {"rank": 11, "points": 3060, "age": 27},
-            "tommy paul": {"rank": 12, "points": 2985, "age": 27},
-            "alex de minaur": {"rank": 13, "points": 2745, "age": 25},
-            "ben shelton": {"rank": 14, "points": 2565, "age": 22},
-            "ugo humbert": {"rank": 15, "points": 2390, "age": 26},
-            "lorenzo musetti": {"rank": 16, "points": 2245, "age": 22},
-            "sebastian baez": {"rank": 17, "points": 2220, "age": 23},
-            "frances tiafoe": {"rank": 18, "points": 2180, "age": 26},
-            "felix auger-aliassime": {"rank": 19, "points": 2085, "age": 24},
-            "arthur fils": {"rank": 20, "points": 1985, "age": 20},
-            
-            # КРИТИЧНО ИСПРАВЛЕНО: Cobolli теперь правильный рейтинг!
-            "flavio cobolli": {"rank": 32, "points": 1456, "age": 22},  # Было #100, стало #32!
-            "brandon nakashima": {"rank": 45, "points": 1255, "age": 23},
-            "bu yunchaokete": {"rank": 85, "points": 825, "age": 22},
-            
-            # Дополнительные игроки из ваших тестов
-            "matteo berrettini": {"rank": 35, "points": 1420, "age": 28},
-            "cameron norrie": {"rank": 40, "points": 1320, "age": 28},
-            "sebastian korda": {"rank": 25, "points": 1785, "age": 24},
-            "francisco cerundolo": {"rank": 30, "points": 1565, "age": 25},
-            "alejandro tabilo": {"rank": 28, "points": 1625, "age": 27},
-            "fabio fognini": {"rank": 85, "points": 780, "age": 37},
-            "arthur rinderknech": {"rank": 55, "points": 1045, "age": 28},
-            "yannick hanfmann": {"rank": 95, "points": 680, "age": 32},
-            "jacob fearnley": {"rank": 320, "points": 145, "age": 23},
-            "joao fonseca": {"rank": 145, "points": 385, "age": 18},
         }
         
         self.wta_rankings = {

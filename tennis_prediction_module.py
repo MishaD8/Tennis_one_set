@@ -12,25 +12,80 @@ from tensorflow import keras
 import warnings
 warnings.filterwarnings('ignore')
 
+try:
+    from adaptive_ensemble_optimizer import (
+        get_ensemble_optimizer, get_optimized_weights, 
+        record_model_predictions, init_ensemble_optimizer
+    )
+    ADAPTIVE_OPTIMIZER_AVAILABLE = True
+except ImportError:
+    ADAPTIVE_OPTIMIZER_AVAILABLE = False
+
 class TennisPredictionService:
     """
     Сервис прогнозирования теннисных матчей
     Использует ваши обученные модели
     """
     
-    def __init__(self, models_dir="tennis_models"):
+    def __init__(self, models_dir="tennis_models", use_adaptive_weights=True):
         self.models_dir = models_dir
         self.models = {}
         self.scaler = None
         self.expected_features = []
-        self.ensemble_weights = {
-            'neural_network': 0.205,
-            'xgboost': 0.203,
-            'random_forest': 0.194,
-            'gradient_boosting': 0.192,
-            'logistic_regression': 0.207
-        }
+        self.use_adaptive_weights = use_adaptive_weights and ADAPTIVE_OPTIMIZER_AVAILABLE
+        
+        # Load base weights from metadata if available
+        self.base_weights = self._load_base_weights()
+        
+        # Current ensemble weights (will be updated by adaptive optimizer)
+        self.ensemble_weights = self.base_weights.copy()
+        
         self.is_loaded = False
+        
+        # Initialize adaptive optimizer if available
+        if self.use_adaptive_weights:
+            try:
+                if not get_ensemble_optimizer():
+                    init_ensemble_optimizer(self.base_weights)
+                print("🧠 Adaptive ensemble optimization enabled")
+            except Exception as e:
+                print(f"⚠️ Could not initialize adaptive optimizer: {e}")
+                self.use_adaptive_weights = False
+    
+    def _load_base_weights(self):
+        """Load base ensemble weights from metadata file"""
+        try:
+            metadata_path = os.path.join(self.models_dir, 'metadata.json')
+            if os.path.exists(metadata_path):
+                import json
+                with open(metadata_path, 'r') as f:
+                    metadata = json.load(f)
+                    weights = metadata.get('ensemble_weights', {})
+                    print(f"📊 Loaded base weights from metadata: {weights}")
+                    return weights
+        except Exception as e:
+            print(f"⚠️ Could not load weights from metadata: {e}")
+        
+        # Fallback to hardcoded weights
+        return {
+            'neural_network': 0.2054,
+            'xgboost': 0.2027,
+            'random_forest': 0.1937,
+            'gradient_boosting': 0.1916,
+            'logistic_regression': 0.2065
+        }
+    
+    def _get_current_weights(self, match_context=None):
+        """Get current weights (adaptive or base)"""
+        if self.use_adaptive_weights:
+            try:
+                adaptive_weights = get_optimized_weights(match_context)
+                if adaptive_weights:
+                    return adaptive_weights
+            except Exception as e:
+                print(f"⚠️ Error getting adaptive weights: {e}")
+        
+        return self.ensemble_weights
         
     def load_models(self):
         """Загрузка всех моделей"""
@@ -167,6 +222,21 @@ class TennisPredictionService:
             # Нормализация для нейросети и логистической регрессии
             X_scaled = self.scaler.transform(features_df)
             
+            # Prepare match context for adaptive weights
+            match_context = {
+                'surface': match_data.get('surface', ''),
+                'tournament_importance': enhanced_data.get('total_pressure', 0),
+                'rank_difference': enhanced_data.get('rank_difference', 0),
+                'match_info': {
+                    'player_rank': match_data.get('player_rank'),
+                    'opponent_rank': match_data.get('opponent_rank'),
+                    'h2h_win_rate': match_data.get('h2h_win_rate')
+                }
+            }
+            
+            # Get current weights (adaptive or base)
+            current_weights = self._get_current_weights(match_context)
+            
             # Прогнозы от каждой модели
             individual_predictions = {}
             
@@ -185,11 +255,12 @@ class TennisPredictionService:
                     print(f"⚠️ Ошибка модели {model_name}: {e}")
                     individual_predictions[model_name] = 0.5
             
-            # Ансамблевый прогноз
-            ensemble_pred = sum(pred * self.ensemble_weights.get(name, 0.2) 
+            # Ансамблевый прогноз с адаптивными весами
+            ensemble_pred = sum(pred * current_weights.get(name, 0.2) 
                                for name, pred in individual_predictions.items())
-            ensemble_pred /= sum(self.ensemble_weights.get(name, 0.2) 
-                                for name in individual_predictions.keys())
+            total_weight = sum(current_weights.get(name, 0.2) 
+                              for name in individual_predictions.keys())
+            ensemble_pred /= total_weight if total_weight > 0 else 1
             
             # Определение уверенности
             if ensemble_pred >= 0.7:
@@ -293,8 +364,68 @@ class TennisPredictionService:
             "models_count": len(self.models),
             "models": list(self.models.keys()),
             "expected_features": self.expected_features,
-            "ensemble_weights": self.ensemble_weights
+            "ensemble_weights": self.ensemble_weights,
+            "adaptive_weights_enabled": self.use_adaptive_weights
         }
+    
+    def record_match_result(self, match_data, predictions_result, actual_result, match_info=None):
+        """
+        Record actual match result for adaptive weight optimization
+        
+        Args:
+            match_data: Original match data used for prediction
+            predictions_result: Result from predict_match() containing individual predictions
+            actual_result: Actual match outcome (0 or 1)
+            match_info: Additional match information
+        """
+        if not self.use_adaptive_weights:
+            return False
+        
+        try:
+            individual_predictions = predictions_result.get('individual_predictions', {})
+            if individual_predictions and ADAPTIVE_OPTIMIZER_AVAILABLE:
+                record_model_predictions(
+                    individual_predictions, 
+                    actual_result, 
+                    match_info or match_data
+                )
+                print(f"📊 Recorded match result for adaptive optimization")
+                return True
+        except Exception as e:
+            print(f"⚠️ Error recording match result: {e}")
+        
+        return False
+    
+    def get_ensemble_performance_report(self):
+        """Get detailed ensemble performance report"""
+        if not self.use_adaptive_weights or not ADAPTIVE_OPTIMIZER_AVAILABLE:
+            return {
+                'error': 'Adaptive ensemble optimization not available',
+                'current_weights': self.ensemble_weights,
+                'base_weights': self.base_weights
+            }
+        
+        try:
+            from adaptive_ensemble_optimizer import get_ensemble_performance_report
+            return get_ensemble_performance_report()
+        except Exception as e:
+            return {'error': f'Could not get performance report: {e}'}
+    
+    def update_ensemble_weights(self, context=None):
+        """Manually update ensemble weights based on current performance"""
+        if not self.use_adaptive_weights:
+            return False
+        
+        try:
+            new_weights = self._get_current_weights(context)
+            if new_weights:
+                self.ensemble_weights = new_weights
+                print(f"🔄 Updated ensemble weights: {new_weights}")
+                return True
+        except Exception as e:
+            print(f"⚠️ Error updating weights: {e}")
+        
+        return False
 
 
 # Функции для удобной интеграции

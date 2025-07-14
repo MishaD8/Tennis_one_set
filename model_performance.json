@@ -1,0 +1,1192 @@
+{
+  "model_performances": {
+    "neural_network": {
+      "model_name": "neural_network",
+      "predictions": [
+        {
+          "prediction": 0.6186496574046846,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.11864965740468458,
+          "timestamp": "2025-07-14T05:02:22.620932",
+          "match_info": {
+            "match_id": "test_0"
+          }
+        },
+        {
+          "prediction": 0.6944188659958866,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.19441886599588665,
+          "timestamp": "2025-07-14T05:02:22.621252",
+          "match_info": {
+            "match_id": "test_1"
+          }
+        },
+        {
+          "prediction": 0.6877183414155043,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.18771834141550425,
+          "timestamp": "2025-07-14T05:02:22.621466",
+          "match_info": {
+            "match_id": "test_2"
+          }
+        },
+        {
+          "prediction": 0.7105784770789918,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.2105784770789918,
+          "timestamp": "2025-07-14T05:02:22.621961",
+          "match_info": {
+            "match_id": "test_3"
+          }
+        },
+        {
+          "prediction": 0.6133277509455912,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.11332775094559122,
+          "timestamp": "2025-07-14T05:02:22.622531",
+          "match_info": {
+            "match_id": "test_4"
+          }
+        },
+        {
+          "prediction": 0.4419900940196238,
+          "actual": 0,
+          "correct": true,
+          "confidence": 0.0580099059803762,
+          "timestamp": "2025-07-14T05:02:22.623249",
+          "match_info": {
+            "match_id": "test_5"
+          }
+        },
+        {
+          "prediction": 0.6371381553787058,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.13713815537870577,
+          "timestamp": "2025-07-14T05:02:22.623931",
+          "match_info": {
+            "match_id": "test_6"
+          }
+        },
+        {
+          "prediction": 0.7508351892050558,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.25083518920505576,
+          "timestamp": "2025-07-14T05:02:22.624539",
+          "match_info": {
+            "match_id": "test_7"
+          }
+        },
+        {
+          "prediction": 0.7772317963104662,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.27723179631046624,
+          "timestamp": "2025-07-14T05:02:22.625248",
+          "match_info": {
+            "match_id": "test_8"
+          }
+        },
+        {
+          "prediction": 0.6864872732193754,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.18648727321937542,
+          "timestamp": "2025-07-14T05:02:22.625987",
+          "match_info": {
+            "match_id": "test_9"
+          }
+        },
+        {
+          "prediction": 0.5940821550024445,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.09408215500244455,
+          "timestamp": "2025-07-14T05:02:22.626944",
+          "match_info": {
+            "match_id": "test_10"
+          }
+        },
+        {
+          "prediction": 0.7368903912081858,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.23689039120818578,
+          "timestamp": "2025-07-14T05:02:22.627716",
+          "match_info": {
+            "match_id": "test_11"
+          }
+        },
+        {
+          "prediction": 0.6875205530205319,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.18752055302053194,
+          "timestamp": "2025-07-14T05:02:22.628455",
+          "match_info": {
+            "match_id": "test_12"
+          }
+        },
+        {
+          "prediction": 0.5774034017504328,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.07740340175043281,
+          "timestamp": "2025-07-14T05:02:22.629316",
+          "match_info": {
+            "match_id": "test_13"
+          }
+        },
+        {
+          "prediction": 0.5699331885606422,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.06993318856064223,
+          "timestamp": "2025-07-14T05:02:22.630326",
+          "match_info": {
+            "match_id": "test_14"
+          }
+        },
+        {
+          "prediction": 0.6615454209640366,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.16154542096403657,
+          "timestamp": "2025-07-14T05:02:22.631272",
+          "match_info": {
+            "match_id": "test_15"
+          }
+        },
+        {
+          "prediction": 0.652174716173311,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.15217471617331102,
+          "timestamp": "2025-07-14T05:02:22.632292",
+          "match_info": {
+            "match_id": "test_16"
+          }
+        },
+        {
+          "prediction": 0.6104648852827218,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.1104648852827218,
+          "timestamp": "2025-07-14T05:02:22.633425",
+          "match_info": {
+            "match_id": "test_17"
+          }
+        },
+        {
+          "prediction": 0.688577545587028,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.188577545587028,
+          "timestamp": "2025-07-14T05:02:22.634558",
+          "match_info": {
+            "match_id": "test_18"
+          }
+        },
+        {
+          "prediction": 0.7378889289170918,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.2378889289170918,
+          "timestamp": "2025-07-14T05:02:22.635861",
+          "match_info": {
+            "match_id": "test_19"
+          }
+        },
+        {
+          "prediction": 0.4264,
+          "actual": 1,
+          "correct": false,
+          "confidence": 0.0736,
+          "timestamp": "2025-07-14T05:02:54.413152",
+          "match_info": {
+            "info": "Djokovic won"
+          }
+        },
+        {
+          "prediction": 0.2705,
+          "actual": 0,
+          "correct": true,
+          "confidence": 0.22949999999999998,
+          "timestamp": "2025-07-14T05:02:54.414960",
+          "match_info": {
+            "info": "Medvedev won"
+          }
+        },
+        {
+          "prediction": 0.2013,
+          "actual": 1,
+          "correct": false,
+          "confidence": 0.29869999999999997,
+          "timestamp": "2025-07-14T05:02:54.416567",
+          "match_info": {
+            "info": "Underdog won!"
+          }
+        }
+      ],
+      "accuracy_window": 50
+    },
+    "xgboost": {
+      "model_name": "xgboost",
+      "predictions": [
+        {
+          "prediction": 0.6938486216749851,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.19384862167498507,
+          "timestamp": "2025-07-14T05:02:22.620944",
+          "match_info": {
+            "match_id": "test_0"
+          }
+        },
+        {
+          "prediction": 0.6611573963748557,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.1611573963748557,
+          "timestamp": "2025-07-14T05:02:22.621257",
+          "match_info": {
+            "match_id": "test_1"
+          }
+        },
+        {
+          "prediction": 0.6585877167695491,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.15858771676954908,
+          "timestamp": "2025-07-14T05:02:22.621470",
+          "match_info": {
+            "match_id": "test_2"
+          }
+        },
+        {
+          "prediction": 0.6393714546488484,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.13937145464884837,
+          "timestamp": "2025-07-14T05:02:22.621965",
+          "match_info": {
+            "match_id": "test_3"
+          }
+        },
+        {
+          "prediction": 0.5956298174751681,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.09562981747516808,
+          "timestamp": "2025-07-14T05:02:22.622536",
+          "match_info": {
+            "match_id": "test_4"
+          }
+        },
+        {
+          "prediction": 0.7101576023358593,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.21015760233585934,
+          "timestamp": "2025-07-14T05:02:22.623254",
+          "match_info": {
+            "match_id": "test_5"
+          }
+        },
+        {
+          "prediction": 0.8095567168683873,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.30955671686838726,
+          "timestamp": "2025-07-14T05:02:22.623935",
+          "match_info": {
+            "match_id": "test_6"
+          }
+        },
+        {
+          "prediction": 0.508003975043608,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.008003975043607947,
+          "timestamp": "2025-07-14T05:02:22.624543",
+          "match_info": {
+            "match_id": "test_7"
+          }
+        },
+        {
+          "prediction": 0.557986672229618,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.05798667222961795,
+          "timestamp": "2025-07-14T05:02:22.625252",
+          "match_info": {
+            "match_id": "test_8"
+          }
+        },
+        {
+          "prediction": 0.6882752000693945,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.18827520006939447,
+          "timestamp": "2025-07-14T05:02:22.625991",
+          "match_info": {
+            "match_id": "test_9"
+          }
+        },
+        {
+          "prediction": 0.5814352382563461,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.08143523825634613,
+          "timestamp": "2025-07-14T05:02:22.626948",
+          "match_info": {
+            "match_id": "test_10"
+          }
+        },
+        {
+          "prediction": 0.6872143999526303,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.18721439995263034,
+          "timestamp": "2025-07-14T05:02:22.627720",
+          "match_info": {
+            "match_id": "test_11"
+          }
+        },
+        {
+          "prediction": 0.8754634991926479,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.3754634991926479,
+          "timestamp": "2025-07-14T05:02:22.628460",
+          "match_info": {
+            "match_id": "test_12"
+          }
+        },
+        {
+          "prediction": 0.6000965979444846,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.10009659794448456,
+          "timestamp": "2025-07-14T05:02:22.629320",
+          "match_info": {
+            "match_id": "test_13"
+          }
+        },
+        {
+          "prediction": 0.6345962262402514,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.13459622624025136,
+          "timestamp": "2025-07-14T05:02:22.630330",
+          "match_info": {
+            "match_id": "test_14"
+          }
+        },
+        {
+          "prediction": 0.5988252891577284,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.09882528915772837,
+          "timestamp": "2025-07-14T05:02:22.631276",
+          "match_info": {
+            "match_id": "test_15"
+          }
+        },
+        {
+          "prediction": 0.7889835326833574,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.2889835326833574,
+          "timestamp": "2025-07-14T05:02:22.632297",
+          "match_info": {
+            "match_id": "test_16"
+          }
+        },
+        {
+          "prediction": 0.5501605733660412,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.05016057336604118,
+          "timestamp": "2025-07-14T05:02:22.633429",
+          "match_info": {
+            "match_id": "test_17"
+          }
+        },
+        {
+          "prediction": 0.5107033600146328,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.01070336001463279,
+          "timestamp": "2025-07-14T05:02:22.634562",
+          "match_info": {
+            "match_id": "test_18"
+          }
+        },
+        {
+          "prediction": 0.7534135150762034,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.25341351507620336,
+          "timestamp": "2025-07-14T05:02:22.635865",
+          "match_info": {
+            "match_id": "test_19"
+          }
+        },
+        {
+          "prediction": 0.3348,
+          "actual": 1,
+          "correct": false,
+          "confidence": 0.1652,
+          "timestamp": "2025-07-14T05:02:54.413160",
+          "match_info": {
+            "info": "Djokovic won"
+          }
+        },
+        {
+          "prediction": 0.3102,
+          "actual": 0,
+          "correct": true,
+          "confidence": 0.18980000000000002,
+          "timestamp": "2025-07-14T05:02:54.414966",
+          "match_info": {
+            "info": "Medvedev won"
+          }
+        },
+        {
+          "prediction": 0.2021,
+          "actual": 1,
+          "correct": false,
+          "confidence": 0.2979,
+          "timestamp": "2025-07-14T05:02:54.416572",
+          "match_info": {
+            "info": "Underdog won!"
+          }
+        }
+      ],
+      "accuracy_window": 50
+    },
+    "random_forest": {
+      "model_name": "random_forest",
+      "predictions": [
+        {
+          "prediction": 0.6015521945337866,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.10155219453378661,
+          "timestamp": "2025-07-14T05:02:22.620948",
+          "match_info": {
+            "match_id": "test_0"
+          }
+        },
+        {
+          "prediction": 0.6558944234163326,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.15589442341633264,
+          "timestamp": "2025-07-14T05:02:22.621258",
+          "match_info": {
+            "match_id": "test_1"
+          }
+        },
+        {
+          "prediction": 0.5009484254696484,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.0009484254696483507,
+          "timestamp": "2025-07-14T05:02:22.621472",
+          "match_info": {
+            "match_id": "test_2"
+          }
+        },
+        {
+          "prediction": 0.4475704460033699,
+          "actual": 1,
+          "correct": false,
+          "confidence": 0.052429553996630074,
+          "timestamp": "2025-07-14T05:02:22.621966",
+          "match_info": {
+            "match_id": "test_3"
+          }
+        },
+        {
+          "prediction": 0.6391494157918441,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.13914941579184414,
+          "timestamp": "2025-07-14T05:02:22.622537",
+          "match_info": {
+            "match_id": "test_4"
+          }
+        },
+        {
+          "prediction": 0.6767530581307022,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.1767530581307022,
+          "timestamp": "2025-07-14T05:02:22.623257",
+          "match_info": {
+            "match_id": "test_5"
+          }
+        },
+        {
+          "prediction": 0.5357376588691577,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.035737658869157696,
+          "timestamp": "2025-07-14T05:02:22.623936",
+          "match_info": {
+            "match_id": "test_6"
+          }
+        },
+        {
+          "prediction": 0.4556956168146111,
+          "actual": 1,
+          "correct": false,
+          "confidence": 0.044304383185388874,
+          "timestamp": "2025-07-14T05:02:22.624544",
+          "match_info": {
+            "match_id": "test_7"
+          }
+        },
+        {
+          "prediction": 0.32893144029829385,
+          "actual": 1,
+          "correct": false,
+          "confidence": 0.17106855970170615,
+          "timestamp": "2025-07-14T05:02:22.625254",
+          "match_info": {
+            "match_id": "test_8"
+          }
+        },
+        {
+          "prediction": 0.6755932599756506,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.17559325997565056,
+          "timestamp": "2025-07-14T05:02:22.625993",
+          "match_info": {
+            "match_id": "test_9"
+          }
+        },
+        {
+          "prediction": 0.5634096017797291,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.0634096017797291,
+          "timestamp": "2025-07-14T05:02:22.626950",
+          "match_info": {
+            "match_id": "test_10"
+          }
+        },
+        {
+          "prediction": 0.6868629480333557,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.18686294803335568,
+          "timestamp": "2025-07-14T05:02:22.627722",
+          "match_info": {
+            "match_id": "test_11"
+          }
+        },
+        {
+          "prediction": 0.6066945201449461,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.10669452014494607,
+          "timestamp": "2025-07-14T05:02:22.628461",
+          "match_info": {
+            "match_id": "test_12"
+          }
+        },
+        {
+          "prediction": 0.5903274669255275,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.09032746692552751,
+          "timestamp": "2025-07-14T05:02:22.629322",
+          "match_info": {
+            "match_id": "test_13"
+          }
+        },
+        {
+          "prediction": 0.4746599470725845,
+          "actual": 1,
+          "correct": false,
+          "confidence": 0.02534005292741548,
+          "timestamp": "2025-07-14T05:02:22.630332",
+          "match_info": {
+            "match_id": "test_14"
+          }
+        },
+        {
+          "prediction": 0.6069703209854428,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.10697032098544279,
+          "timestamp": "2025-07-14T05:02:22.631278",
+          "match_info": {
+            "match_id": "test_15"
+          }
+        },
+        {
+          "prediction": 0.37337816599460405,
+          "actual": 0,
+          "correct": true,
+          "confidence": 0.12662183400539595,
+          "timestamp": "2025-07-14T05:02:22.632299",
+          "match_info": {
+            "match_id": "test_16"
+          }
+        },
+        {
+          "prediction": 0.8123652467666247,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.3123652467666247,
+          "timestamp": "2025-07-14T05:02:22.633430",
+          "match_info": {
+            "match_id": "test_17"
+          }
+        },
+        {
+          "prediction": 0.5699066105813312,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.06990661058133119,
+          "timestamp": "2025-07-14T05:02:22.634563",
+          "match_info": {
+            "match_id": "test_18"
+          }
+        },
+        {
+          "prediction": 0.670185194090606,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.17018519409060595,
+          "timestamp": "2025-07-14T05:02:22.635867",
+          "match_info": {
+            "match_id": "test_19"
+          }
+        },
+        {
+          "prediction": 0.444,
+          "actual": 1,
+          "correct": false,
+          "confidence": 0.055999999999999994,
+          "timestamp": "2025-07-14T05:02:54.413163",
+          "match_info": {
+            "info": "Djokovic won"
+          }
+        },
+        {
+          "prediction": 0.3128,
+          "actual": 0,
+          "correct": true,
+          "confidence": 0.18719999999999998,
+          "timestamp": "2025-07-14T05:02:54.414968",
+          "match_info": {
+            "info": "Medvedev won"
+          }
+        },
+        {
+          "prediction": 0.1718,
+          "actual": 1,
+          "correct": false,
+          "confidence": 0.3282,
+          "timestamp": "2025-07-14T05:02:54.416574",
+          "match_info": {
+            "info": "Underdog won!"
+          }
+        }
+      ],
+      "accuracy_window": 50
+    },
+    "gradient_boosting": {
+      "model_name": "gradient_boosting",
+      "predictions": [
+        {
+          "prediction": 0.5132311990739706,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.013231199073970634,
+          "timestamp": "2025-07-14T05:02:22.620950",
+          "match_info": {
+            "match_id": "test_0"
+          }
+        },
+        {
+          "prediction": 0.5996344471792585,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.09963444717925851,
+          "timestamp": "2025-07-14T05:02:22.621260",
+          "match_info": {
+            "match_id": "test_1"
+          }
+        },
+        {
+          "prediction": 0.9075429145350045,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.40754291453500446,
+          "timestamp": "2025-07-14T05:02:22.621473",
+          "match_info": {
+            "match_id": "test_2"
+          }
+        },
+        {
+          "prediction": 0.6841486558704285,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.1841486558704285,
+          "timestamp": "2025-07-14T05:02:22.621968",
+          "match_info": {
+            "match_id": "test_3"
+          }
+        },
+        {
+          "prediction": 0.6465712706281895,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.14657127062818953,
+          "timestamp": "2025-07-14T05:02:22.622539",
+          "match_info": {
+            "match_id": "test_4"
+          }
+        },
+        {
+          "prediction": 0.5107805726647,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.010780572664700006,
+          "timestamp": "2025-07-14T05:02:22.623259",
+          "match_info": {
+            "match_id": "test_5"
+          }
+        },
+        {
+          "prediction": 0.5577281734183098,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.057728173418309825,
+          "timestamp": "2025-07-14T05:02:22.623938",
+          "match_info": {
+            "match_id": "test_6"
+          }
+        },
+        {
+          "prediction": 0.6559314196079843,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.1559314196079843,
+          "timestamp": "2025-07-14T05:02:22.624546",
+          "match_info": {
+            "match_id": "test_7"
+          }
+        },
+        {
+          "prediction": 0.5164778952277661,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.016477895227766104,
+          "timestamp": "2025-07-14T05:02:22.625255",
+          "match_info": {
+            "match_id": "test_8"
+          }
+        },
+        {
+          "prediction": 0.45017569236234967,
+          "actual": 1,
+          "correct": false,
+          "confidence": 0.049824307637650334,
+          "timestamp": "2025-07-14T05:02:22.625994",
+          "match_info": {
+            "match_id": "test_9"
+          }
+        },
+        {
+          "prediction": 0.7163031053940307,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.21630310539403075,
+          "timestamp": "2025-07-14T05:02:22.626951",
+          "match_info": {
+            "match_id": "test_10"
+          }
+        },
+        {
+          "prediction": 0.5946732326867725,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.09467323268677252,
+          "timestamp": "2025-07-14T05:02:22.627723",
+          "match_info": {
+            "match_id": "test_11"
+          }
+        },
+        {
+          "prediction": 0.7361775773123335,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.23617757731233346,
+          "timestamp": "2025-07-14T05:02:22.628462",
+          "match_info": {
+            "match_id": "test_12"
+          }
+        },
+        {
+          "prediction": 0.509821964024725,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.009821964024725016,
+          "timestamp": "2025-07-14T05:02:22.629323",
+          "match_info": {
+            "match_id": "test_13"
+          }
+        },
+        {
+          "prediction": 0.7689944216702053,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.26899442167020526,
+          "timestamp": "2025-07-14T05:02:22.630334",
+          "match_info": {
+            "match_id": "test_14"
+          }
+        },
+        {
+          "prediction": 0.7107220480969569,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.21072204809695694,
+          "timestamp": "2025-07-14T05:02:22.631279",
+          "match_info": {
+            "match_id": "test_15"
+          }
+        },
+        {
+          "prediction": 0.46929355988842014,
+          "actual": 0,
+          "correct": true,
+          "confidence": 0.030706440111579858,
+          "timestamp": "2025-07-14T05:02:22.632302",
+          "match_info": {
+            "match_id": "test_16"
+          }
+        },
+        {
+          "prediction": 0.5304282790183056,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.030428279018305582,
+          "timestamp": "2025-07-14T05:02:22.633432",
+          "match_info": {
+            "match_id": "test_17"
+          }
+        },
+        {
+          "prediction": 0.6605435001687209,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.16054350016872088,
+          "timestamp": "2025-07-14T05:02:22.634565",
+          "match_info": {
+            "match_id": "test_18"
+          }
+        },
+        {
+          "prediction": 0.8242399828336313,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.3242399828336313,
+          "timestamp": "2025-07-14T05:02:22.635868",
+          "match_info": {
+            "match_id": "test_19"
+          }
+        },
+        {
+          "prediction": 0.6577,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.15769999999999995,
+          "timestamp": "2025-07-14T05:02:54.413165",
+          "match_info": {
+            "info": "Djokovic won"
+          }
+        },
+        {
+          "prediction": 0.2834,
+          "actual": 0,
+          "correct": true,
+          "confidence": 0.21660000000000001,
+          "timestamp": "2025-07-14T05:02:54.414970",
+          "match_info": {
+            "info": "Medvedev won"
+          }
+        },
+        {
+          "prediction": 0.1391,
+          "actual": 1,
+          "correct": false,
+          "confidence": 0.3609,
+          "timestamp": "2025-07-14T05:02:54.416576",
+          "match_info": {
+            "info": "Underdog won!"
+          }
+        }
+      ],
+      "accuracy_window": 50
+    },
+    "logistic_regression": {
+      "model_name": "logistic_regression",
+      "predictions": [
+        {
+          "prediction": 0.6668695466026571,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.16686954660265707,
+          "timestamp": "2025-07-14T05:02:22.620953",
+          "match_info": {
+            "match_id": "test_0"
+          }
+        },
+        {
+          "prediction": 0.6977170658295411,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.19771706582954107,
+          "timestamp": "2025-07-14T05:02:22.621261",
+          "match_info": {
+            "match_id": "test_1"
+          }
+        },
+        {
+          "prediction": 0.6870349221382406,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.18703492213824058,
+          "timestamp": "2025-07-14T05:02:22.621474",
+          "match_info": {
+            "match_id": "test_2"
+          }
+        },
+        {
+          "prediction": 0.6262428529012304,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.12624285290123038,
+          "timestamp": "2025-07-14T05:02:22.621969",
+          "match_info": {
+            "match_id": "test_3"
+          }
+        },
+        {
+          "prediction": 0.5584425905163273,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.058442590516327275,
+          "timestamp": "2025-07-14T05:02:22.622541",
+          "match_info": {
+            "match_id": "test_4"
+          }
+        },
+        {
+          "prediction": 0.7662447595458128,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.26624475954581284,
+          "timestamp": "2025-07-14T05:02:22.623261",
+          "match_info": {
+            "match_id": "test_5"
+          }
+        },
+        {
+          "prediction": 0.7018143109571777,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.20181431095717772,
+          "timestamp": "2025-07-14T05:02:22.623939",
+          "match_info": {
+            "match_id": "test_6"
+          }
+        },
+        {
+          "prediction": 0.724926803547967,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.224926803547967,
+          "timestamp": "2025-07-14T05:02:22.624547",
+          "match_info": {
+            "match_id": "test_7"
+          }
+        },
+        {
+          "prediction": 0.6644390377017688,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.16443903770176882,
+          "timestamp": "2025-07-14T05:02:22.625256",
+          "match_info": {
+            "match_id": "test_8"
+          }
+        },
+        {
+          "prediction": 0.7689462829042767,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.2689462829042767,
+          "timestamp": "2025-07-14T05:02:22.625996",
+          "match_info": {
+            "match_id": "test_9"
+          }
+        },
+        {
+          "prediction": 0.7376671933658091,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.2376671933658091,
+          "timestamp": "2025-07-14T05:02:22.626953",
+          "match_info": {
+            "match_id": "test_10"
+          }
+        },
+        {
+          "prediction": 0.5412321763799678,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.04123217637996779,
+          "timestamp": "2025-07-14T05:02:22.627725",
+          "match_info": {
+            "match_id": "test_11"
+          }
+        },
+        {
+          "prediction": 0.66655627685138,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.16655627685137997,
+          "timestamp": "2025-07-14T05:02:22.628464",
+          "match_info": {
+            "match_id": "test_12"
+          }
+        },
+        {
+          "prediction": 0.7505869210740116,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.2505869210740116,
+          "timestamp": "2025-07-14T05:02:22.629324",
+          "match_info": {
+            "match_id": "test_13"
+          }
+        },
+        {
+          "prediction": 0.6807657299593182,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.18076572995931817,
+          "timestamp": "2025-07-14T05:02:22.630335",
+          "match_info": {
+            "match_id": "test_14"
+          }
+        },
+        {
+          "prediction": 0.7128538825189065,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.21285388251890647,
+          "timestamp": "2025-07-14T05:02:22.631280",
+          "match_info": {
+            "match_id": "test_15"
+          }
+        },
+        {
+          "prediction": 0.630021741868098,
+          "actual": 0,
+          "correct": false,
+          "confidence": 0.130021741868098,
+          "timestamp": "2025-07-14T05:02:22.632304",
+          "match_info": {
+            "match_id": "test_16"
+          }
+        },
+        {
+          "prediction": 0.7998442821676011,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.29984428216760106,
+          "timestamp": "2025-07-14T05:02:22.633433",
+          "match_info": {
+            "match_id": "test_17"
+          }
+        },
+        {
+          "prediction": 0.5548029533297896,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.05480295332978957,
+          "timestamp": "2025-07-14T05:02:22.634566",
+          "match_info": {
+            "match_id": "test_18"
+          }
+        },
+        {
+          "prediction": 0.7182655736087471,
+          "actual": 1,
+          "correct": true,
+          "confidence": 0.2182655736087471,
+          "timestamp": "2025-07-14T05:02:22.635870",
+          "match_info": {
+            "match_id": "test_19"
+          }
+        },
+        {
+          "prediction": 0.3884,
+          "actual": 1,
+          "correct": false,
+          "confidence": 0.11159999999999998,
+          "timestamp": "2025-07-14T05:02:54.413167",
+          "match_info": {
+            "info": "Djokovic won"
+          }
+        },
+        {
+          "prediction": 0.291,
+          "actual": 0,
+          "correct": true,
+          "confidence": 0.20900000000000002,
+          "timestamp": "2025-07-14T05:02:54.414972",
+          "match_info": {
+            "info": "Medvedev won"
+          }
+        },
+        {
+          "prediction": 0.2808,
+          "actual": 1,
+          "correct": false,
+          "confidence": 0.2192,
+          "timestamp": "2025-07-14T05:02:54.416577",
+          "match_info": {
+            "info": "Underdog won!"
+          }
+        }
+      ],
+      "accuracy_window": 50
+    }
+  },
+  "last_updated": "2025-07-14T05:02:54.416579",
+  "base_weights": {
+    "neural_network": 0.2054108715724063,
+    "xgboost": 0.20268491785499684,
+    "random_forest": 0.19373030644995823,
+    "gradient_boosting": 0.19163161520085592,
+    "logistic_regression": 0.2065422889217827
+  }
+}

@@ -990,11 +990,11 @@ def main():
     
     # Пытаемся импортировать реальный предиктор
     try:
-        from enhanced_predictor import EnhancedTennisPredictor
-        predictor = EnhancedTennisPredictor()
+        from real_tennis_predictor_integration import RealTennisPredictor
+        predictor = RealTennisPredictor()
         print("✅ Загружен реальный предиктор")
     except ImportError:
-        print("⚠️ Используем заглушку предиктора (enhanced_predictor.py не найден)")
+        print("⚠️ Используем заглушку предиктора (real_tennis_predictor_integration.py не найден)")
         predictor = MockPredictor()
     
     # Создаем систему ставок

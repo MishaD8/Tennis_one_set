@@ -8,7 +8,7 @@
   "data_sources": {
     "the_odds_api": {
       "enabled": true,
-      "api_key": "a1b20d709d4bacb2d95ddab880f91009",
+      "api_key": "${ODDS_API_KEY}",
       "base_url": "https://api.the-odds-api.com/v4",
       "regions": "us,uk,eu,au",
       "markets": "h2h",
@@ -46,7 +46,7 @@
     },
     "the_odds_api": {
       "enabled": true,
-      "api_key": "a1b20d709d4bacb2d95ddab880f91009",
+      "api_key": "${ODDS_API_KEY}",
       "priority": 1,
       "auto_refresh": false
     }

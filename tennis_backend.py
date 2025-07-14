@@ -14,6 +14,18 @@ import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional
 
+# Import error handling
+try:
+    from error_handler import safe_api_call, safe_ml_prediction, get_error_handler, validate_match_data
+    from config_loader import load_secure_config
+    ERROR_HANDLING_AVAILABLE = True
+    error_handler = get_error_handler()
+    print("✅ Error handling and secure config loaded")
+except ImportError as e:
+    print(f"⚠️ Error handling not available: {e}")
+    ERROR_HANDLING_AVAILABLE = False
+    error_handler = None
+
 # Импорт компонентов системы
 try:
     from real_tennis_predictor_integration import RealTennisPredictor
@@ -84,28 +96,37 @@ def filter_quality_matches(matches):
     return filtered
 
 def load_config():
-    """Загрузка конфигурации"""
+    """Загрузка конфигурации с безопасной обработкой переменных окружения"""
     global config
     try:
-        if os.path.exists('config.json'):
-            with open('config.json', 'r') as f:
-                config = json.load(f)
-            logger.info("✅ Configuration loaded")
+        if ERROR_HANDLING_AVAILABLE:
+            # Use secure config loader with environment variables
+            config = load_secure_config()
+            logger.info("✅ Secure configuration loaded with environment variables")
         else:
-            config = {
-                "data_sources": {
-                    "the_odds_api": {
-                        "enabled": False,
-                        "api_key": ""
+            # Fallback to basic config loading
+            if os.path.exists('config.json'):
+                with open('config.json', 'r') as f:
+                    config = json.load(f)
+                logger.info("✅ Configuration loaded")
+            else:
+                config = {
+                    "data_sources": {
+                        "the_odds_api": {
+                            "enabled": False,
+                            "api_key": ""
+                        }
+                    },
+                    "model_settings": {
+                        "min_confidence_threshold": 0.55
                     }
-                },
-                "model_settings": {
-                    "min_confidence_threshold": 0.55
                 }
-            }
-            logger.warning("⚠️ No config.json found, using defaults")
+                logger.warning("⚠️ No config.json found, using defaults")
     except Exception as e:
-        logger.error(f"❌ Config error: {e}")
+        if error_handler:
+            error_handler.log_error("Config", e, {"config_file": "config.json"})
+        else:
+            logger.error(f"❌ Config error: {e}")
         config = {"data_sources": {"the_odds_api": {"enabled": False}}}
 
 def initialize_services():
