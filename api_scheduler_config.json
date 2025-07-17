@@ -1,0 +1,16 @@
+{
+  "daily_limit": 3,
+  "monthly_limit": 500,
+  "schedule": {
+    "morning": "08:00",
+    "lunch": "12:00",
+    "evening": "18:00"
+  },
+  "timezone": "UTC",
+  "emergency_override_limit": 5,
+  "data_sources": [
+    "tennis",
+    "tennis_atp",
+    "tennis_wta"
+  ]
+}

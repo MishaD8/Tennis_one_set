@@ -67,6 +67,15 @@ except ImportError as e:
     print(f"⚠️ Universal collector not available: {e}")
     UNIVERSAL_COLLECTOR_AVAILABLE = False
 
+# Import daily API scheduler
+try:
+    from daily_api_scheduler import init_daily_scheduler, get_daily_scheduler, start_daily_scheduler
+    DAILY_SCHEDULER_AVAILABLE = True
+    print("✅ Daily API scheduler loaded")
+except ImportError as e:
+    print(f"⚠️ Daily scheduler not available: {e}")
+    DAILY_SCHEDULER_AVAILABLE = False
+
 # Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
@@ -84,6 +93,7 @@ prediction_service = None
 odds_integrator = None
 universal_collector = None
 odds_collector = None
+daily_scheduler = None
 
 def filter_quality_matches(matches):
     """Фильтр только ATP/WTA одиночные"""
@@ -131,7 +141,7 @@ def load_config():
 
 def initialize_services():
     """Инициализация всех сервисов"""
-    global real_predictor, prediction_service, odds_integrator, universal_collector, odds_collector
+    global real_predictor, prediction_service, odds_integrator, universal_collector, odds_collector, daily_scheduler
     
     # Инициализируем Real Tennis Predictor
     if REAL_PREDICTOR_AVAILABLE:
@@ -182,6 +192,15 @@ def initialize_services():
             logger.info("✅ Universal collectors initialized")
         except Exception as e:
             logger.error(f"❌ Universal collector initialization failed: {e}")
+    
+    # Инициализируем Daily API Scheduler
+    if DAILY_SCHEDULER_AVAILABLE:
+        try:
+            daily_scheduler = init_daily_scheduler()
+            start_daily_scheduler()
+            logger.info("✅ Daily API scheduler initialized and started")
+        except Exception as e:
+            logger.error(f"❌ Daily scheduler initialization failed: {e}")
 
 class UnderdogAnalyzer:
     """Анализатор underdog сценариев"""
@@ -1653,9 +1672,38 @@ def test_underdog_analysis():
     
 @app.route('/api/manual-api-update', methods=['POST'])
 def manual_api_update():
-    """Ручное обновление API данных (для кнопки 'Manual API Update')"""
+    """Ручное обновление API данных с контролем лимитов (для кнопки 'Manual API Update')"""
     try:
-        # Если доступен API Economy, запускаем обновление
+        # Приоритет: Daily Scheduler с лимитами
+        if DAILY_SCHEDULER_AVAILABLE and daily_scheduler:
+            try:
+                result = daily_scheduler.make_manual_request("dashboard_manual_update")
+                
+                if result['success']:
+                    return jsonify({
+                        'success': True,
+                        'message': 'Manual API update completed successfully',
+                        'total_matches': result.get('total_matches', 0),
+                        'daily_used': result.get('daily_used', 0),
+                        'monthly_used': result.get('monthly_used', 0),
+                        'api_usage': result.get('api_usage', {}),
+                        'source': 'daily_scheduler',
+                        'timestamp': datetime.now().isoformat()
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'error': result.get('error', 'Manual request failed'),
+                        'limits': result.get('limits', {}),
+                        'daily_used': result.get('daily_used', 0),
+                        'monthly_used': result.get('monthly_used', 0),
+                        'source': 'daily_scheduler_denied'
+                    }), 429  # Too Many Requests
+                    
+            except Exception as e:
+                logger.warning(f"Daily scheduler manual update failed: {e}")
+        
+        # Fallback: API Economy если доступен
         if API_ECONOMY_AVAILABLE:
             try:
                 from api_economy_patch import trigger_manual_update
@@ -1664,24 +1712,27 @@ def manual_api_update():
                 if result:
                     return jsonify({
                         'success': True,
-                        'message': 'Manual update triggered successfully',
+                        'message': 'Manual update triggered via API Economy',
+                        'source': 'api_economy_fallback',
                         'timestamp': datetime.now().isoformat()
                     })
                 else:
                     return jsonify({
                         'success': False,
-                        'error': 'Failed to trigger manual update'
+                        'error': 'Failed to trigger manual update',
+                        'source': 'api_economy_failed'
                     }), 500
                     
             except Exception as e:
                 logger.warning(f"API Economy manual update failed: {e}")
         
-        # Fallback - просто возвращаем успех
+        # Last resort - возвращаем информацию о недоступности
         return jsonify({
-            'success': True,
-            'message': 'Manual update requested (no API Economy available)',
-            'timestamp': datetime.now().isoformat()
-        })
+            'success': False,
+            'error': 'Manual API update not available - daily scheduler and API economy unavailable',
+            'message': 'Please wait for scheduled API updates or check system configuration',
+            'source': 'no_services_available'
+        }), 503  # Service Unavailable
         
     except Exception as e:
         logger.error(f"❌ Manual update error: {e}")
@@ -1690,39 +1741,142 @@ def manual_api_update():
             'error': str(e)
         }), 500
 
-@app.route('/api/api-economy-status', methods=['GET'])
-def get_api_economy_status():
-    """Статус API Economy (для кнопки 'API Status')"""
+@app.route('/api/api-status', methods=['GET'])
+def get_comprehensive_api_status():
+    """Комплексный статус API с Daily Scheduler и API Economy"""
     try:
+        status_response = {
+            'success': True,
+            'timestamp': datetime.now().isoformat(),
+            'daily_scheduler': {},
+            'api_economy': {},
+            'recommendations': []
+        }
+        
+        # Daily Scheduler Status
+        if DAILY_SCHEDULER_AVAILABLE and daily_scheduler:
+            try:
+                scheduler_status = daily_scheduler.get_status()
+                status_response['daily_scheduler'] = {
+                    'available': True,
+                    'status': scheduler_status['status'],
+                    'daily_usage': scheduler_status['daily_usage'],
+                    'monthly_usage': scheduler_status['monthly_usage'],
+                    'next_scheduled': scheduler_status['schedule']['next_scheduled'][:2],  # Next 2 requests
+                    'can_make_manual': scheduler_status['can_make_manual']
+                }
+                
+                # Recommendations based on usage
+                daily_used = scheduler_status['daily_usage']['requests_made']
+                daily_limit = scheduler_status['daily_usage']['total_limit']
+                
+                if daily_used >= daily_limit:
+                    status_response['recommendations'].append("⚠️ Daily limit reached. Wait for tomorrow or scheduled requests.")
+                elif daily_used >= daily_limit * 0.8:
+                    status_response['recommendations'].append("🟡 Near daily limit. Use manual requests carefully.")
+                else:
+                    status_response['recommendations'].append("✅ Manual requests available.")
+                    
+            except Exception as e:
+                status_response['daily_scheduler'] = {
+                    'available': False,
+                    'error': str(e)
+                }
+        else:
+            status_response['daily_scheduler'] = {
+                'available': False,
+                'message': 'Daily scheduler not initialized'
+            }
+        
+        # API Economy Status (legacy support)
         if API_ECONOMY_AVAILABLE:
             try:
                 from api_economy_patch import get_api_usage
                 usage_stats = get_api_usage()
+                status_response['api_economy'] = {
+                    'available': True,
+                    'usage_stats': usage_stats
+                }
+            except Exception as e:
+                status_response['api_economy'] = {
+                    'available': False,
+                    'error': str(e)
+                }
+        else:
+            status_response['api_economy'] = {
+                'available': False,
+                'message': 'API Economy not available'
+            }
+        
+        return jsonify(status_response)
+        
+    except Exception as e:
+        logger.error(f"❌ Comprehensive API status error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/api-economy-status', methods=['GET'])
+def get_api_economy_status():
+    """Статус API Economy (для кнопки 'API Status') - Legacy endpoint"""
+    try:
+        # Redirect to comprehensive status but format for backward compatibility
+        comprehensive_status = get_comprehensive_api_status()
+        data = comprehensive_status.get_json()
+        
+        if data['success']:
+            # Extract relevant info for old format
+            daily_scheduler_info = data.get('daily_scheduler', {})
+            
+            if daily_scheduler_info.get('available'):
+                daily_usage = daily_scheduler_info.get('daily_usage', {})
+                monthly_usage = daily_scheduler_info.get('monthly_usage', {})
                 
                 return jsonify({
                     'success': True,
-                    'api_economy_available': True,
-                    'api_usage': usage_stats,
+                    'api_usage': {
+                        'requests_this_hour': 'N/A (using daily scheduler)',
+                        'max_per_hour': 'N/A (using daily scheduler)', 
+                        'remaining_hour': f"{daily_usage.get('manual_remaining', 0)} manual requests remaining",
+                        'daily_used': daily_usage.get('requests_made', 0),
+                        'daily_limit': daily_usage.get('total_limit', 8),
+                        'monthly_used': monthly_usage.get('requests_made', 0),
+                        'monthly_limit': monthly_usage.get('limit', 500),
+                        'manual_update_status': 'Available' if daily_scheduler_info.get('can_make_manual', False) else 'Limit reached'
+                    },
+                    'daily_scheduler_available': True,
                     'timestamp': datetime.now().isoformat()
                 })
-                
-            except Exception as e:
-                logger.warning(f"Failed to get API usage: {e}")
+            else:
+                # Fallback to API Economy if available
+                if API_ECONOMY_AVAILABLE:
+                    try:
+                        from api_economy_patch import get_api_usage
+                        usage_stats = get_api_usage()
+                        
+                        return jsonify({
+                            'success': True,
+                            'api_economy_available': True,
+                            'api_usage': usage_stats,
+                            'daily_scheduler_available': False,
+                            'timestamp': datetime.now().isoformat()
+                        })
+                    except Exception as e:
+                        logger.warning(f"Failed to get API usage: {e}")
         
-        # Fallback если API Economy недоступен
+        # Final fallback
         return jsonify({
             'success': True,
             'api_economy_available': False,
+            'daily_scheduler_available': False,
             'api_usage': {
                 'requests_this_hour': 0,
-                'max_per_hour': 30,
-                'remaining_hour': 30,
-                'total_requests_ever': 0,
-                'cache_items': 0,
-                'cache_minutes': 20,
-                'manual_update_status': 'не доступно'
+                'max_per_hour': 'N/A',
+                'remaining_hour': 'Service unavailable',
+                'manual_update_status': 'Unavailable'
             },
-            'message': 'API Economy not available',
+            'message': 'API services not available',
             'timestamp': datetime.now().isoformat()
         })
         

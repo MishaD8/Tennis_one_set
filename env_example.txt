@@ -1,0 +1,25 @@
+# Tennis Prediction System Environment Variables
+
+# PostgreSQL Database Configuration
+DATABASE_URL=postgresql://tennis_user:tennis_pass@localhost:5432/tennis_predictions
+
+# Alternative database components (if not using DATABASE_URL)
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=tennis_predictions
+DB_USER=tennis_user
+DB_PASSWORD=tennis_pass
+
+# Odds API Configuration (moved from config.json for security)
+ODDS_API_KEY=your_odds_api_key_here
+
+# Redis Configuration (for caching)
+REDIS_URL=redis://localhost:6379/0
+
+# Application Environment
+ENVIRONMENT=development
+LOG_LEVEL=INFO
+
+# Flask Configuration
+FLASK_SECRET_KEY=your_secret_key_here
+FLASK_ENV=development
