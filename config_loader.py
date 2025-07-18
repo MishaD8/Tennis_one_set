@@ -8,6 +8,10 @@ import os
 import json
 import re
 from typing import Dict, Any
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 class SecureConfigLoader:
     """Secure configuration loader with environment variable support"""
@@ -74,8 +78,10 @@ class SecureConfigLoader:
         # Check betting APIs
         betting_apis = self.config.get('betting_apis', {})
         for api_name, api_config in betting_apis.items():
-            if api_config.get('enabled') and api_config.get('api_key', '').startswith('MISSING_'):
-                print(f"⚠️ Warning: {api_name} API key not configured.")
+            if api_config.get('enabled'):
+                # Check API key configuration
+                if api_config.get('api_key', '').startswith('MISSING_'):
+                    print(f"⚠️ Warning: {api_name} API key not configured.")
     
     def _get_default_config(self) -> Dict[str, Any]:
         """Return minimal default configuration"""
@@ -117,7 +123,7 @@ class SecureConfigLoader:
         service_map = {
             'odds_api': ['data_sources', 'the_odds_api', 'api_key'],
             'pinnacle': ['betting_apis', 'pinnacle', 'api_key'],
-            'betfair': ['betting_apis', 'betfair', 'app_key']
+            'rapidapi': ['data_sources', 'rapidapi_tennis', 'api_key']
         }
         
         if service not in service_map:
@@ -125,12 +131,15 @@ class SecureConfigLoader:
         
         # Navigate to the key
         current = self.config
-        for key in service_map[service]:
-            current = current.get(key, {})
-            if not isinstance(current, dict) and key != service_map[service][-1]:
-                return ""
+        for i, key in enumerate(service_map[service]):
+            if i == len(service_map[service]) - 1:  # Last key (the actual value)
+                return str(current.get(key, "")) if current.get(key) else ""
+            else:  # Intermediate keys (should be dicts)
+                current = current.get(key, {})
+                if not isinstance(current, dict):
+                    return ""
         
-        return str(current) if current else ""
+        return ""
 
 # Global config loader instance
 config_loader = SecureConfigLoader()
@@ -143,3 +152,4 @@ def load_secure_config(config_file: str = "config.json") -> Dict[str, Any]:
 def get_api_key(service: str) -> str:
     """Get API key for a service safely"""
     return config_loader.get_api_key(service)
+

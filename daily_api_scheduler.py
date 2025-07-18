@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-📅 Daily API Scheduler - 3 Requests Per Day Rate Limiter
-Manages daily API quota of 500 requests/month = ~16 requests/day
-Uses only 3 requests/day to stay under monthly limit with margin
+📅 Daily API Scheduler - Smart Rate Limiter
+Manages API quota with 500 requests/month limit
+- 3 scheduled requests/day (morning, lunch, evening)
+- Unlimited manual requests (respects monthly limit only)
 """
 
 import json
@@ -18,12 +19,10 @@ logger = logging.getLogger(__name__)
 
 class DailyAPIScheduler:
     """
-    Daily API rate limiter that makes exactly 3 API requests per day:
-    - Morning: 08:00
-    - Lunch: 12:00 
-    - Evening: 18:00
-    
-    Also tracks monthly usage and provides manual override functionality.
+    Smart API rate limiter with:
+    - 3 scheduled requests per day: Morning (08:00), Lunch (12:00), Evening (18:00)
+    - Unlimited manual requests (only limited by monthly quota)
+    - Monthly usage tracking to stay within 500 requests/month
     """
     
     def __init__(self, config_file: str = "api_scheduler_config.json"):
@@ -54,7 +53,7 @@ class DailyAPIScheduler:
                 "evening": "18:00"
             },
             "timezone": "UTC",
-            "emergency_override_limit": 5,  # Extra requests per day in emergency
+            "emergency_override_limit": -1,  # Unlimited manual requests (-1 = no limit)
             "data_sources": ["tennis", "tennis_atp", "tennis_wta"]
         }
         
@@ -188,9 +187,14 @@ class DailyAPIScheduler:
     
     def _can_make_manual_request(self) -> bool:
         """Check if manual override request is allowed"""
-        emergency_limit = self.config.get("emergency_override_limit", 5)
-        total_daily_limit = self.config.get("daily_limit", 3) + emergency_limit
+        emergency_limit = self.config.get("emergency_override_limit", -1)
         
+        # If emergency_limit is -1, manual requests are unlimited (only check monthly limit)
+        if emergency_limit == -1:
+            return self.monthly_requests_made < self.config.get("monthly_limit", 500)
+        
+        # Otherwise, use the old logic with daily limits
+        total_daily_limit = self.config.get("daily_limit", 3) + emergency_limit
         return (self.daily_requests_made < total_daily_limit and
                 self.monthly_requests_made < self.config.get("monthly_limit", 500))
     
@@ -245,7 +249,7 @@ class DailyAPIScheduler:
                 'monthly_used': self.monthly_requests_made,
                 'limits': {
                     'daily_scheduled': self.config.get("daily_limit", 3),
-                    'daily_total': self.config.get("daily_limit", 3) + self.config.get("emergency_override_limit", 5),
+                    'daily_total': 'unlimited' if self.config.get("emergency_override_limit", -1) == -1 else self.config.get("daily_limit", 3) + self.config.get("emergency_override_limit", -1),
                     'monthly': self.config.get("monthly_limit", 500)
                 }
             }
@@ -336,7 +340,14 @@ class DailyAPIScheduler:
         
         # Calculate remaining requests
         daily_scheduled_remaining = max(0, self.config.get("daily_limit", 3) - self.daily_requests_made)
-        daily_manual_remaining = max(0, self.config.get("emergency_override_limit", 5) - max(0, self.daily_requests_made - self.config.get("daily_limit", 3)))
+        
+        # Calculate manual remaining (unlimited if emergency_override_limit is -1)
+        emergency_limit = self.config.get("emergency_override_limit", -1)
+        if emergency_limit == -1:
+            daily_manual_remaining = float('inf')  # Unlimited
+        else:
+            daily_manual_remaining = max(0, emergency_limit - max(0, self.daily_requests_made - self.config.get("daily_limit", 3)))
+        
         monthly_remaining = max(0, self.config.get("monthly_limit", 500) - self.monthly_requests_made)
         
         # Get next scheduled times
@@ -347,8 +358,8 @@ class DailyAPIScheduler:
             'daily_usage': {
                 'requests_made': self.daily_requests_made,
                 'scheduled_limit': self.config.get("daily_limit", 3),
-                'manual_limit': self.config.get("emergency_override_limit", 5),
-                'total_limit': self.config.get("daily_limit", 3) + self.config.get("emergency_override_limit", 5),
+                'manual_limit': self.config.get("emergency_override_limit", -1),
+                'total_limit': self.config.get("daily_limit", 3) if emergency_limit == -1 else self.config.get("daily_limit", 3) + emergency_limit,
                 'scheduled_remaining': daily_scheduled_remaining,
                 'manual_remaining': daily_manual_remaining,
                 'date': today.isoformat()

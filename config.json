@@ -29,6 +29,24 @@
       "enabled": false,
       "base_url": "https://api.wtatennis.com/",
       "api_key": ""
+    },
+    "rapidapi_tennis": {
+      "enabled": true,
+      "api_key": "${RAPIDAPI_KEY}",
+      "base_url": "https://tennisapi1.p.rapidapi.com/api/tennis",
+      "host": "tennisapi1.p.rapidapi.com",
+      "username": "default-application_10751463",
+      "daily_limit": 50,
+      "priority": 3,
+      "endpoints": {
+        "wta_rankings": "/rankings/wta/live",
+        "atp_rankings": "/rankings/atp/live",
+        "wta_matches": "/matches/live",
+        "atp_matches": "/matches/live",
+        "player_details": "/player/{id}",
+        "tournament_details": "/tournament/{id}"
+      },
+      "cache_minutes": 60
     }
   },
   "betting_apis": {
@@ -37,12 +55,6 @@
       "username": "",
       "password": "",
       "api_url": "https://api.pinnacle.com/v1/"
-    },
-    "betfair": {
-      "enabled": false,
-      "app_key": "",
-      "username": "",
-      "password": ""
     },
     "the_odds_api": {
       "enabled": true,

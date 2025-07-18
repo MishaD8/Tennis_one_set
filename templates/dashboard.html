@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎾 Tennis Underdog Analytics</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="underdog-banner">
+                <h2>🎯 UNDERDOG OPPORTUNITY FINDER</h2>
+                <p>Находим игроков которые могут взять сет против фаворитов</p>
+            </div>
+            
+            <div class="main-title">🎾 Tennis Underdog Analytics</div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="underdog-count">-</div>
+                    <div class="stat-label">Underdog Opportunities</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avg-probability">-</div>
+                    <div class="stat-label">Avg Set Probability</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="excellent-quality">-</div>
+                    <div class="stat-label">Excellent Quality</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="api-status">-</div>
+                    <div class="stat-label">API Status</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <h3>🎯 Underdog Control Panel</h3>
+            <p style="margin: 12px 0; opacity: 0.8;">Find players who can surprise favorites</p>
+            <button class="btn btn-success" onclick="loadUnderdogOpportunities()">🎯 Find Underdog Opportunities</button>
+            <button class="btn btn-info" onclick="testUnderdogAnalysis()">🔮 Test Underdog Analysis</button>
+            <button class="btn btn-warning" onclick="manualAPIUpdate()">🔄 Manual API Update</button>
+            <button class="btn" onclick="checkAPIStatus()">📊 API Status</button>
+        </div>
+        
+        <div id="matches-container" class="matches-container">
+            <div class="loading">
+                <h3>🎯 Finding underdog opportunities...</h3>
+                <p>Analyzing matches for upset potential</p>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

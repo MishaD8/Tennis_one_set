@@ -13,6 +13,11 @@ DB_PASSWORD=tennis_pass
 # Odds API Configuration (moved from config.json for security)
 ODDS_API_KEY=your_odds_api_key_here
 
+# RapidAPI Tennis Configuration
+# Get from: https://rapidapi.com/
+RAPIDAPI_KEY=your_rapidapi_key_here
+
+
 # Redis Configuration (for caching)
 REDIS_URL=redis://localhost:6379/0
 
