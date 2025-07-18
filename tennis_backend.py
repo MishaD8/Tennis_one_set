@@ -58,12 +58,21 @@ except ImportError as e:
     API_ECONOMY_AVAILABLE = False
 
 try:
-    from universal_tennis_data_collector import UniversalTennisDataCollector, UniversalOddsCollector
-    UNIVERSAL_COLLECTOR_AVAILABLE = True
-    print("✅ Universal data collector loaded")
+    from enhanced_universal_collector import EnhancedUniversalCollector
+    from universal_tennis_data_collector import UniversalOddsCollector
+    ENHANCED_COLLECTOR_AVAILABLE = True
+    print("✅ Enhanced Universal Collector loaded (includes TennisExplorer + RapidAPI)")
 except ImportError as e:
-    print(f"⚠️ Universal collector not available: {e}")
-    UNIVERSAL_COLLECTOR_AVAILABLE = False
+    print(f"⚠️ Enhanced collector not available: {e}")
+    try:
+        from universal_tennis_data_collector import UniversalTennisDataCollector, UniversalOddsCollector
+        UNIVERSAL_COLLECTOR_AVAILABLE = True
+        ENHANCED_COLLECTOR_AVAILABLE = False
+        print("✅ Universal data collector loaded (fallback)")
+    except ImportError as e2:
+        print(f"⚠️ Universal collector not available: {e2}")
+        UNIVERSAL_COLLECTOR_AVAILABLE = False
+        ENHANCED_COLLECTOR_AVAILABLE = False
 
 # Import daily API scheduler
 try:
@@ -89,6 +98,7 @@ config = None
 real_predictor = None
 prediction_service = None
 odds_integrator = None
+enhanced_collector = None
 universal_collector = None
 odds_collector = None
 daily_scheduler = None
@@ -139,7 +149,7 @@ def load_config():
 
 def initialize_services():
     """Инициализация всех сервисов"""
-    global real_predictor, prediction_service, odds_integrator, universal_collector, odds_collector, daily_scheduler
+    global real_predictor, prediction_service, odds_integrator, enhanced_collector, universal_collector, odds_collector, daily_scheduler
     
     # Инициализируем Real Tennis Predictor
     if REAL_PREDICTOR_AVAILABLE:
@@ -182,12 +192,21 @@ def initialize_services():
             except Exception as e:
                 logger.error(f"❌ Odds API initialization failed: {e}")
     
-    # Инициализируем Universal Collector
-    if UNIVERSAL_COLLECTOR_AVAILABLE:
+    # Инициализируем Enhanced Universal Collector (приоритет)
+    if ENHANCED_COLLECTOR_AVAILABLE:
+        try:
+            enhanced_collector = EnhancedUniversalCollector()
+            odds_collector = UniversalOddsCollector()
+            logger.info("✅ Enhanced Universal Collector initialized (TennisExplorer + RapidAPI + Universal)")
+        except Exception as e:
+            logger.error(f"❌ Enhanced collector initialization failed: {e}")
+    
+    # Fallback: обычный Universal Collector
+    elif UNIVERSAL_COLLECTOR_AVAILABLE:
         try:
             universal_collector = UniversalTennisDataCollector()
             odds_collector = UniversalOddsCollector()
-            logger.info("✅ Universal collectors initialized")
+            logger.info("✅ Universal collectors initialized (fallback)")
         except Exception as e:
             logger.error(f"❌ Universal collector initialization failed: {e}")
     
@@ -456,7 +475,85 @@ def get_live_matches_with_underdog_focus() -> Dict:
     """Получение матчей с фокусом на underdog анализ"""
     
     try:
-        # 1. ПРИОРИТЕТ: Universal Collector (реальные турниры)
+        # 1. ПРИОРИТЕТ: Enhanced Universal Collector (все источники данных)
+        if ENHANCED_COLLECTOR_AVAILABLE and enhanced_collector:
+            try:
+                logger.info("🌍 Using Enhanced Universal Collector (TennisExplorer + RapidAPI + Universal)...")
+                ml_ready_matches = enhanced_collector.get_ml_ready_matches(min_quality_score=60)
+                
+                if ml_ready_matches:
+                    logger.info(f"✅ Got {len(ml_ready_matches)} ML-ready matches from Enhanced Collector")
+                    
+                    analyzer = UnderdogAnalyzer()
+                    processed_matches = []
+                    
+                    for match in ml_ready_matches[:6]:  # Берем первые 6 качественных матчей
+                        try:
+                            player1 = match.get('player1', 'Player 1')
+                            player2 = match.get('player2', 'Player 2')
+                            
+                            # Получаем ML features
+                            ml_features = match.get('ml_features', {})
+                            
+                            # Используем реальные коэффициенты если доступны
+                            odds = {
+                                'player1': match.get('player1_odds', ml_features.get('player1_odds', 2.0)),
+                                'player2': match.get('player2_odds', ml_features.get('player2_odds', 2.0))
+                            }
+                            
+                            # Underdog анализ с улучшенными данными
+                            underdog_analysis = analyzer.calculate_underdog_probability(
+                                player1, player2, match.get('tournament', 'Tournament'), match.get('surface', 'Hard')
+                            )
+                            
+                            # Дополняем анализ ML данными
+                            if ml_features:
+                                underdog_analysis['ml_enhanced'] = True
+                                underdog_analysis['ranking_difference'] = ml_features.get('ranking_difference', 0)
+                                underdog_analysis['data_quality'] = match.get('quality_score', 70)
+                                underdog_analysis['data_source'] = match.get('data_source', 'Enhanced')
+                            
+                            processed_match = {
+                                'id': match.get('id', f"enhanced_{len(processed_matches)}"),
+                                'player1': f"🎾 {player1}",
+                                'player2': f"🎾 {player2}",
+                                'tournament': f"🏆 {match.get('tournament', 'Enhanced Tournament')}",
+                                'surface': match.get('surface', 'Hard'),
+                                'date': match.get('date', datetime.now().strftime('%Y-%m-%d')),
+                                'time': match.get('time', '14:00'),
+                                'round': match.get('round', 'R32'),
+                                'court': match.get('court', 'Court 1'),
+                                'status': f"enhanced_{match.get('status', 'ready')}",
+                                'source': 'ENHANCED_UNIVERSAL_COLLECTOR',
+                                'odds': odds,
+                                'underdog_analysis': underdog_analysis,
+                                'prediction': {
+                                    'probability': underdog_analysis['underdog_probability'],
+                                    'confidence': underdog_analysis['confidence']
+                                },
+                                'prediction_type': underdog_analysis['prediction_type'],
+                                'key_factors': underdog_analysis['key_factors'],
+                                'ml_features': ml_features
+                            }
+                            
+                            processed_matches.append(processed_match)
+                            
+                        except Exception as e:
+                            logger.warning(f"Error processing enhanced match: {e}")
+                            continue
+                    
+                    if processed_matches:
+                        return {
+                            'matches': processed_matches,
+                            'source': 'ENHANCED_UNIVERSAL_COLLECTOR',
+                            'success': True,
+                            'count': len(processed_matches)
+                        }
+                        
+            except Exception as e:
+                logger.warning(f"Enhanced collector failed: {e}")
+        
+        # 2. FALLBACK: Universal Collector (реальные турниры)
         if UNIVERSAL_COLLECTOR_AVAILABLE and universal_collector and odds_collector:
             try:
                 logger.info("🌍 Trying Universal Collector first...")
@@ -770,7 +867,10 @@ def health_check():
             'prediction_service': prediction_service is not None,
             'odds_integrator': odds_integrator is not None,
             'api_economy': API_ECONOMY_AVAILABLE,
-            'universal_collector': universal_collector is not None
+            'enhanced_collector': enhanced_collector is not None,
+            'universal_collector': universal_collector is not None,
+            'tennisexplorer_integrated': enhanced_collector is not None,
+            'rapidapi_integrated': enhanced_collector is not None
         },
         'version': '4.2'
     })
