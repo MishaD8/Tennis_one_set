@@ -105,8 +105,8 @@ async function loadUnderdogOpportunities() {
             const isNoRealData = data.source === 'NO_REAL_DATA';
             
             container.innerHTML = `<div class="loading">
-                <h3>${isNoRealData ? '✅ Test data filtered out' : '❌ No underdog opportunities found'}</h3>
-                <p>${isNoRealData ? 'Only real matches are shown. No live tournaments currently available.' : 'Try refreshing or check back later'}</p>
+                <h3>${isNoRealData ? '': '❌ No underdog opportunities found'}</h3>
+                <p>${isNoRealData ? 'No live tournaments currently available.' : 'Try refreshing or check back later'}</p>
                 ${isNoRealData ? '<p style="color: #6bcf7f; margin-top: 10px;">✨ System working correctly </p>' : ''}
             </div>`;
             
