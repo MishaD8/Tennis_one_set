@@ -10,7 +10,7 @@ async function loadUnderdogOpportunities() {
         const response = await fetch(API_BASE + '/matches');
         const data = await response.json();
         
-        if (data.success && data.matches) {
+        if (data.success && data.matches && data.matches.length > 0) {
             let html = `<div style="background: linear-gradient(135deg, rgba(107, 207, 127, 0.1), rgba(255, 217, 61, 0.1)); border: 1px solid rgba(107, 207, 127, 0.3); padding: 20px; border-radius: 15px; margin-bottom: 25px; text-align: center;">
                 <h2>🎯 UNDERDOG OPPORTUNITIES FOUND</h2>
                 <p>Source: ${data.source} • Matches: ${data.matches.length}</p>
@@ -101,7 +101,21 @@ async function loadUnderdogOpportunities() {
             document.getElementById('excellent-quality').textContent = excellentCount;
             
         } else {
-            container.innerHTML = '<div class="loading"><h3>❌ No underdog opportunities found</h3><p>Try refreshing or check back later</p></div>';
+            const message = data.message || 'No underdog opportunities found';
+            const isNoRealData = data.source === 'NO_REAL_DATA';
+            
+            container.innerHTML = `<div class="loading">
+                <h3>${isNoRealData ? '✅ Test data filtered out' : '❌ No underdog opportunities found'}</h3>
+                <p>${isNoRealData ? 'Only real matches are shown. No live tournaments currently available.' : 'Try refreshing or check back later'}</p>
+                ${isNoRealData ? '<p style="color: #6bcf7f; margin-top: 10px;">✨ System working correctly </p>' : ''}
+            </div>`;
+            
+            // Reset stats when no real data
+            if (isNoRealData) {
+                document.getElementById('underdog-count').textContent = '0';
+                document.getElementById('avg-probability').textContent = '0%';
+                document.getElementById('excellent-quality').textContent = '0';
+            }
         }
     } catch (error) {
         container.innerHTML = '<div class="loading"><h3>❌ Error loading opportunities</h3><p>Connection issues detected</p></div>';

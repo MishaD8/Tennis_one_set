@@ -825,7 +825,7 @@ def generate_sample_underdog_matches() -> Dict:
                 'round': 'R32',
                 'court': f'Court {i+1}',
                 'status': 'test_data',
-                'source': 'UNDERDOG_GENERATOR',
+                'source': 'TEST_UNDERDOG_GENERATOR',
                 'odds': odds,
                 'underdog_analysis': underdog_analysis,
                 'prediction': {
@@ -957,7 +957,15 @@ def get_matches():
                 logger.info(f"✅ Filtered to {len(real_matches)} real matches (was {len(raw_matches)})")
                 raw_matches = real_matches
             else:
-                logger.warning("⚠️ No real matches found, keeping original data")
+                logger.warning("⚠️ No real matches found, returning empty results instead of test data")
+                return jsonify({
+                    'success': True,
+                    'matches': [],
+                    'count': 0,
+                    'source': 'NO_REAL_DATA',
+                    'message': 'No real matches available. Only test data found.',
+                    'timestamp': datetime.now().isoformat()
+                })
         
         # Унифицируем формат всех матчей
         formatted_matches = []
@@ -967,22 +975,12 @@ def get_matches():
         
         logger.info(f"📊 Returning {len(formatted_matches)} formatted matches")
         
-        # Получаем матчи
-        matches_result = get_live_matches_with_underdog_focus()
-        
-        if not matches_result['success']:
-            return jsonify({
-                'success': False,
-                'error': 'Failed to get matches',
-                'matches': []
-            }), 500
-        
         return jsonify({
             'success': True,
-            'matches': matches_result['matches'],
-            'count': matches_result['count'],
+            'matches': formatted_matches,
+            'count': len(formatted_matches),
             'source': matches_result['source'],
-            'prediction_type': matches_result['matches'][0]['prediction_type'] if matches_result['matches'] else 'UNKNOWN',
+            'prediction_type': formatted_matches[0]['prediction_type'] if formatted_matches else 'UNKNOWN',
             'timestamp': datetime.now().isoformat()
         })
         
