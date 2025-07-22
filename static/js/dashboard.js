@@ -152,12 +152,12 @@ async function testUnderdogAnalysis() {
             message += `ML System: ${analysis.ml_system_used}\\n\\n`;
             message += `✅ Underdog analysis working correctly!`;
             
-            alert(message);
+            console.log('Underdog Analysis Test Results:', message);
         } else {
-            alert(`❌ Test failed: ${data.error}`);
+            console.error('Underdog analysis test failed:', data.error);
         }
     } catch (error) {
-        alert(`❌ Test error: ${error.message}`);
+        console.error('Underdog analysis test error:', error.message);
     }
 }
 
@@ -167,13 +167,13 @@ async function manualAPIUpdate() {
         const data = await response.json();
         
         if (data.success) {
-            alert('✅ Manual API update triggered! Fresh data will be available on next request.');
+            console.log('Manual API update triggered successfully');
             document.getElementById('api-status').textContent = '🔄 Updating';
         } else {
-            alert(`❌ Update failed: ${data.error}`);
+            console.error('Manual API update failed:', data.error);
         }
     } catch (error) {
-        alert(`❌ Update error: ${error.message}`);
+        console.error('Manual API update error:', error.message);
     }
 }
 
@@ -186,14 +186,20 @@ async function checkAPIStatus() {
             const usage = data.api_usage;
             document.getElementById('api-status').textContent = `${usage.remaining_hour}/${usage.max_per_hour}`;
             
-            alert(`📊 API Economy Status:\\n\\nRequests this hour: ${usage.requests_this_hour}/${usage.max_per_hour}\\nRemaining: ${usage.remaining_hour}\\nCache items: ${usage.cache_items}\\nManual update: ${usage.manual_update_status}`);
+            console.log('API Economy Status:', {
+                requests_this_hour: usage.requests_this_hour,
+                max_per_hour: usage.max_per_hour,
+                remaining: usage.remaining_hour,
+                cache_items: usage.cache_items,
+                manual_update_status: usage.manual_update_status
+            });
         } else {
             document.getElementById('api-status').textContent = '❌ Error';
-            alert('❌ Failed to get API status');
+            console.error('Failed to get API status');
         }
     } catch (error) {
         document.getElementById('api-status').textContent = '❌ Error';
-        alert(`❌ Status error: ${error.message}`);
+        console.error('API status error:', error.message);
     }
 }
 

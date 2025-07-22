@@ -334,86 +334,10 @@ class EnhancedUniversalCollector:
         """Generate realistic tournament matches when no live data is available"""
         from datetime import datetime
         
-        # Based on today's actual tournaments (Hamburg Open, Prague Open)
-        matches = [
-            {
-                'id': 'hamburg_atp_2025_sf1',
-                'player1': 'Alexander Zverev',
-                'player2': 'Holger Rune',
-                'tournament': 'Hamburg Open ATP 500',
-                'surface': 'Clay',
-                'date': datetime.now().strftime('%Y-%m-%d'),
-                'time': '15:00',
-                'round': 'Semifinals',
-                'status': 'scheduled',
-                'player1_odds': 1.55,
-                'player2_odds': 2.45,
-                'ml_ready': True,
-                'quality_score': 88,
-                'data_source': 'enhanced_sample',
-                'ml_features': {
-                    'ranking_difference': 12,
-                    'h2h_matches': 3,
-                    'surface_advantage_p1': 0.15,
-                    'recent_form_p1': 0.82,
-                    'recent_form_p2': 0.75,
-                    'clay_expertise_p1': 0.85,
-                    'clay_expertise_p2': 0.70
-                }
-            },
-            {
-                'id': 'hamburg_atp_2025_sf2',
-                'player1': 'Lorenzo Musetti',
-                'player2': 'Francisco Cerundolo',
-                'tournament': 'Hamburg Open ATP 500', 
-                'surface': 'Clay',
-                'date': datetime.now().strftime('%Y-%m-%d'),
-                'time': '17:30',
-                'round': 'Semifinals',
-                'status': 'scheduled',
-                'player1_odds': 1.75,
-                'player2_odds': 2.05,
-                'ml_ready': True,
-                'quality_score': 82,
-                'data_source': 'enhanced_sample',
-                'ml_features': {
-                    'ranking_difference': 8,
-                    'h2h_matches': 2,
-                    'surface_advantage_p1': 0.08,
-                    'recent_form_p1': 0.78,
-                    'recent_form_p2': 0.73,
-                    'clay_expertise_p1': 0.88,
-                    'clay_expertise_p2': 0.79
-                }
-            },
-            {
-                'id': 'prague_wta_2025_qf1',
-                'player1': 'Barbora Krejcikova',
-                'player2': 'Linda Noskova',
-                'tournament': 'Prague Open WTA 250',
-                'surface': 'Clay', 
-                'date': datetime.now().strftime('%Y-%m-%d'),
-                'time': '13:00',
-                'round': 'Quarterfinals',
-                'status': 'scheduled',
-                'player1_odds': 1.65,
-                'player2_odds': 2.25,
-                'ml_ready': True,
-                'quality_score': 85,
-                'data_source': 'enhanced_sample',
-                'ml_features': {
-                    'ranking_difference': 25,
-                    'h2h_matches': 1,
-                    'surface_advantage_p1': 0.20,
-                    'recent_form_p1': 0.85,
-                    'recent_form_p2': 0.68,
-                    'clay_expertise_p1': 0.90,
-                    'clay_expertise_p2': 0.65
-                }
-            }
-        ]
+        # NO FAKE TOURNAMENTS - Only use real live API data
+        matches = []
         
-        logger.info(f"🎾 Generated {len(matches)} realistic tournament matches with ML features")
+        logger.info("🚫 No fake tournament data generated - using only real live API sources")
         return matches
     
     def get_underdog_opportunities(self, min_ranking_gap: int = 20) -> List[Dict]:

@@ -148,7 +148,35 @@ class TennisExplorerScraper:
             return False
             
     def get_current_matches(self, days_ahead: int = 2) -> List[TennisMatch]:
-        """Get current and upcoming matches"""
+        """Get current and upcoming matches from multiple tournament sections"""
+        matches = []
+        
+        try:
+            # 1. Get matches from general /next/ section
+            matches.extend(self._get_matches_from_next_section(days_ahead))
+            
+            # 2. Get matches from current ATP tournaments
+            atp_matches = self._get_matches_from_atp_tournaments()
+            matches.extend(atp_matches)
+            
+            # 3. Get matches from current WTA tournaments
+            wta_matches = self._get_matches_from_wta_tournaments()
+            matches.extend(wta_matches)
+            
+            # 4. Get live/ongoing matches
+            live_matches = self._get_live_matches()
+            matches.extend(live_matches)
+            
+        except Exception as e:
+            logger.error(f"Error getting current matches: {e}")
+            
+        # Remove duplicates based on player names and tournament
+        unique_matches = self._remove_duplicate_matches(matches)
+        logger.info(f"Found {len(unique_matches)} unique matches")
+        return unique_matches
+    
+    def _get_matches_from_next_section(self, days_ahead: int = 2) -> List[TennisMatch]:
+        """Get matches from the general /next/ section"""
         matches = []
         
         try:
@@ -175,9 +203,83 @@ class TennisExplorerScraper:
                 time.sleep(1)
                 
         except Exception as e:
-            logger.error(f"Error getting current matches: {e}")
+            logger.error(f"Error getting matches from /next/ section: {e}")
             
-        logger.info(f"Found {len(matches)} matches")
+        return matches
+    
+    def _get_matches_from_atp_tournaments(self) -> List[TennisMatch]:
+        """Get matches from current ATP tournaments"""
+        matches = []
+        
+        # Current ATP tournaments (real tournaments only)
+        atp_tournaments = [
+            "croatia-open-umag",  # ATP Umag
+            "atp-washington",  # ATP Washington
+            "los-cabos-open",  # Los Cabos Open
+            "atlanta-open"  # Atlanta Open
+        ]
+        
+        for tournament in atp_tournaments:
+            try:
+                tournament_url = f"{self.base_url}/atp/{tournament}/"
+                response = self.session.get(tournament_url, timeout=10)
+                
+                if response.status_code == 200:
+                    tournament_matches = self._parse_tournament_matches(response.content, tournament)
+                    matches.extend(tournament_matches)
+                    
+                # Rate limiting
+                time.sleep(1)
+                
+            except Exception as e:
+                logger.warning(f"Could not get matches from ATP {tournament}: {e}")
+                
+        return matches
+    
+    def _get_matches_from_wta_tournaments(self) -> List[TennisMatch]:
+        """Get matches from current WTA tournaments"""  
+        matches = []
+        
+        # Current WTA tournaments
+        wta_tournaments = [
+            "livesport-prague-open",  # WTA Prague
+            "wta-washington",  # WTA Washington
+            "budapest-open",  # Budapest Open
+            "palermo-open"  # Palermo Open
+        ]
+        
+        for tournament in wta_tournaments:
+            try:
+                tournament_url = f"{self.base_url}/wta/{tournament}/"
+                response = self.session.get(tournament_url, timeout=10)
+                
+                if response.status_code == 200:
+                    tournament_matches = self._parse_tournament_matches(response.content, tournament)
+                    matches.extend(tournament_matches)
+                    
+                # Rate limiting  
+                time.sleep(1)
+                
+            except Exception as e:
+                logger.warning(f"Could not get matches from WTA {tournament}: {e}")
+                
+        return matches
+    
+    def _get_live_matches(self) -> List[TennisMatch]:
+        """Get live/ongoing matches"""
+        matches = []
+        
+        try:
+            live_url = f"{self.base_url}/live/"
+            response = self.session.get(live_url, timeout=10)
+            
+            if response.status_code == 200:
+                live_matches = self._parse_matches_page(response.content, "Live")
+                matches.extend(live_matches)
+                
+        except Exception as e:
+            logger.warning(f"Could not get live matches: {e}")
+            
         return matches
         
     def _parse_matches_page(self, html_content: bytes, date_info: str) -> List[TennisMatch]:
@@ -354,6 +456,115 @@ class TennisExplorerScraper:
         except Exception as e:
             logger.error(f"Connection test failed: {e}")
             return False
+    
+    def _parse_tournament_matches(self, html_content: bytes, tournament: str) -> List[TennisMatch]:
+        """Parse matches from a tournament-specific page"""
+        matches = []
+        
+        try:
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # Look for tournament match tables or containers
+            match_containers = soup.find_all(['tr', 'div'], class_=re.compile(r'.*match.*|.*game.*|.*fixture.*|.*draw.*', re.I))
+            
+            # Also look for table rows that might contain match data
+            if not match_containers:
+                tables = soup.find_all('table')
+                for table in tables:
+                    # Look for tables that might contain match schedules or results
+                    if any(keyword in str(table).lower() for keyword in ['match', 'draw', 'schedule', 'fixture']):
+                        rows = table.find_all('tr')
+                        match_containers.extend(rows)
+                        
+            for container in match_containers:
+                match = self._extract_tournament_match_data(container, tournament)
+                if match:
+                    matches.append(match)
+                    
+        except Exception as e:
+            logger.error(f"Error parsing tournament matches: {e}")
+            
+        return matches
+    
+    def _extract_tournament_match_data(self, container, tournament: str) -> Optional[TennisMatch]:
+        """Extract match data from a tournament page container"""
+        try:
+            # Get all text content from the container
+            text = container.get_text(strip=True)
+            if not text:
+                return None
+                
+            # Look for player names (typically separated by "vs", "-", "x", etc.)
+            player_patterns = [
+                r'([A-Za-z\s\.]+)\s+vs\s+([A-Za-z\s\.]+)',
+                r'([A-Za-z\s\.]+)\s+x\s+([A-Za-z\s\.]+)', 
+                r'([A-Za-z\s\.]+)\s+-\s+([A-Za-z\s\.]+)',
+                r'([A-Za-z\s\.]+)\s+–\s+([A-Za-z\s\.]+)'
+            ]
+            
+            player1, player2 = None, None
+            for pattern in player_patterns:
+                match = re.search(pattern, text, re.I)
+                if match:
+                    player1, player2 = match.groups()
+                    player1, player2 = player1.strip(), player2.strip()
+                    break
+                    
+            if not player1 or not player2:
+                return None
+                
+            # Extract time if present
+            time_match = re.search(r'(\d{1,2}:\d{2})', text)
+            start_time = time_match.group(1) if time_match else None
+            
+            # Extract round info
+            round_info = "Unknown Round"
+            round_keywords = ['final', 'semifinal', 'quarter', 'round', 'r32', 'r16', 'r8', 'r4', 'r2', 'r1']
+            for keyword in round_keywords:
+                if keyword.lower() in text.lower():
+                    round_info = keyword.title()
+                    break
+                    
+            # Extract surface (common surfaces)
+            surface = "Hard"  # Default
+            if any(surf in text.lower() for surf in ['clay', 'grass', 'carpet', 'indoor']):
+                if 'clay' in text.lower():
+                    surface = "Clay"
+                elif 'grass' in text.lower():
+                    surface = "Grass"
+                elif 'indoor' in text.lower():
+                    surface = "Indoor"
+                    
+            return TennisMatch(
+                player1=player1,
+                player2=player2,
+                tournament=tournament.replace('-', ' ').title(),
+                surface=surface,
+                round_info=round_info,
+                start_time=start_time
+            )
+            
+        except Exception as e:
+            logger.debug(f"Could not extract match data: {e}")
+            return None
+    
+    def _remove_duplicate_matches(self, matches: List[TennisMatch]) -> List[TennisMatch]:
+        """Remove duplicate matches based on player names and tournament"""
+        seen = set()
+        unique_matches = []
+        
+        for match in matches:
+            # Create a key for deduplication
+            key = (
+                tuple(sorted([match.player1.lower().strip(), match.player2.lower().strip()])),
+                match.tournament.lower().strip()
+            )
+            
+            if key not in seen:
+                seen.add(key)
+                unique_matches.append(match)
+                
+        return unique_matches
 
 def main():
     """Test the scraper"""

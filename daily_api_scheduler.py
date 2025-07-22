@@ -45,12 +45,19 @@ class DailyAPIScheduler:
     def _load_config(self) -> Dict:
         """Load scheduler configuration"""
         default_config = {
-            "daily_limit": 3,
+            "daily_limit": 10,
             "monthly_limit": 500,
             "schedule": {
-                "morning": "08:00",
-                "lunch": "12:00", 
-                "evening": "18:00"
+                "slot_1": "00:00",
+                "slot_2": "02:30",
+                "slot_3": "05:00",
+                "slot_4": "07:30",
+                "slot_5": "10:00",
+                "slot_6": "12:30",
+                "slot_7": "15:00",
+                "slot_8": "17:30",
+                "slot_9": "20:00",
+                "slot_10": "22:30"
             },
             "timezone": "UTC",
             "emergency_override_limit": -1,  # Unlimited manual requests (-1 = no limit)

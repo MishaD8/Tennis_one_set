@@ -384,29 +384,6 @@ def generate_fallback_tennis_data() -> Dict:
             ]
         },
         {
-            "id": "prague_2025_1",
-            "home_team": "Linda Fruhvirtova",
-            "away_team": "Petra Kvitova",
-            "sport_key": "tennis", 
-            "sport_title": "Tennis",
-            "commence_time": f"{datetime.now().strftime('%Y-%m-%d')}T12:30:00Z",
-            "bookmakers": [
-                {
-                    "key": "bet365",
-                    "title": "Bet365",
-                    "markets": [
-                        {
-                            "key": "h2h",
-                            "outcomes": [
-                                {"name": "Linda Fruhvirtova", "price": 3.20},
-                                {"name": "Petra Kvitova", "price": 1.35}
-                            ]
-                        }
-                    ]
-                }
-            ]
-        },
-        {
             "id": "kitzbuhel_2025_2",
             "home_team": "Sebastian Ofner",
             "away_team": "Dominic Thiem",

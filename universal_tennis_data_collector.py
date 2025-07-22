@@ -49,7 +49,6 @@ class UniversalTennisDataCollector:
             
             # Июль
             "2025-06-30": {"name": "Wimbledon", "location": "London", "surface": "Grass", "level": "Grand Slam", "status": "major"},
-            "2025-07-14": {"name": "Hamburg Open", "location": "Hamburg", "surface": "Clay", "level": "ATP 500", "status": "atp"},
             "2025-07-21": {"name": "Los Cabos Open", "location": "Los Cabos", "surface": "Hard", "level": "ATP 250", "status": "atp"},
             
             # Август
