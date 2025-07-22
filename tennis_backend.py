@@ -61,6 +61,7 @@ try:
     from enhanced_universal_collector import EnhancedUniversalCollector
     from universal_tennis_data_collector import UniversalOddsCollector
     ENHANCED_COLLECTOR_AVAILABLE = True
+    UNIVERSAL_COLLECTOR_AVAILABLE = False  # Initialize for safety
     print("✅ Enhanced Universal Collector loaded (includes TennisExplorer + RapidAPI)")
 except ImportError as e:
     print(f"⚠️ Enhanced collector not available: {e}")
@@ -479,7 +480,8 @@ def get_live_matches_with_underdog_focus() -> Dict:
         if ENHANCED_COLLECTOR_AVAILABLE and enhanced_collector:
             try:
                 logger.info("🌍 Using Enhanced Universal Collector (TennisExplorer + RapidAPI + Universal)...")
-                ml_ready_matches = enhanced_collector.get_ml_ready_matches(min_quality_score=60)
+                # Lower quality threshold to see available data
+                ml_ready_matches = enhanced_collector.get_ml_ready_matches(min_quality_score=30)
                 
                 if ml_ready_matches:
                     logger.info(f"✅ Got {len(ml_ready_matches)} ML-ready matches from Enhanced Collector")
@@ -627,8 +629,9 @@ def get_live_matches_with_underdog_focus() -> Dict:
             except Exception as e:
                 logger.warning(f"Universal collector failed: {e}")
         
-        # 2. ВТОРОЙ ПРИОРИТЕТ: API Economy (если доступно)
-        if API_ECONOMY_AVAILABLE:
+        # 2. SKIP: API Economy (quota exhausted until 2025-07-27)
+        logger.info("⏭️ Skipping API Economy (quota exhausted until 2025-07-27)")
+        if False and API_ECONOMY_AVAILABLE:  # Temporarily disabled
             try:
                 logger.info("💰 Trying API Economy...")
                 api_result = economical_tennis_request('tennis')

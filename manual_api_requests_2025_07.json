@@ -1,0 +1,31 @@
+[
+  {
+    "timestamp": "2025-07-21T19:48:38.125416",
+    "reason": "debug_today_matches",
+    "type": "manual_override",
+    "total_matches": 0,
+    "sport_results": {
+      "tennis": {
+        "success": false,
+        "matches_count": 0,
+        "source": "api_error",
+        "status": null
+      },
+      "tennis_atp": {
+        "success": false,
+        "matches_count": 0,
+        "source": "api_error",
+        "status": null
+      },
+      "tennis_wta": {
+        "success": false,
+        "matches_count": 0,
+        "source": "api_error",
+        "status": null
+      }
+    },
+    "api_usage": null,
+    "daily_count": 1,
+    "monthly_count": 1
+  }
+]
