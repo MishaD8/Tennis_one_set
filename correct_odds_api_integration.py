@@ -495,7 +495,15 @@ def test_integration(api_key: str):
 
 
 if __name__ == "__main__":
-    # ЗАМЕНИ НА СВОЙ РЕАЛЬНЫЙ API КЛЮЧ
-    API_KEY = "a1b20d709d4bacb2d95ddab880f91009"
+    # Load API key from .env file
+    import os
+    from dotenv import load_dotenv
+    
+    load_dotenv()
+    API_KEY = os.getenv('ODDS_API_KEY')
+    
+    if not API_KEY:
+        print("❌ ODDS_API_KEY not found in .env file!")
+        exit(1)
     
     test_integration(API_KEY)
