@@ -147,23 +147,27 @@ class TennisExplorerScraper:
             logger.error(f"Login failed with exception: {e}")
             return False
             
-    def get_current_matches(self, days_ahead: int = 2) -> List[TennisMatch]:
-        """Get current and upcoming matches from multiple tournament sections"""
+    def get_current_matches(self, days_ahead: int = 7) -> List[TennisMatch]:
+        """Get current and upcoming matches from multiple tournament sections - ENHANCED for scheduled matches"""
         matches = []
         
         try:
-            # 1. Get matches from general /next/ section
+            # 1. PRIORITY: Get matches from general /next/ section (more days for scheduled matches)
             matches.extend(self._get_matches_from_next_section(days_ahead))
             
-            # 2. Get matches from current ATP tournaments
-            atp_matches = self._get_matches_from_atp_tournaments()
+            # 2. Get scheduled matches from current ATP tournaments
+            atp_matches = self._get_scheduled_matches_from_atp_tournaments()
             matches.extend(atp_matches)
             
-            # 3. Get matches from current WTA tournaments
-            wta_matches = self._get_matches_from_wta_tournaments()
+            # 3. Get scheduled matches from current WTA tournaments  
+            wta_matches = self._get_scheduled_matches_from_wta_tournaments()
             matches.extend(wta_matches)
             
-            # 4. Get live/ongoing matches
+            # 4. Get tournament draws and upcoming rounds
+            draw_matches = self._get_tournament_draws()
+            matches.extend(draw_matches)
+            
+            # 5. Get live/ongoing matches (lower priority - already started)
             live_matches = self._get_live_matches()
             matches.extend(live_matches)
             
@@ -206,6 +210,272 @@ class TennisExplorerScraper:
             logger.error(f"Error getting matches from /next/ section: {e}")
             
         return matches
+    
+    def _get_scheduled_matches_from_atp_tournaments(self) -> List[TennisMatch]:
+        """Get SCHEDULED matches from current ATP tournaments - focus on tomorrow's matches"""
+        matches = []
+        
+        # Current ATP tournaments (summer hard court season)
+        atp_tournaments = [
+            "kitzbuhel",  # ATP Kitzbuhel (Austria)
+            "croatia-open-umag",  # ATP Umag (Croatia)
+            "atp-washington",  # ATP Washington (USA)
+            "los-cabos-open",  # Los Cabos Open (Mexico)
+            "atlanta-open",  # Atlanta Open (USA)
+            "winston-salem-open",  # Winston-Salem Open
+            "cincinnati-masters"  # Cincinnati Masters
+        ]
+        
+        for tournament in atp_tournaments:
+            try:
+                # Try different URLs for tournament schedule/draw
+                tournament_urls = [
+                    f"{self.base_url}/atp/{tournament}/draws/",
+                    f"{self.base_url}/atp/{tournament}/schedule/",
+                    f"{self.base_url}/atp/{tournament}/",
+                    f"{self.base_url}/next/{tournament}/"
+                ]
+                
+                for url in tournament_urls:
+                    try:
+                        response = self.session.get(url, timeout=10)
+                        if response.status_code == 200:
+                            tournament_matches = self._parse_scheduled_tournament_matches(response.content, tournament)
+                            if tournament_matches:
+                                matches.extend(tournament_matches)
+                                logger.info(f"✅ Found {len(tournament_matches)} scheduled matches from ATP {tournament}")
+                                break  # Found matches, no need to try other URLs
+                    except:
+                        continue
+                        
+                # Rate limiting
+                time.sleep(1)
+                
+            except Exception as e:
+                logger.warning(f"Could not get scheduled matches from ATP {tournament}: {e}")
+                
+        return matches
+    
+    def _get_scheduled_matches_from_wta_tournaments(self) -> List[TennisMatch]:
+        """Get SCHEDULED matches from current WTA tournaments - focus on tomorrow's matches"""
+        matches = []
+        
+        # Current WTA tournaments (summer hard court season)
+        wta_tournaments = [
+            "livesport-prague-open",  # WTA Prague (Czech Republic)
+            "wta-washington",  # WTA Washington (USA)
+            "budapest-open",  # Budapest Open (Hungary)
+            "palermo-open",  # Palermo Open (Italy)
+            "montreal-masters-wta",  # Montreal Masters WTA
+            "cincinnati-masters-wta"  # Cincinnati Masters WTA
+        ]
+        
+        for tournament in wta_tournaments:
+            try:
+                # Try different URLs for tournament schedule/draw
+                tournament_urls = [
+                    f"{self.base_url}/wta/{tournament}/draws/",
+                    f"{self.base_url}/wta/{tournament}/schedule/",
+                    f"{self.base_url}/wta/{tournament}/",
+                    f"{self.base_url}/next/{tournament}/"
+                ]
+                
+                for url in tournament_urls:
+                    try:
+                        response = self.session.get(url, timeout=10)
+                        if response.status_code == 200:
+                            tournament_matches = self._parse_scheduled_tournament_matches(response.content, tournament)
+                            if tournament_matches:
+                                matches.extend(tournament_matches)
+                                logger.info(f"✅ Found {len(tournament_matches)} scheduled matches from WTA {tournament}")
+                                break  # Found matches, no need to try other URLs
+                    except:
+                        continue
+                        
+                # Rate limiting
+                time.sleep(1)
+                
+            except Exception as e:
+                logger.warning(f"Could not get scheduled matches from WTA {tournament}: {e}")
+                
+        return matches
+    
+    def _get_tournament_draws(self) -> List[TennisMatch]:
+        """Get matches from tournament draws - focusing on upcoming rounds"""
+        matches = []
+        
+        try:
+            # Try main draws page
+            draws_urls = [
+                f"{self.base_url}/draws/",
+                f"{self.base_url}/schedule/",
+                f"{self.base_url}/calendar/"
+            ]
+            
+            for url in draws_urls:
+                try:
+                    response = self.session.get(url, timeout=10)
+                    if response.status_code == 200:
+                        draw_matches = self._parse_draws_page(response.content)
+                        if draw_matches:
+                            matches.extend(draw_matches)
+                            logger.info(f"✅ Found {len(draw_matches)} matches from draws")
+                            break
+                except:
+                    continue
+                    
+        except Exception as e:
+            logger.warning(f"Could not get tournament draws: {e}")
+            
+        return matches
+    
+    def _parse_scheduled_tournament_matches(self, html_content: bytes, tournament: str) -> List[TennisMatch]:
+        """Parse SCHEDULED matches from tournament pages - enhanced to find tomorrow's matches"""
+        matches = []
+        
+        try:
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # Look for schedule tables, draw tables, or upcoming match containers
+            match_containers = soup.find_all(['tr', 'div', 'td'], class_=re.compile(r'.*(?:match|game|fixture|draw|schedule|upcoming).*', re.I))
+            
+            # Also look for time-based containers (matches with specific times)
+            time_containers = soup.find_all(string=re.compile(r'\d{1,2}:\d{2}|\d{1,2}\.\d{2}|tomorrow|schedule', re.I))
+            for time_container in time_containers:
+                if time_container.parent:
+                    match_containers.append(time_container.parent)
+            
+            # Look for tables that might contain future matches
+            tables = soup.find_all('table')
+            for table in tables:
+                table_text = table.get_text().lower()
+                if any(keyword in table_text for keyword in ['tomorrow', 'schedule', 'draw', 'upcoming', ':', 'round']):
+                    rows = table.find_all('tr')
+                    match_containers.extend(rows)
+                    
+            for container in match_containers:
+                match = self._extract_scheduled_match_data(container, tournament)
+                if match:
+                    matches.append(match)
+                    
+        except Exception as e:
+            logger.error(f"Error parsing scheduled tournament matches: {e}")
+            
+        return matches
+    
+    def _parse_draws_page(self, html_content: bytes) -> List[TennisMatch]:
+        """Parse tournament draws page for upcoming matches"""
+        matches = []
+        
+        try:
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # Look for draw brackets or upcoming match listings
+            draw_containers = soup.find_all(['div', 'table', 'tr'], class_=re.compile(r'.*(?:draw|bracket|round|upcoming).*', re.I))
+            
+            for container in draw_containers:
+                match = self._extract_draw_match_data(container)
+                if match:
+                    matches.append(match)
+                    
+        except Exception as e:
+            logger.error(f"Error parsing draws page: {e}")
+            
+        return matches
+    
+    def _extract_scheduled_match_data(self, container, tournament: str) -> Optional[TennisMatch]:
+        """Extract scheduled match data - enhanced to catch tomorrow's matches"""
+        try:
+            text = container.get_text(strip=True)
+            if not text or len(text) < 10:
+                return None
+                
+            # Look for time indicators (scheduled matches have times)
+            time_patterns = [
+                r'(\d{1,2}:\d{2})',  # 14:30
+                r'(\d{1,2}\.\d{2})',  # 14.30
+                r'(tomorrow)',  # tomorrow
+                r'(scheduled)',  # scheduled
+            ]
+            
+            has_time = any(re.search(pattern, text.lower()) for pattern in time_patterns)
+            
+            # Look for player names
+            player_patterns = [
+                r'([A-Z][a-z]+\s+[A-Z][a-z]+)\s+(?:vs?|x|-|–)\s+([A-Z][a-z]+\s+[A-Z][a-z]+)',
+                r'([A-Z]\.\s*[A-Z][a-z]+)\s+(?:vs?|x|-|–)\s+([A-Z]\.\s*[A-Z][a-z]+)',
+                r'([A-Z][a-z]+)\s+(?:vs?|x|-|–)\s+([A-Z][a-z]+)'
+            ]
+            
+            player1, player2 = None, None
+            for pattern in player_patterns:
+                match = re.search(pattern, text)
+                if match:
+                    player1, player2 = match.groups()
+                    player1, player2 = player1.strip(), player2.strip()
+                    break
+                    
+            if not player1 or not player2:
+                return None
+            
+            # Extract time if present
+            time_match = re.search(r'(\d{1,2}[:\.]\d{2})', text)
+            start_time = time_match.group(1) if time_match else None
+            
+            # If no specific time but has scheduling keywords, it's probably tomorrow
+            if not start_time and any(keyword in text.lower() for keyword in ['tomorrow', 'schedule', 'next']):
+                start_time = "Tomorrow"
+            
+            # Extract round info
+            round_info = "Scheduled"
+            round_keywords = ['r128', 'r64', 'r32', 'r16', 'r8', 'r4', 'r2', 'final', 'semifinal', 'quarter', 'round']
+            for keyword in round_keywords:
+                if keyword.lower() in text.lower():
+                    round_info = keyword.title()
+                    break
+                    
+            return TennisMatch(
+                player1=player1,
+                player2=player2,
+                tournament=tournament.replace('-', ' ').title(),
+                surface="Hard",  # Default for current season
+                round_info=round_info,
+                start_time=start_time
+            )
+            
+        except Exception as e:
+            logger.debug(f"Could not extract scheduled match data: {e}")
+            return None
+    
+    def _extract_draw_match_data(self, container) -> Optional[TennisMatch]:
+        """Extract match data from tournament draws"""
+        try:
+            text = container.get_text(strip=True)
+            if not text or len(text) < 10:
+                return None
+                
+            # Similar extraction logic but for draws
+            player_patterns = [
+                r'([A-Z][a-z]+\s+[A-Z][a-z]+)\s+(?:vs?|x|-|–)\s+([A-Z][a-z]+\s+[A-Z][a-z]+)',
+            ]
+            
+            for pattern in player_patterns:
+                match = re.search(pattern, text)
+                if match:
+                    player1, player2 = match.groups()
+                    return TennisMatch(
+                        player1=player1.strip(),
+                        player2=player2.strip(),
+                        tournament="Tournament Draw",
+                        surface="Hard",
+                        round_info="Draw",
+                        start_time="Scheduled"
+                    )
+                    
+        except Exception as e:
+            logger.debug(f"Could not extract draw match data: {e}")
+            
+        return None
     
     def _get_matches_from_atp_tournaments(self) -> List[TennisMatch]:
         """Get matches from current ATP tournaments"""

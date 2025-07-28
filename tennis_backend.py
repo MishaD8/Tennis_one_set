@@ -105,13 +105,37 @@ odds_collector = None
 daily_scheduler = None
 
 def filter_quality_matches(matches):
-    """Фильтр только ATP/WTA одиночные"""
+    """Enhanced filter for ATP/WTA professional singles only"""
     filtered = []
+    
+    excluded_keywords = [
+        'utr', 'ptt', 'junior', 'college', 'university',
+        'challenger', 'futures', 'itf', 'amateur', 'qualifying',
+        'youth', 'exhibition', 'invitational'
+    ]
+    
     for match in matches:
-        sport_title = match.get('sport_title', '')
-        if ('ATP' in sport_title or 'WTA' in sport_title):
-            if not any(word in sport_title.lower() for word in ['doubles', 'double']):
-                filtered.append(match)
+        # Check sport_title for Odds API data
+        sport_title = match.get('sport_title', '').lower()
+        tournament_name = match.get('tournament', '').lower()
+        
+        # Skip if contains excluded keywords
+        text_to_check = f"{sport_title} {tournament_name}"
+        if any(keyword in text_to_check for keyword in excluded_keywords):
+            logger.info(f"🚫 Backend filtering out non-professional: {tournament_name}")
+            continue
+        
+        # Check for doubles matches
+        if any(word in sport_title for word in ['doubles', 'double']):
+            continue
+        if any(word in tournament_name for word in ['doubles', 'double']):
+            continue
+        
+        # Original ATP/WTA check plus enhanced professional tournament detection
+        if ('atp' in sport_title or 'wta' in sport_title or
+            any(prof in tournament_name for prof in ['atp', 'wta', 'grand slam', 'masters', 'wimbledon', 'us open', 'french open', 'australian open'])):
+            filtered.append(match)
+    
     return filtered
 
 def load_config():
@@ -938,7 +962,8 @@ def get_matches():
         # Получаем матчи
         matches_result = get_live_matches_with_underdog_focus()
         
-        if not matches_result['success']:
+        # Fix: Check if matches_result is None or doesn't have expected keys
+        if not matches_result or not isinstance(matches_result, dict) or not matches_result.get('success', False):
             return jsonify({
                 'success': False,
                 'error': 'Failed to get matches',
@@ -946,7 +971,7 @@ def get_matches():
             }), 500
         
         # Фильтруем данные если нужны только реальные
-        raw_matches = matches_result['matches']
+        raw_matches = matches_result.get('matches', [])
         
         if use_real_data_only:
             # Убираем тестовые данные
@@ -973,7 +998,7 @@ def get_matches():
         # Унифицируем формат всех матчей
         formatted_matches = []
         for match in raw_matches:
-            formatted_match = format_match_for_dashboard(match, matches_result['source'])
+            formatted_match = format_match_for_dashboard(match, matches_result.get('source', 'unknown'))
             formatted_matches.append(formatted_match)
         
         logger.info(f"📊 Returning {len(formatted_matches)} formatted matches")
@@ -982,7 +1007,7 @@ def get_matches():
             'success': True,
             'matches': formatted_matches,
             'count': len(formatted_matches),
-            'source': matches_result['source'],
+            'source': matches_result.get('source', 'unknown'),
             'prediction_type': formatted_matches[0]['prediction_type'] if formatted_matches else 'UNKNOWN',
             'timestamp': datetime.now().isoformat()
         })

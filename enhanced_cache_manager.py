@@ -31,11 +31,11 @@ class CacheConfig:
     redis_db: int = 0
     redis_password: Optional[str] = None
     
-    # TTL settings (in seconds)
-    default_ttl: int = 1200  # 20 minutes
-    odds_ttl: int = 300      # 5 minutes for live odds
+    # TTL settings (in seconds) - Extended for better data persistence
+    default_ttl: int = 7200  # 2 hours (was 20 minutes)
+    odds_ttl: int = 1800     # 30 minutes for live odds (was 5 minutes)
     rankings_ttl: int = 86400  # 24 hours for rankings
-    tournament_ttl: int = 3600  # 1 hour for tournament data
+    tournament_ttl: int = 14400  # 4 hours for tournament data (was 1 hour)
     
     # Disk cache settings
     disk_cache_dir: str = "cache"
