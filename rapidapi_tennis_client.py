@@ -385,7 +385,7 @@ class RapidAPITennisClient:
             'utr', 'ptt', 'junior', 'college', 'university', 
             'challenger', 'futures', 'itf', 'amateur',
             'qualifying', 'q1', 'q2', 'q3', 'youth',
-            'exhibition', 'invitational'
+            'exhibition', 'invitational', 'lovedale'
         ]
         
         # Check if tournament name contains excluded keywords

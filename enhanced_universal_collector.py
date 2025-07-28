@@ -77,6 +77,11 @@ class EnhancedUniversalCollector:
                 if scheduled_matches:
                     logger.info(f"✅ RapidAPI: {len(scheduled_matches)} scheduled matches")
                     for match in scheduled_matches:
+                        # Apply additional professional tournament filter
+                        tournament = match.get('tournament', {})
+                        if not self._is_professional_tournament(tournament):
+                            continue
+                        
                         formatted_match = self._format_rapidapi_match(match)
                         formatted_match['data_source'] = 'RapidAPI_Scheduled'
                         formatted_match['quality_score'] = 95  # Highest quality - scheduled before start
@@ -87,6 +92,11 @@ class EnhancedUniversalCollector:
                 if live_matches:
                     logger.info(f"✅ RapidAPI: {len(live_matches)} live matches (backup)")
                     for match in live_matches:
+                        # Apply additional professional tournament filter
+                        tournament = match.get('tournament', {})
+                        if not self._is_professional_tournament(tournament):
+                            continue
+                        
                         formatted_match = self._format_rapidapi_match(match)
                         formatted_match['data_source'] = 'RapidAPI_Live'
                         formatted_match['quality_score'] = 85  # Good quality - but already started
@@ -845,6 +855,44 @@ class EnhancedUniversalCollector:
         if self.rapidapi:
             self.rapidapi.clear_cache()
         logger.info("🗑️ All caches cleared")
+
+    def _is_professional_tournament(self, tournament: Dict) -> bool:
+        """Check if tournament is ATP/WTA professional level only"""
+        
+        # Get tournament information
+        tournament_name = tournament.get('name', '').lower()
+        category = tournament.get('category', {})
+        category_name = category.get('name', '').upper()
+        
+        # Exclude non-professional tournaments
+        excluded_keywords = [
+            'utr', 'ptt', 'junior', 'college', 'university', 
+            'challenger', 'futures', 'itf', 'amateur',
+            'qualifying', 'q1', 'q2', 'q3', 'youth',
+            'exhibition', 'invitational', 'lovedale'
+        ]
+        
+        # Check if tournament name contains excluded keywords
+        for keyword in excluded_keywords:
+            if keyword in tournament_name:
+                logger.info(f"Excluding non-professional tournament: {tournament_name} (contains '{keyword}')")
+                return False
+        
+        # Only allow specific professional categories
+        professional_categories = [
+            'ATP', 'WTA', 'GRAND SLAM', 'MASTERS', 'PREMIER',
+            'ATP 250', 'ATP 500', 'ATP 1000', 'ATP FINALS',
+            'WTA 250', 'WTA 500', 'WTA 1000', 'WTA FINALS'
+        ]
+        
+        # Check if category is professional
+        for prof_category in professional_categories:
+            if prof_category in category_name:
+                return True
+        
+        # If no professional category found, log and exclude
+        logger.info(f"Excluding tournament without professional category: {tournament_name} (category: {category_name})")
+        return False
 
 def test_enhanced_collector():
     """Test the enhanced collector"""
