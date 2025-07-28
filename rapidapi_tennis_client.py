@@ -206,6 +206,11 @@ class RapidAPITennisClient:
             atp_data = self._make_request(atp_endpoint)
             if atp_data and 'events' in atp_data:
                 for match in atp_data['events']:
+                    # ENHANCED FILTERING: Only professional tournaments
+                    tournament = match.get('tournament', {})
+                    if not self._is_professional_tournament(tournament):
+                        continue  # Skip non-professional tournaments like UTR PTT
+                    
                     match['tour'] = 'ATP'
                     matches.append(match)
         
@@ -214,12 +219,92 @@ class RapidAPITennisClient:
             wta_data = self._make_request(wta_endpoint)
             if wta_data and 'events' in wta_data:
                 for match in wta_data['events']:
+                    # ENHANCED FILTERING: Only professional tournaments
+                    tournament = match.get('tournament', {})
+                    if not self._is_professional_tournament(tournament):
+                        continue  # Skip non-professional tournaments like UTR PTT
+                    
                     match['tour'] = 'WTA'
                     matches.append(match)
         
         if matches:
             logger.info(f"Retrieved {len(matches)} live matches")
             return matches
+        
+        return None
+    
+    def get_all_events(self) -> Optional[List[Dict]]:
+        """Get ALL events (including scheduled matches) from all tournaments"""
+        endpoint = self.endpoints.get('all_events', '/api/tennis/events')
+        data = self._make_request(endpoint)
+        
+        if data and 'events' in data:
+            logger.info(f"Retrieved {len(data['events'])} total events (live + scheduled)")
+            return data['events']
+        
+        return None
+    
+    def get_scheduled_matches(self, tour: str = 'both') -> Optional[List[Dict]]:
+        """Get scheduled (upcoming) matches that haven't started yet
+        
+        Args:
+            tour: 'atp', 'wta', or 'both'
+        """
+        # First try to get all events
+        all_events = self.get_all_events()
+        if not all_events:
+            return None
+        
+        scheduled_matches = []
+        for event in all_events:
+            status = event.get('status', {})
+            status_type = status.get('type', '')
+            
+            # Filter for scheduled matches (not live, finished, etc.)
+            if status_type in ['scheduled', 'notstarted', 'postponed']:
+                # Apply tour filter if specified
+                tournament = event.get('tournament', {})
+                category = tournament.get('category', {}).get('name', '').upper()
+                
+                # ENHANCED FILTERING: Only professional ATP/WTA tournaments
+                if not self._is_professional_tournament(tournament):
+                    continue  # Skip non-professional tournaments like UTR PTT
+                
+                if tour == 'both' or \
+                   (tour == 'atp' and 'ATP' in category) or \
+                   (tour == 'wta' and 'WTA' in category):
+                    event['tour'] = 'ATP' if 'ATP' in category else 'WTA'
+                    scheduled_matches.append(event)
+        
+        if scheduled_matches:
+            logger.info(f"Retrieved {len(scheduled_matches)} scheduled matches")
+            return scheduled_matches
+        
+        return None
+    
+    def get_tournaments(self) -> Optional[List[Dict]]:
+        """Get current active tournaments"""
+        endpoint = self.endpoints.get('tournaments', '/api/tennis/tournaments')
+        data = self._make_request(endpoint)
+        
+        if data and 'tournaments' in data:
+            logger.info(f"Retrieved {len(data['tournaments'])} tournaments")
+            return data['tournaments']
+        
+        return None
+    
+    def get_tournament_matches(self, tournament_id: str) -> Optional[List[Dict]]:
+        """Get all matches for a specific tournament
+        
+        Args:
+            tournament_id: The tournament ID
+        """
+        endpoint = self.endpoints.get('tournament_matches', '/api/tennis/tournament/{id}/matches').format(id=tournament_id)
+        data = self._make_request(endpoint)
+        
+        if data and 'events' in data:
+            logger.info(f"Retrieved {len(data['events'])} matches for tournament {tournament_id}")
+            return data['events']
         
         return None
     
@@ -244,6 +329,222 @@ class RapidAPITennisClient:
             return data['tournament']
         
         return None
+    
+    def get_all_events(self, tour: str = 'both', include_status: List[str] = None) -> Optional[List[Dict]]:
+        """Get all tennis events, with optional status filtering
+        
+        Args:
+            tour: 'atp', 'wta', or 'both'
+            include_status: List of status types to include (e.g., ['notstarted', 'inprogress', 'finished'])
+        """
+        matches = []
+        current_time = datetime.now().timestamp()
+        
+        # Get data from the working live events endpoint  
+        if tour in ['atp', 'both']:
+            atp_endpoint = self.endpoints.get('atp_matches', '/api/tennis/events/live')
+            atp_data = self._make_request(atp_endpoint)
+            if atp_data and 'events' in atp_data:
+                for match in atp_data['events']:
+                    match['tour'] = 'ATP'
+                    matches.append(match)
+        
+        if tour in ['wta', 'both']:
+            wta_endpoint = self.endpoints.get('wta_matches', '/api/tennis/events/live')  
+            wta_data = self._make_request(wta_endpoint)
+            if wta_data and 'events' in wta_data:
+                for match in wta_data['events']:
+                    match['tour'] = 'WTA'
+                    matches.append(match)
+        
+        # Filter by status if specified
+        if include_status:
+            filtered_matches = []
+            for match in matches:
+                match_status = match.get('status', {}).get('type', '').lower()
+                if match_status in [s.lower() for s in include_status]:
+                    filtered_matches.append(match)
+            matches = filtered_matches
+        
+        if matches:
+            logger.info(f"Retrieved {len(matches)} events (status filter: {include_status})")
+            return matches
+        
+        return None
+    
+    def _is_professional_tournament(self, tournament: Dict) -> bool:
+        """Check if tournament is ATP/WTA professional level only"""
+        
+        # Get tournament information
+        tournament_name = tournament.get('name', '').lower()
+        category = tournament.get('category', {})
+        category_name = category.get('name', '').upper()
+        
+        # Exclude non-professional tournaments
+        excluded_keywords = [
+            'utr', 'ptt', 'junior', 'college', 'university', 
+            'challenger', 'futures', 'itf', 'amateur',
+            'qualifying', 'q1', 'q2', 'q3', 'youth',
+            'exhibition', 'invitational'
+        ]
+        
+        # Check if tournament name contains excluded keywords
+        for keyword in excluded_keywords:
+            if keyword in tournament_name:
+                logger.info(f"Excluding non-professional tournament: {tournament_name} (contains '{keyword}')")
+                return False
+        
+        # Only allow specific professional categories
+        professional_categories = [
+            'ATP', 'WTA', 'GRAND SLAM', 'MASTERS', 'PREMIER',
+            'ATP 250', 'ATP 500', 'ATP 1000', 'ATP FINALS',
+            'WTA 250', 'WTA 500', 'WTA 1000', 'WTA FINALS'
+        ]
+        
+        # Check if category is professional
+        for prof_category in professional_categories:
+            if prof_category in category_name:
+                return True
+        
+        # If no professional category found, log and exclude
+        logger.info(f"Excluding tournament without professional category: {tournament_name} (category: {category_name})")
+        return False
+    
+    def get_scheduled_matches(self, tour: str = 'both') -> Optional[List[Dict]]:
+        """Get scheduled/upcoming matches by filtering all events for non-live status
+        
+        Args:
+            tour: 'atp', 'wta', or 'both'
+        """
+        # Try to get events that are not currently in progress
+        # Common status types: 'notstarted', 'scheduled', 'postponed', 'cancelled'
+        potential_scheduled_statuses = ['notstarted', 'scheduled', 'postponed']
+        
+        all_matches = self.get_all_events(tour=tour)
+        if not all_matches:
+            return None
+        
+        scheduled_matches = []
+        current_time = datetime.now().timestamp()
+        
+        for match in all_matches:
+            match_status = match.get('status', {}).get('type', '').lower()
+            start_timestamp = match.get('startTimestamp', 0)
+            
+            # Include matches that:
+            # 1. Have a 'notstarted' or similar status, OR
+            # 2. Have a future start timestamp, OR  
+            # 3. Are not currently 'inprogress' or 'finished'
+            is_scheduled = (
+                match_status in potential_scheduled_statuses or
+                (start_timestamp > current_time) or
+                match_status not in ['inprogress', 'finished', 'ended']
+            )
+            
+            if is_scheduled:
+                match['scheduling_reason'] = f"Status: {match_status}, Future: {start_timestamp > current_time}"
+                scheduled_matches.append(match)
+        
+        if scheduled_matches:
+            logger.info(f"Retrieved {len(scheduled_matches)} scheduled matches from {len(all_matches)} total events")
+            return scheduled_matches
+        
+        logger.info("No scheduled matches found among available events")
+        return None
+    
+    def get_matches_by_date(self, date: str, tour: str = 'both') -> Optional[List[Dict]]:
+        """Get matches for a specific date (YYYY-MM-DD format)
+        
+        Args:
+            date: Date in YYYY-MM-DD format
+            tour: 'atp', 'wta', or 'both'
+        """
+        matches = []
+        
+        # Try date-based endpoints
+        date_endpoints = {
+            'events_all': self.endpoints.get('events_all', '')
+        }
+        
+        for endpoint_key, endpoint in date_endpoints.items():
+            if endpoint and not '{date}' in endpoint:  # Make sure date was replaced
+                data = self._make_request(endpoint)
+                
+                if data and 'events' in data:
+                    for match in data['events']:
+                        match['source_endpoint'] = endpoint_key
+                        matches.append(match)
+                elif data and 'fixtures' in data:
+                    for match in data['fixtures']:
+                        match['source_endpoint'] = endpoint_key
+                        matches.append(match)
+        
+        if matches:
+            logger.info(f"Retrieved {len(matches)} matches for date {date}")
+            return matches
+        
+        return None
+    
+    def discover_working_endpoints(self) -> Dict[str, bool]:
+        """Test various endpoint patterns to find what actually works"""
+        test_endpoints = [
+            "/api/tennis/events",
+            "/api/tennis/matches", 
+            "/api/tennis/calendar",
+            "/api/tennis/schedule",
+            "/api/tennis/fixtures",
+            "/api/tennis/tournaments",
+            "/api/tennis/events/today",
+            "/api/tennis/events/upcoming",
+            "/api/tennis/matches/scheduled"
+        ]
+        
+        results = {}
+        for endpoint in test_endpoints:
+            if self.rate_limiter.can_make_request():
+                data = self._make_request(endpoint)
+                results[endpoint] = data is not None
+            else:
+                results[endpoint] = "rate_limited"
+        
+        return results
+    
+    def get_tournament_schedule(self, tournament_id: str, season_id: str = None) -> Optional[List[Dict]]:
+        """Get schedule for a specific tournament
+        
+        Args:
+            tournament_id: Tournament ID
+            season_id: Season ID (optional)
+        """
+        matches = []
+        
+        # Try different tournament endpoint patterns
+        tournament_endpoints = []
+        
+        if season_id:
+            season_endpoint = self.endpoints.get('season_events', '').format(id=tournament_id, season_id=season_id)
+            if season_endpoint and '{' not in season_endpoint:
+                tournament_endpoints.append(('season_events', season_endpoint))
+        
+        tournament_endpoint = self.endpoints.get('tournament_matches', '').format(id=tournament_id)
+        if tournament_endpoint and '{id}' not in tournament_endpoint:
+            tournament_endpoints.append(('tournament_matches', tournament_endpoint))
+        
+        for endpoint_key, endpoint in tournament_endpoints:
+            data = self._make_request(endpoint)
+            
+            if data and 'events' in data:
+                logger.info(f"Retrieved tournament events from {endpoint_key} for ID {tournament_id}")
+                return data['events']
+            elif data and 'matches' in data:
+                logger.info(f"Retrieved tournament matches from {endpoint_key} for ID {tournament_id}")
+                return data['matches']
+        
+        return None
+
+    def get_remaining_requests(self) -> int:
+        """Get number of remaining requests today"""
+        return self.rate_limiter.get_remaining_requests()
     
     def get_status(self) -> Dict[str, Any]:
         """Get client status and remaining requests"""
@@ -298,6 +599,71 @@ def test_rapidapi_client():
                 print(f"Match: {match}")
         else:
             print("No live matches data retrieved")
+        
+        # Test scheduled matches
+        print("\n=== Testing Scheduled Matches ===")
+        scheduled_matches = client.get_scheduled_matches()
+        if scheduled_matches:
+            print(f"Retrieved {len(scheduled_matches)} scheduled matches")
+            for match in scheduled_matches[:3]:  # Show first 3
+                print(f"Scheduled Match: {match}")
+        else:
+            print("No scheduled matches data retrieved")
+        
+        # Test all events to understand available statuses
+        print("\n=== Testing All Events (Status Analysis) ===")
+        all_events = client.get_all_events()
+        if all_events:
+            print(f"Retrieved {len(all_events)} total events")
+            
+            # Analyze status types
+            status_analysis = {}
+            future_matches = 0
+            current_time = time.time()
+            from datetime import datetime
+            
+            for match in all_events:
+                status_type = match.get('status', {}).get('type', 'unknown')
+                status_code = match.get('status', {}).get('code', 'unknown')
+                start_timestamp = match.get('startTimestamp', 0)
+                
+                status_key = f"{status_type} (code: {status_code})"
+                if status_key not in status_analysis:
+                    status_analysis[status_key] = 0
+                status_analysis[status_key] += 1
+                
+                if start_timestamp > current_time:
+                    future_matches += 1
+            
+            print(f"Status analysis:")
+            for status, count in status_analysis.items():
+                print(f"  {status}: {count} matches")
+            print(f"Matches with future start time: {future_matches}")
+            
+            # Show a few sample matches with different statuses
+            print(f"\nSample matches:")
+            shown_statuses = set()
+            for match in all_events[:10]:
+                status_type = match.get('status', {}).get('type', 'unknown')
+                if status_type not in shown_statuses:
+                    shown_statuses.add(status_type)
+                    start_time = datetime.fromtimestamp(match.get('startTimestamp', 0))
+                    print(f"  {match.get('homeTeam', {}).get('name', 'Unknown')} vs {match.get('awayTeam', {}).get('name', 'Unknown')}")
+                    print(f"    Status: {status_type} | Start: {start_time} | Tournament: {match.get('tournament', {}).get('name', 'Unknown')}")
+        else:
+            print("No events data retrieved")
+        
+        # Test scheduled matches with improved filtering
+        print("\n=== Testing Scheduled Matches (Improved) ===")
+        scheduled_matches = client.get_scheduled_matches()
+        if scheduled_matches:
+            print(f"Retrieved {len(scheduled_matches)} scheduled matches")
+            for match in scheduled_matches[:3]:  # Show first 3
+                start_time = datetime.fromtimestamp(match.get('startTimestamp', 0))
+                print(f"Scheduled: {match.get('homeTeam', {}).get('name', 'Unknown')} vs {match.get('awayTeam', {}).get('name', 'Unknown')}")
+                print(f"  Start: {start_time} | {match.get('scheduling_reason', 'Unknown reason')}")
+        else:
+            print("No scheduled matches data retrieved")
         
         print(f"\nFinal Status: {client.get_status()}")
         
