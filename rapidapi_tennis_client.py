@@ -385,7 +385,10 @@ class RapidAPITennisClient:
             'utr', 'ptt', 'junior', 'college', 'university', 
             'challenger', 'futures', 'itf', 'amateur',
             'qualifying', 'q1', 'q2', 'q3', 'youth',
-            'exhibition', 'invitational', 'lovedale'
+            'exhibition', 'invitational', 'lovedale',
+            'utr ptt', 'group a', 'group b', 'group c', 'group d',
+            'men 03', 'women 03', 'ciguenza', 'errey', 'karnani',
+            'baker', 'mihulka', 'dejanovic'
         ]
         
         # Check if tournament name contains excluded keywords

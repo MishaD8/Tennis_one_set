@@ -111,7 +111,10 @@ def filter_quality_matches(matches):
     excluded_keywords = [
         'utr', 'ptt', 'junior', 'college', 'university',
         'challenger', 'futures', 'itf', 'amateur', 'qualifying',
-        'youth', 'exhibition', 'invitational', 'lovedale'
+        'youth', 'exhibition', 'invitational', 'lovedale',
+        'utr ptt', 'group a', 'group b', 'group c', 'group d',
+        'men 03', 'women 03', 'ciguenza', 'errey', 'karnani',
+        'baker', 'mihulka', 'dejanovic'
     ]
     
     for match in matches:

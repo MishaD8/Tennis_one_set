@@ -272,11 +272,17 @@ class SimpleAPIEconomy:
                 }
                 
             else:
-                # API failed - use fallback data instead of error
+                # API failed - return failure instead of fake data
                 logger.warning(f"API request failed with status {response.status_code}")
-                fallback_result = generate_fallback_tennis_data()
-                logger.info("Using fallback tennis data due to API failure")
-                return fallback_result
+                logger.info("No fallback data - only real tournaments allowed")
+                return {
+                    'success': False,
+                    'data': [],
+                    'source': 'api_failed',
+                    'status': 'NO_REAL_DATA',
+                    'error': f'API request failed with status {response.status_code}',
+                    'message': 'No real tournament data available - only ATP/WTA tournaments shown'
+                }
                 
         except Exception as e:
             logger.error(f"❌ API ошибка: {e}")
@@ -291,10 +297,16 @@ class SimpleAPIEconomy:
                     'status': 'FALLBACK'
                 }
             
-            # Если нет кеша, используем fallback данные
-            fallback_result = generate_fallback_tennis_data()
-            logger.info("Using fallback tennis data due to API exception")
-            return fallback_result
+            # Если нет кеша, возвращаем ошибку - не используем фальшивые данные
+            logger.info("No fallback data - only real tournaments allowed")
+            return {
+                'success': False,
+                'data': [],
+                'source': 'api_exception',
+                'status': 'NO_REAL_DATA',
+                'error': str(e),
+                'message': 'No real tournament data available - only ATP/WTA tournaments shown'
+            }
     
     def get_usage_stats(self) -> Dict:
         """Статистика использования"""
@@ -354,67 +366,14 @@ def economical_tennis_request(sport_key: str = 'tennis', force_fresh: bool = Fal
         return generate_fallback_tennis_data()
 
 def generate_fallback_tennis_data() -> Dict:
-    """Generate realistic tennis match data when APIs are unavailable"""
-    from datetime import datetime
-    import random
-    
-    # Sample tennis matches for today with realistic tournaments
-    today_matches = [
-        {
-            "id": "kitzbuhel_2025_1",
-            "home_team": "Matteo Berrettini",
-            "away_team": "Casper Ruud", 
-            "sport_key": "tennis",
-            "sport_title": "Tennis",
-            "commence_time": f"{datetime.now().strftime('%Y-%m-%d')}T14:00:00Z",
-            "bookmakers": [
-                {
-                    "key": "unibet_eu",
-                    "title": "Unibet",
-                    "markets": [
-                        {
-                            "key": "h2h",
-                            "outcomes": [
-                                {"name": "Matteo Berrettini", "price": 2.40},
-                                {"name": "Casper Ruud", "price": 1.65}
-                            ]
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "id": "kitzbuhel_2025_2",
-            "home_team": "Sebastian Ofner",
-            "away_team": "Dominic Thiem",
-            "sport_key": "tennis",
-            "sport_title": "Tennis", 
-            "commence_time": f"{datetime.now().strftime('%Y-%m-%d')}T16:00:00Z",
-            "bookmakers": [
-                {
-                    "key": "williamhill",
-                    "title": "William Hill",
-                    "markets": [
-                        {
-                            "key": "h2h",
-                            "outcomes": [
-                                {"name": "Sebastian Ofner", "price": 2.80},
-                                {"name": "Dominic Thiem", "price": 1.45}
-                            ]
-                        }
-                    ]
-                }
-            ]
-        }
-    ]
-    
+    """Return empty data when APIs are unavailable - only show real tournaments"""
     return {
-        'success': True,
-        'data': today_matches,
-        'source': 'fallback_realistic_data',
-        'status': 'FALLBACK_ACTIVE',
-        'emoji': '🆘',
-        'message': 'Using realistic fallback data - API quotas exhausted or unavailable'
+        'success': False,
+        'data': [],
+        'source': 'no_fallback_data',
+        'status': 'NO_REAL_DATA',
+        'emoji': '🚫',
+        'message': 'No real tournament data available - only ATP/WTA tournaments shown'
     }
 
 def get_api_usage() -> Dict:

@@ -2,6 +2,39 @@
 
 const API_BASE = window.location.origin + '/api';
 
+// Clear any cached UTR/PTT tournament data on load
+function clearUTRCache() {
+    const cachedData = localStorage.getItem('lastSuccessfulMatches');
+    if (cachedData) {
+        try {
+            const cached = JSON.parse(cachedData);
+            const filteredMatches = cached.data.matches.filter(match => {
+                const tournament = match.tournament.toLowerCase();
+                return !tournament.includes('utr') && 
+                       !tournament.includes('ptt') && 
+                       !tournament.includes('lovedale') &&
+                       !tournament.includes('group');
+            });
+            
+            if (filteredMatches.length !== cached.data.matches.length) {
+                console.log('🧹 Clearing UTR/PTT tournaments from cache');
+                if (filteredMatches.length > 0) {
+                    cached.data.matches = filteredMatches;
+                    localStorage.setItem('lastSuccessfulMatches', JSON.stringify(cached));
+                } else {
+                    localStorage.removeItem('lastSuccessfulMatches');
+                }
+            }
+        } catch (e) {
+            console.log('🧹 Clearing corrupted cache');
+            localStorage.removeItem('lastSuccessfulMatches');
+        }
+    }
+}
+
+// Clear UTR cache on page load
+clearUTRCache();
+
 async function loadUnderdogOpportunities() {
     const container = document.getElementById('matches-container');
     container.innerHTML = '<div class="loading"><h3>🔍 Analyzing underdog opportunities...</h3><p>Using advanced ML models...</p></div>';
@@ -118,14 +151,26 @@ async function loadUnderdogOpportunities() {
                     const cached = JSON.parse(cachedData);
                     const cacheAge = (new Date() - new Date(cached.timestamp)) / 1000 / 60; // minutes
                     
-                    if (cacheAge < 60) { // Use cache if less than 1 hour old
+                    // Filter out UTR/PTT tournaments from cached data
+                    const filteredMatches = cached.data.matches.filter(match => {
+                        const tournament = match.tournament.toLowerCase();
+                        return !tournament.includes('utr') && 
+                               !tournament.includes('ptt') && 
+                               !tournament.includes('lovedale') &&
+                               !tournament.includes('group a') &&
+                               !tournament.includes('group b') &&
+                               !tournament.includes('group c') &&
+                               !tournament.includes('group d');
+                    });
+                    
+                    if (cacheAge < 60 && filteredMatches.length > 0) { // Use cache if less than 1 hour old and has valid matches
                         container.innerHTML = `<div style="background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 87, 34, 0.1)); border: 1px solid rgba(255, 193, 7, 0.3); padding: 20px; border-radius: 15px; margin-bottom: 25px; text-align: center;">
                             <h2>📋 CACHED UNDERDOG OPPORTUNITIES</h2>
                             <p>Showing last successful data (${Math.round(cacheAge)} minutes old)</p>
                         </div>`;
                         
-                        // Render cached matches
-                        cached.data.matches.forEach(match => {
+                        // Render filtered cached matches
+                        filteredMatches.forEach(match => {
                             const analysis = match.underdog_analysis || {};
                             const scenario = analysis.underdog_scenario || {};
                             const probability = analysis.underdog_probability || 0.5;
@@ -163,11 +208,11 @@ async function loadUnderdogOpportunities() {
                             `;
                         });
                         
-                        // Update stats with cached data
-                        document.getElementById('underdog-count').textContent = cached.data.matches.length;
-                        const totalProb = cached.data.matches.reduce((sum, m) => sum + (m.underdog_analysis?.underdog_probability || 0.5), 0);
-                        document.getElementById('avg-probability').textContent = `${(totalProb / cached.data.matches.length * 100).toFixed(1)}%`;
-                        const excellentCount = cached.data.matches.filter(m => m.underdog_analysis?.quality === 'EXCELLENT').length;
+                        // Update stats with filtered cached data
+                        document.getElementById('underdog-count').textContent = filteredMatches.length;
+                        const totalProb = filteredMatches.reduce((sum, m) => sum + (m.underdog_analysis?.underdog_probability || 0.5), 0);
+                        document.getElementById('avg-probability').textContent = `${(totalProb / filteredMatches.length * 100).toFixed(1)}%`;
+                        const excellentCount = filteredMatches.filter(m => m.underdog_analysis?.quality === 'EXCELLENT').length;
                         document.getElementById('excellent-quality').textContent = excellentCount;
                         
                         return; // Exit early, we showed cached data
