@@ -20,7 +20,22 @@ _api_economy = None
 class SimpleAPIEconomy:
     """Простая система экономии API - легко интегрируется"""
     
-    def __init__(self, api_key: str, max_per_hour: int = 30, cache_minutes: int = 20):
+    def __init__(self, api_key: str = None, max_per_hour: int = 30, cache_minutes: int = 20):
+        # Load API key from config if not provided
+        if not api_key:
+            try:
+                from config_loader import load_secure_config
+                config = load_secure_config()
+                api_key = (config.get('data_sources', {})
+                          .get('the_odds_api', {})
+                          .get('api_key'))
+                if not api_key:
+                    api_key = (config.get('betting_apis', {})
+                              .get('the_odds_api', {})
+                              .get('api_key'))
+            except Exception as e:
+                logger.warning(f"Could not load API key from config: {e}")
+        
         self.api_key = api_key
         self.max_per_hour = max_per_hour
         self.cache_minutes = cache_minutes
@@ -187,7 +202,7 @@ class SimpleAPIEconomy:
         except Exception as e:
             logger.error(f"Ошибка очистки триггера: {e}")
     
-    def make_tennis_request(self, sport_key: str = 'tennis', force_fresh: bool = False) -> Dict:
+    def make_tennis_request(self, sport_key: str = 'tennis_atp_canadian_open', force_fresh: bool = False) -> Dict:
         """
         МОДИФИЦИРОВАННАЯ: заменяет ваши прямые API запросы
         Теперь поддерживает ручное обновление
@@ -235,78 +250,160 @@ class SimpleAPIEconomy:
                 'source': 'rate_limited'
             }
         
-        # 3. Делаем API запрос
-        try:
-            url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds"
-            params = {
-                'apiKey': self.api_key,
-                'regions': 'us,uk,eu',
-                'markets': 'h2h',
-                'oddsFormat': 'decimal',
-                'dateFormat': 'iso'
-            }
-            
-            logger.info(f"📡 API запрос: {sport_key} {'(РУЧНОЕ ОБНОВЛЕНИЕ)' if manual_update_needed else ''}")
-            response = requests.get(url, params=params, timeout=10)
-            
-            # Записываем использование
-            self.record_api_request()
-            
-            if response.status_code == 200:
-                data = response.json()
-                
-                # Кешируем успешный ответ
-                self.save_to_cache(cache_key, data)
-                
-                # НОВОЕ: Очищаем триггер после успешного обновления
-                if manual_update_needed:
-                    self.clear_manual_update_trigger()
-                    logger.info("✅ Ручное обновление выполнено успешно")
-                
-                return {
-                    'success': True,
-                    'data': data,
-                    'source': 'fresh_api' if not manual_update_needed else 'manual_update_api',
-                    'emoji': '🔴' if not manual_update_needed else '🔄',
-                    'status': 'LIVE API' if not manual_update_needed else 'MANUAL UPDATE'
+        # 3. Делаем API запрос - пробуем несколько sport keys
+        sport_keys_to_try = [
+            'tennis_atp_canadian_open',
+            'tennis_wta_canadian_open'
+        ]
+        
+        # Start with requested sport key if it's not in our list
+        if sport_key not in sport_keys_to_try:
+            sport_keys_to_try.insert(0, sport_key)
+        
+        for try_sport_key in sport_keys_to_try:
+            try:
+                url = f"https://api.the-odds-api.com/v4/sports/{try_sport_key}/odds"
+                params = {
+                    'apiKey': self.api_key,
+                    'regions': 'us,uk,eu',
+                    'markets': 'h2h',
+                    'oddsFormat': 'decimal',
+                    'dateFormat': 'iso'
                 }
                 
-            else:
-                # API failed - return failure instead of fake data
-                logger.warning(f"API request failed with status {response.status_code}")
-                logger.info("No fallback data - only real tournaments allowed")
-                return {
-                    'success': False,
-                    'data': [],
-                    'source': 'api_failed',
-                    'status': 'NO_REAL_DATA',
-                    'error': f'API request failed with status {response.status_code}',
-                    'message': 'No real tournament data available - only ATP/WTA tournaments shown'
-                }
+                logger.info(f"📡 API запрос: {try_sport_key} {'(РУЧНОЕ ОБНОВЛЕНИЕ)' if manual_update_needed else ''}")
+                response = requests.get(url, params=params, timeout=10)
                 
-        except Exception as e:
-            logger.error(f"❌ API ошибка: {e}")
-            
-            # При ошибке возвращаем кеш если есть
-            if cache_key in self.cache_data:
-                return {
-                    'success': True,
-                    'data': self.cache_data[cache_key]['data'],
-                    'source': 'error_fallback',
-                    'emoji': '💾',
-                    'status': 'FALLBACK'
-                }
-            
-            # Если нет кеша, возвращаем ошибку - не используем фальшивые данные
-            logger.info("No fallback data - only real tournaments allowed")
+                # Записываем использование
+                self.record_api_request()
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if data:  # If we actually got matches
+                        # Process and return the data
+                        tennis_data = self.convert_to_tennis_format(data, try_sport_key)
+                        
+                        # Сохраняем в кеш
+                        self.save_to_cache(cache_key, tennis_data)
+                        
+                        # НОВОЕ: Очищаем триггер после успешного обновления
+                        if manual_update_needed:
+                            self.clear_manual_update_trigger()
+                        
+                        return {
+                            'success': True,
+                            'data': tennis_data,
+                            'source': 'fresh_api' if not manual_update_needed else 'manual_update',
+                            'emoji': '🔴' if not manual_update_needed else '🔄',
+                            'status': 'LIVE_API' if not manual_update_needed else 'MANUAL_UPDATE',
+                            'matches_count': len(tennis_data),
+                            'sport_key_used': try_sport_key
+                        }
+                    else:
+                        logger.info(f"No matches found for {try_sport_key}, trying next...")
+                        continue
+                        
+                elif response.status_code == 404:
+                    logger.info(f"Sport key {try_sport_key} not found (404), trying next...")
+                    continue
+                else:
+                    logger.warning(f"API request failed with status {response.status_code} for {try_sport_key}")
+                    continue
+                    
+            except Exception as e:
+                logger.error(f"API request failed for {try_sport_key}: {e}")
+                continue
+        
+        # If all sport keys failed
+        logger.warning("All sport keys failed")
+        # Return cached data if available
+        if cache_key in self.cache_data:
             return {
-                'success': False,
-                'data': [],
-                'source': 'api_exception',
-                'status': 'NO_REAL_DATA',
-                'error': str(e),
-                'message': 'No real tournament data available - only ATP/WTA tournaments shown'
+                'success': True,
+                'data': self.cache_data[cache_key]['data'],
+                'source': 'error_fallback',
+                'emoji': '💾',
+                'status': 'FALLBACK'
             }
+        
+        return {
+            'success': False,
+            'error': 'All API requests failed and no cached data available',
+            'source': 'api_error'
+        }
+    
+    def convert_to_tennis_format(self, api_data: list, sport_key: str) -> Dict:
+        """Convert Odds API format to tennis system format"""
+        converted_matches = {}
+        
+        for match in api_data:
+            try:
+                match_id = match.get('id', f"odds_{datetime.now().timestamp()}")
+                player1 = match.get('home_team', 'Player 1')
+                player2 = match.get('away_team', 'Player 2')
+                
+                # Find best odds
+                best_p1_odds = None
+                best_p2_odds = None
+                best_p1_bookmaker = None
+                best_p2_bookmaker = None
+                
+                for bookmaker in match.get('bookmakers', []):
+                    bookmaker_name = bookmaker.get('title', bookmaker.get('key', 'Unknown'))
+                    
+                    for market in bookmaker.get('markets', []):
+                        if market.get('key') == 'h2h':
+                            for outcome in market.get('outcomes', []):
+                                player_name = outcome.get('name')
+                                odds = outcome.get('price', 0)
+                                
+                                if not odds:
+                                    continue
+                                
+                                decimal_odds = float(odds)
+                                
+                                # Match to players and keep best odds
+                                if player_name == player1:
+                                    if best_p1_odds is None or decimal_odds > best_p1_odds:
+                                        best_p1_odds = decimal_odds
+                                        best_p1_bookmaker = bookmaker_name
+                                elif player_name == player2:
+                                    if best_p2_odds is None or decimal_odds > best_p2_odds:
+                                        best_p2_odds = decimal_odds
+                                        best_p2_bookmaker = bookmaker_name
+                
+                # Create tennis format result
+                if best_p1_odds and best_p2_odds:
+                    converted_matches[match_id] = {
+                        'match_info': {
+                            'player1': player1,
+                            'player2': player2,
+                            'tournament': match.get('sport_title', 'Tennis Tournament'),
+                            'surface': 'Unknown',
+                            'date': match.get('commence_time', datetime.now().isoformat())[:10],
+                            'time': match.get('commence_time', datetime.now().isoformat())[11:16],
+                            'source': 'api_economy_patch'
+                        },
+                        'best_markets': {
+                            'winner': {
+                                'player1': {
+                                    'odds': round(best_p1_odds, 2),
+                                    'bookmaker': best_p1_bookmaker
+                                },
+                                'player2': {
+                                    'odds': round(best_p2_odds, 2),
+                                    'bookmaker': best_p2_bookmaker
+                                }
+                            }
+                        }
+                    }
+                    
+            except Exception as e:
+                logger.error(f"Error processing match {match.get('id', 'unknown')}: {e}")
+                continue
+        
+        logger.info(f"🔄 Converted {len(converted_matches)} matches from {sport_key}")
+        return converted_matches
     
     def get_usage_stats(self) -> Dict:
         """Статистика использования"""

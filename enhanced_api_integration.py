@@ -29,13 +29,18 @@ class EnhancedAPIIntegration:
         
         # Initialize cache manager if not already done
         if get_cache_manager() is None:
-            cache_config = CacheConfig(
-                odds_ttl=self.config.get('cache_minutes', 20) * 60,
-                rankings_ttl=86400,  # 24 hours
-                tournament_ttl=3600,  # 1 hour
-                enable_compression=True
-            )
-            init_cache_manager(cache_config)
+            try:
+                cache_config = CacheConfig(
+                    odds_ttl=self.config.get('cache_minutes', 20) * 60,
+                    rankings_ttl=86400,  # 24 hours
+                    tournament_ttl=3600,  # 1 hour
+                    enable_compression=True
+                )
+                init_cache_manager(cache_config)
+                logger.info("✅ Cache manager initialized")
+            except Exception as e:
+                logger.warning(f"⚠️ Cache manager initialization failed: {e}")
+                # Continue without cache manager for now
         
         self.cache_manager = get_cache_manager()
         
@@ -49,27 +54,28 @@ class EnhancedAPIIntegration:
             self._load_api_key()
     
     def _load_api_key(self):
-        """Load API key from config.json"""
+        """Load API key from config.json using secure config loader"""
         try:
-            if os.path.exists('config.json'):
-                with open('config.json', 'r') as f:
-                    config = json.load(f)
-                    # Try both locations in config
-                    api_key = (config.get('data_sources', {})
-                              .get('the_odds_api', {})
-                              .get('api_key'))
-                    
-                    if not api_key:
-                        api_key = (config.get('betting_apis', {})
-                                  .get('the_odds_api', {})
-                                  .get('api_key'))
-                    
-                    # Handle environment variable format
-                    if api_key and api_key.startswith('${') and api_key.endswith('}'):
-                        env_var = api_key[2:-1]
-                        api_key = os.getenv(env_var)
-                    
-                    self.api_key = api_key
+            from config_loader import load_secure_config
+            config = load_secure_config()
+            
+            # Get API key from the odds API configuration
+            api_key = (config.get('data_sources', {})
+                      .get('the_odds_api', {})
+                      .get('api_key'))
+            
+            if not api_key:
+                # Try betting APIs section as fallback
+                api_key = (config.get('betting_apis', {})
+                          .get('the_odds_api', {})
+                          .get('api_key'))
+            
+            if api_key and api_key not in ['', 'MISSING_ODDS_API_KEY']:
+                self.api_key = api_key
+                logger.info("✅ Enhanced API Integration: API key loaded from config")
+            else:
+                logger.warning("⚠️ Enhanced API Integration: No valid API key found")
+                self.api_key = None
                     
         except Exception as e:
             logger.warning(f"Could not load API key from config: {e}")
