@@ -1,0 +1,21 @@
+{
+  "date": "2025-08-08",
+  "timestamp": "2025-08-08T07:21:21.957896",
+  "apis": {
+    "odds_api": {
+      "used": 1,
+      "limit_daily": 17,
+      "limit_remaining": 16
+    },
+    "tennis_explorer": {
+      "used": 1,
+      "limit_daily": 5,
+      "limit_remaining": 4
+    },
+    "rapidapi_tennis": {
+      "used": 2,
+      "limit_daily": 50,
+      "limit_remaining": 48
+    }
+  }
+}

@@ -17,6 +17,7 @@ from datetime import datetime
 from typing import Dict, Any
 import secrets
 import html
+from functools import wraps
 
 # Import error handling
 try:
@@ -134,43 +135,177 @@ daily_scheduler = None
 
 # Security Functions
 def validate_player_name(name: str) -> bool:
-    """Validate player name input"""
-    if not isinstance(name, str) or not name.strip():
+    """Validate player name input with enhanced security"""
+    if not isinstance(name, str):
         return False
-    if len(name) > 100:  # Reasonable max length
+    
+    # Strip and check for empty
+    name = name.strip()
+    if not name:
         return False
+    
+    # Length validation - prevent DoS attacks
+    if len(name) < 2 or len(name) > 80:
+        return False
+    
+    # Prevent null bytes and control characters
+    if '\x00' in name or any(ord(c) < 32 for c in name if c not in ['\t', '\n', '\r']):
+        return False
+    
     # Allow only letters, spaces, hyphens, apostrophes and periods
-    if not re.match(r"^[a-zA-ZÀ-ÿ\s\-'.]+$", name):
+    # Stricter regex to prevent ReDoS attacks
+    if not re.match(r'^[a-zA-ZÀ-ÿ](?:[a-zA-ZÀ-ÿ\s\-\'.]{0,78}[a-zA-ZÀ-ÿ])?$', name):
         return False
+    
+    # Prevent suspicious patterns
+    suspicious_patterns = ['script', 'javascript', 'onload', 'onerror', '../', '..\\']
+    name_lower = name.lower()
+    if any(pattern in name_lower for pattern in suspicious_patterns):
+        return False
+        
     return True
 
 def validate_tournament_name(name: str) -> bool:
-    """Validate tournament name input"""
-    if not isinstance(name, str) or not name.strip():
+    """Validate tournament name input with enhanced security"""
+    if not isinstance(name, str):
         return False
-    if len(name) > 200:  # Reasonable max length
+    
+    # Strip and check for empty
+    name = name.strip()
+    if not name:
         return False
+    
+    # Length validation - prevent DoS attacks
+    if len(name) < 2 or len(name) > 150:
+        return False
+    
+    # Prevent null bytes and control characters
+    if '\x00' in name or any(ord(c) < 32 for c in name if c not in ['\t', '\n', '\r']):
+        return False
+    
     # Allow alphanumeric, spaces, hyphens, and common tournament chars
-    if not re.match(r"^[a-zA-Z0-9\s\-'.()/&]+$", name):
+    # Stricter regex to prevent ReDoS attacks
+    if not re.match(r'^[a-zA-Z0-9](?:[a-zA-Z0-9\s\-\'.()/&]{0,148}[a-zA-Z0-9)])?$', name):
         return False
+    
+    # Prevent suspicious patterns
+    suspicious_patterns = ['script', 'javascript', 'onload', 'onerror', '../', '..\\', 'DROP', 'SELECT', 'INSERT']
+    name_lower = name.lower()
+    if any(pattern in name_lower for pattern in suspicious_patterns):
+        return False
+        
     return True
 
 def validate_surface(surface: str) -> bool:
-    """Validate surface input"""
+    """Validate surface input with enhanced security"""
     if not isinstance(surface, str):
         return False
-    valid_surfaces = ['hard', 'clay', 'grass', 'carpet', 'unknown']
-    return surface.lower() in valid_surfaces
+    
+    # Strip and normalize
+    surface = surface.strip().lower()
+    if not surface:
+        return False
+    
+    # Strict allowlist validation
+    valid_surfaces = {'hard', 'clay', 'grass', 'carpet', 'unknown', 'indoor', 'outdoor'}
+    return surface in valid_surfaces
 
 def sanitize_input(data: Any) -> Any:
-    """Sanitize string inputs"""
+    """Sanitize string inputs with enhanced security"""
     if isinstance(data, str):
-        return html.escape(data.strip())
+        # Strip whitespace and remove null bytes
+        cleaned = data.strip().replace('\x00', '')
+        # Escape HTML to prevent XSS
+        return html.escape(cleaned, quote=True)
     elif isinstance(data, dict):
-        return {key: sanitize_input(value) for key, value in data.items()}
+        # Recursively sanitize dictionary values with depth limit
+        if hasattr(sanitize_input, '_depth'):
+            sanitize_input._depth += 1
+        else:
+            sanitize_input._depth = 1
+            
+        if sanitize_input._depth > 10:  # Prevent deep recursion attacks
+            sanitize_input._depth -= 1
+            return {}
+            
+        result = {key: sanitize_input(value) for key, value in data.items() if isinstance(key, str) and len(key) <= 100}
+        sanitize_input._depth -= 1
+        return result
     elif isinstance(data, list):
+        # Limit list size to prevent DoS
+        if len(data) > 1000:
+            return data[:1000]
         return [sanitize_input(item) for item in data]
     return data
+
+def validate_json_payload(data: Dict, max_keys: int = 20, max_depth: int = 5) -> bool:
+    """Validate JSON payload structure to prevent DoS attacks"""
+    if not isinstance(data, dict):
+        return False
+    
+    if len(data) > max_keys:
+        return False
+    
+    def check_depth(obj, current_depth=0):
+        if current_depth > max_depth:
+            return False
+        if isinstance(obj, dict):
+            for value in obj.values():
+                if not check_depth(value, current_depth + 1):
+                    return False
+        elif isinstance(obj, list):
+            for item in obj:
+                if not check_depth(item, current_depth + 1):
+                    return False
+        return True
+    
+    return check_depth(data)
+
+def validate_api_key(api_key: str) -> bool:
+    """Validate API key for authentication"""
+    if not api_key:
+        return False
+    
+    # Check against configured API keys
+    valid_api_key = os.getenv('TENNIS_API_KEY', 'DEFAULT_SECURE_KEY_' + secrets.token_hex(16))
+    
+    # Use secure comparison to prevent timing attacks
+    return secrets.compare_digest(api_key, valid_api_key)
+
+def require_api_key():
+    """Decorator to require API key authentication"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            api_key = request.headers.get('X-API-Key') or request.args.get('api_key')
+            
+            if not validate_api_key(api_key):
+                return jsonify({
+                    'success': False,
+                    'error': 'Invalid or missing API key'
+                }), 401
+            
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+def create_safe_error_response(error: Exception, default_message: str = "An error occurred") -> str:
+    """Create a safe error message that doesn't leak sensitive information"""
+    error_str = str(error).lower()
+    
+    # Check for sensitive information that shouldn't be exposed
+    sensitive_patterns = [
+        'password', 'api_key', 'secret', 'token', 'key=', 'password=',
+        'connection string', 'database', 'sqlalchemy', 'traceback',
+        'file not found', 'permission denied', 'directory', 'path'
+    ]
+    
+    # If error contains sensitive info, return generic message
+    if any(pattern in error_str for pattern in sensitive_patterns):
+        return default_message
+    
+    # Safe to return the actual error message
+    return str(error)
 
 @app.after_request
 def set_security_headers(response):
@@ -179,7 +314,8 @@ def set_security_headers(response):
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-    response.headers['Content-Security-Policy'] = \"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'\"\n    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     return response
 
 @app.errorhandler(400)
@@ -1069,7 +1205,7 @@ def get_stats():
         logger.error(f"❌ Stats error: {e}")
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': create_safe_error_response(e, 'System statistics unavailable')
         }), 500
 
 @app.route('/api/matches', methods=['GET'])
@@ -1148,12 +1284,26 @@ def get_matches():
 def test_ml_prediction():
     """Тестирование ML предсказания"""
     try:
-        data = request.get_json(force=True, max_content_length=1024)  # Limit payload size
+        # Get and validate JSON payload
+        try:
+            data = request.get_json(force=True, max_content_length=1024)  # Limit payload size
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid JSON payload'
+            }), 400
         
         if not data:
             return jsonify({
                 'success': False,
                 'error': 'No data provided'
+            }), 400
+        
+        # Validate JSON structure to prevent DoS attacks
+        if not validate_json_payload(data):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid payload structure'
             }), 400
         
         # Sanitize and validate inputs
@@ -1340,12 +1490,26 @@ def get_value_bets():
 def analyze_underdog():
     """Детальный анализ underdog сценария"""
     try:
-        data = request.get_json(force=True, max_content_length=1024)
+        # Get and validate JSON payload
+        try:
+            data = request.get_json(force=True, max_content_length=1024)
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid JSON payload'
+            }), 400
         
         if not data:
             return jsonify({
                 'success': False,
                 'error': 'No data provided'
+            }), 400
+        
+        # Validate JSON structure to prevent DoS attacks
+        if not validate_json_payload(data):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid payload structure'
             }), 400
         
         # Sanitize and validate inputs
@@ -1425,6 +1589,7 @@ def analyze_underdog():
         }), 500
 
 @app.route('/api/refresh', methods=['GET', 'POST'])
+@require_api_key()
 def refresh_data():
     """Обновление данных"""
     try:
@@ -1453,7 +1618,7 @@ def refresh_data():
         logger.error(f"❌ Refresh error: {e}")
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': create_safe_error_response(e, 'Data refresh failed')
         }), 500
 
 @app.route('/api/player-info/<player_name>', methods=['GET'])
@@ -1533,6 +1698,7 @@ def test_underdog_analysis():
         }), 500
     
 @app.route('/api/manual-api-update', methods=['POST'])
+@require_api_key()
 def manual_api_update():
     """Ручное обновление API данных с контролем лимитов (для кнопки 'Manual API Update')"""
     try:

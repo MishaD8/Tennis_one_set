@@ -36,7 +36,13 @@ class SimpleAPIEconomy:
             except Exception as e:
                 logger.warning(f"Could not load API key from config: {e}")
         
+        # Secure API key handling - never store in plain text in logs
         self.api_key = api_key
+        self._api_key_hash = None  # For verification without storing key
+        if api_key:
+            import hashlib
+            self._api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()[:8]
+        
         self.max_per_hour = max_per_hour
         self.cache_minutes = cache_minutes
         
@@ -271,7 +277,14 @@ class SimpleAPIEconomy:
                     'dateFormat': 'iso'
                 }
                 
+                # Secure logging - never log API keys
+                masked_params = params.copy()
+                if 'apiKey' in masked_params:
+                    masked_params['apiKey'] = f"***{self._api_key_hash or 'MASKED'}***"
+                
                 logger.info(f"📡 API запрос: {try_sport_key} {'(РУЧНОЕ ОБНОВЛЕНИЕ)' if manual_update_needed else ''}")
+                logger.debug(f"Request params (API key masked): {masked_params}")
+                
                 response = requests.get(url, params=params, timeout=10)
                 
                 # Записываем использование

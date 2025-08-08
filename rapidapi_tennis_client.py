@@ -87,8 +87,13 @@ class RapidAPITennisClient:
         self.endpoints = self.rapidapi_config.get('endpoints', {})
         self.cache_minutes = self.rapidapi_config.get('cache_minutes', 60)
         
-        if not self.api_key or self.api_key.startswith('MISSING_'):
-            raise Exception("RapidAPI key not configured. Set RAPIDAPI_KEY environment variable.")
+        # Secure API key validation
+        if not self.api_key or self.api_key.startswith('MISSING_') or len(self.api_key) < 16:
+            raise Exception("RapidAPI key not configured or invalid. Set RAPIDAPI_KEY environment variable.")
+        
+        # Create hash for secure logging (don't store full key in logs)
+        import hashlib
+        self._api_key_hash = hashlib.sha256(self.api_key.encode()).hexdigest()[:8]
         
         self.rate_limiter = RapidAPIRateLimiter(self.daily_limit)
         self.cache = {}

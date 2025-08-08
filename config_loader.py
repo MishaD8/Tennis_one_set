@@ -17,8 +17,37 @@ class SecureConfigLoader:
     """Secure configuration loader with environment variable support"""
     
     def __init__(self, config_file: str = "config.json"):
+        # Secure file path validation to prevent path traversal
+        if not self._is_safe_file_path(config_file):
+            raise ValueError("Invalid configuration file path")
         self.config_file = config_file
         self.config = None
+    
+    def _is_safe_file_path(self, file_path: str) -> bool:
+        """Validate file path to prevent path traversal attacks"""
+        if not isinstance(file_path, str) or not file_path.strip():
+            return False
+        
+        # Normalize path and check for suspicious patterns
+        import os.path
+        normalized_path = os.path.normpath(file_path)
+        
+        # Prevent path traversal attempts
+        dangerous_patterns = ['../', '..\\', '../', '..\\\\', '/etc/', '/proc/', '/root/', '~/', '$HOME']
+        for pattern in dangerous_patterns:
+            if pattern in normalized_path or pattern in file_path:
+                return False
+        
+        # Only allow files in current directory or subdirectories
+        if normalized_path.startswith('/') or ':' in normalized_path:
+            return False
+        
+        # Allow only specific file extensions
+        allowed_extensions = ['.json', '.yaml', '.yml', '.toml']
+        if not any(normalized_path.endswith(ext) for ext in allowed_extensions):
+            return False
+        
+        return True
         
     def load_config(self) -> Dict[str, Any]:
         """Load configuration with environment variable substitution"""
@@ -48,20 +77,69 @@ class SecureConfigLoader:
             return self._get_default_config()
     
     def _substitute_env_vars(self, text: str) -> str:
-        """Replace ${VAR_NAME} with environment variables"""
+        """Replace ${VAR_NAME} with environment variables securely"""
         def replace_var(match):
             var_name = match.group(1)
+            
+            # Validate environment variable name to prevent injection
+            if not self._is_safe_env_var_name(var_name):
+                print(f"⚠️ Invalid environment variable name: {var_name}")
+                return f"INVALID_{var_name}"
+            
             env_value = os.getenv(var_name)
             
             if env_value is None:
                 print(f"⚠️ Environment variable {var_name} not set, using placeholder")
                 return f"MISSING_{var_name}"
             
+            # Validate environment variable value
+            if not self._is_safe_env_var_value(env_value, var_name):
+                print(f"⚠️ Environment variable {var_name} contains unsafe content")
+                return f"UNSAFE_{var_name}"
+            
             return env_value
         
-        # Pattern to match ${VAR_NAME}
-        pattern = r'\$\{([^}]+)\}'
+        # Pattern to match ${VAR_NAME} - more restrictive
+        pattern = r'\$\{([A-Z_][A-Z0-9_]*)\}'
         return re.sub(pattern, replace_var, text)
+    
+    def _is_safe_env_var_name(self, var_name: str) -> bool:
+        """Validate environment variable name"""
+        if not isinstance(var_name, str) or not var_name:
+            return False
+        
+        # Only allow uppercase letters, numbers, and underscores
+        # Must start with letter or underscore
+        if not re.match(r'^[A-Z_][A-Z0-9_]*$', var_name):
+            return False
+        
+        # Reasonable length limit
+        if len(var_name) > 100:
+            return False
+        
+        return True
+    
+    def _is_safe_env_var_value(self, value: str, var_name: str) -> bool:
+        """Validate environment variable value"""
+        if not isinstance(value, str):
+            return False
+        
+        # Length check to prevent DoS
+        if len(value) > 10000:
+            return False
+        
+        # For API keys and secrets, ensure minimum security requirements
+        if 'key' in var_name.lower() or 'secret' in var_name.lower() or 'token' in var_name.lower():
+            if len(value) < 8:  # Minimum length for security tokens
+                return False
+        
+        # Prevent injection attacks in values
+        dangerous_patterns = ['$(', '`', '#{', '${']
+        for pattern in dangerous_patterns:
+            if pattern in value:
+                return False
+        
+        return True
     
     def _validate_config(self):
         """Validate critical configuration values"""
