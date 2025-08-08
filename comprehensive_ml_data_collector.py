@@ -29,6 +29,10 @@ from tennisexplorer_integration import TennisExplorerIntegration
 from second_set_feature_engineering import SecondSetFeatureEngineer
 from ranks_101_300_feature_engineering import Ranks101to300FeatureEngineer, Ranks101to300DataValidator
 
+# Security imports for tournament filtering (CLAUDE.md requirement #3)
+from secure_tournament_filter import SecureTournamentFilter, SecurityLevel
+from tournament_filter_integration import TournamentFilterIntegration
+
 logger = logging.getLogger(__name__)
 
 class RateLimitManager:
@@ -141,6 +145,12 @@ class ComprehensiveMLDataCollector:
         self.feature_engineer_ranks = Ranks101to300FeatureEngineer()
         self.data_validator = Ranks101to300DataValidator()
         
+        # Security: Initialize secure tournament filtering (CLAUDE.md requirement #3)
+        # Only best-of-3 sets format tournaments (excludes Grand Slams)
+        self.tournament_filter_integration = TournamentFilterIntegration(SecurityLevel.STRICT)
+        self.secure_tournament_validator = self.tournament_filter_integration.create_tournament_data_validator()
+        logger.info("🔒 Secure tournament filtering initialized - Grand Slams will be excluded")
+        
         # Initialize data sources
         self.enhanced_collector = None
         self.enhanced_api = None
@@ -154,7 +164,11 @@ class ComprehensiveMLDataCollector:
             'matches': [],
             'player_data': {},
             'tournament_data': {},
-            'collection_metadata': {}
+            'collection_metadata': {
+                'security_filtering_enabled': True,
+                'tournament_filter_level': 'STRICT',
+                'grand_slam_exclusion': 'ACTIVE'  # Per CLAUDE.md requirement #3
+            }
         }
     
     def _initialize_data_sources(self):
@@ -250,8 +264,8 @@ class ComprehensiveMLDataCollector:
                 logger.error(f"❌ Phase {phase_name} failed: {e}")
                 failed_phases.append((phase_name, str(e)))
         
-        # Post-processing: Filter and enhance collected data
-        self._post_process_collected_data(priority_second_set)
+        # Post-processing: Apply secure filtering and enhance collected data
+        self._post_process_collected_data_secure(priority_second_set)
         
         # Generate collection metadata
         collection_end = datetime.now()
@@ -467,30 +481,53 @@ class ComprehensiveMLDataCollector:
                                 'collected_at': datetime.now().isoformat()
                             }
     
-    def _post_process_collected_data(self, priority_second_set: bool = True):
-        """Post-process collected data with filtering and enhancement"""
+    def _post_process_collected_data_secure(self, priority_second_set: bool = True):
+        """Post-process collected data with secure filtering and enhancement"""
         
-        logger.info("🔧 Post-processing collected data...")
+        logger.info("🔧 Post-processing collected data with secure tournament filtering...")
         
         original_count = len(self.collected_data['matches'])
         
-        # 1. Filter for ATP/WTA professional singles only
+        # 1. Apply secure tournament filtering (CLAUDE.md requirement #3)
+        # Exclude Grand Slams (best-of-5), include only best-of-3 format tournaments
+        logger.info(f"🔒 Applying secure tournament filtering to {original_count} matches...")
+        
+        filter_result = self.tournament_filter_integration.filter_tournaments_secure(
+            self.collected_data['matches']
+        )
+        
+        if filter_result['filter_status'] == 'SUCCESS':
+            filtered_matches = filter_result['tournaments']
+            logger.info(f"✅ Secure filtering: {filter_result['total_filtered']}/{filter_result['total_input']} matches approved")
+            logger.info(f"❌ Rejected {filter_result['rejected_count']} matches (reasons: {filter_result['rejection_reasons']})")
+        else:
+            # Fallback to empty for security
+            filtered_matches = []
+            logger.error(f"🚨 Secure filtering failed: {filter_result.get('error', 'Unknown error')}")
+        
+        # Update collection metadata with filtering results
+        self.collected_data['collection_metadata']['secure_filtering'] = {
+            'applied': True,
+            'original_count': original_count,
+            'filtered_count': len(filtered_matches),
+            'rejection_reasons': filter_result.get('rejection_reasons', {}),
+            'processing_time_ms': filter_result.get('processing_time_ms', 0),
+            'security_level': 'STRICT'
+        }
+        
+        # 2. Continue with additional professional filtering for extra security
         professional_matches = []
-        for match in self.collected_data['matches']:
-            if self._is_atp_wta_singles_match(match):
-                professional_matches.append(match)
+        for match in filtered_matches:
+            # Additional professional tournament validation (defense in depth)
+            if self._is_professional_tournament_match(match) and self._has_player_in_ranks_101_300(match):
+                # Double-check with secure validator
+                if self.secure_tournament_validator(match):
+                    professional_matches.append(match)
+                else:
+                    logger.warning(f"🔒 Secondary security check rejected match: {match.get('tournament', {}).get('name', 'Unknown')}")
         
         self.collected_data['matches'] = professional_matches
-        logger.info(f"🏆 Professional filtering: {len(professional_matches)}/{original_count} matches retained")
-        
-        # 2. Filter for ranks 101-300 (at least one player in range)
-        ranks_101_300_matches = []
-        for match in self.collected_data['matches']:
-            if self._has_player_in_ranks_101_300(match):
-                ranks_101_300_matches.append(match)
-        
-        self.collected_data['matches'] = ranks_101_300_matches
-        logger.info(f"🎯 Ranks 101-300 filtering: {len(ranks_101_300_matches)}/{len(professional_matches)} matches retained")
+        logger.info(f"🏆 Professional filtering: {len(professional_matches)}/{len(filtered_matches)} matches retained")
         
         # 3. Enhance matches with ML features
         enhanced_matches = []
@@ -517,7 +554,12 @@ class ComprehensiveMLDataCollector:
                 logger.info(f"📈 Second set priority filtering: {len(second_set_matches)} matches retained")
     
     def _is_professional_tournament_match(self, match: Dict) -> bool:
-        """Check if match is from professional ATP/WTA tournament"""
+        """Check if match is from professional ATP/WTA tournament
+        
+        NOTE: This method provides additional validation on top of secure filtering.
+        The primary security filtering is handled by SecureTournamentFilter.
+        Grand Slam tournaments are already filtered out by the secure filter.
+        """
         tournament = match.get('tournament', {})
         tournament_name = tournament.get('name', '').lower()
         
@@ -527,11 +569,17 @@ class ComprehensiveMLDataCollector:
             if keyword in tournament_name:
                 return False
         
-        # Look for professional indicators
-        professional = ['atp', 'wta', 'grand slam', 'masters', 'wimbledon', 'french open', 'us open', 'australian open']
+        # NOTE: Grand Slam filtering is now handled by SecureTournamentFilter
+        # This provides additional professional indicators for ATP/WTA tournaments
+        professional = ['atp', 'wta', 'masters', 'open', 'cup', 'finals']
         for indicator in professional:
             if indicator in tournament_name:
                 return True
+        
+        # Check tournament level - but Grand Slams are already filtered out by secure filter
+        level = tournament.get('level', '').lower()
+        if any(prof_level in level for prof_level in ['atp', 'wta', 'masters']):
+            return True
         
         return False
     

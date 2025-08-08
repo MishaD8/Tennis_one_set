@@ -4,7 +4,8 @@
 Полный backend с реальными ML моделями и API
 """
 
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, redirect
+from werkzeug.exceptions import HTTPException
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -18,6 +19,7 @@ from typing import Dict, Any
 import secrets
 import html
 from functools import wraps
+import ssl
 
 # Import error handling
 try:
@@ -107,6 +109,16 @@ app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_ENV') == 'production'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
+# SSL/TLS Configuration for production security
+if os.getenv('FLASK_ENV') == 'production':
+    app.config['PREFERRED_URL_SCHEME'] = 'https'
+    app.config['SESSION_COOKIE_SECURE'] = True
+    # Force SSL redirect
+    app.config['FORCE_HTTPS'] = True
+else:
+    app.config['PREFERRED_URL_SCHEME'] = 'http'
+    app.config['SESSION_COOKIE_SECURE'] = False
+
 # Secure proxy configuration with validation
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
@@ -140,14 +152,44 @@ def secure_rate_limit_key_func():
         logger.warning(f"Rate limit key function error, using fallback")
         return get_remote_address()
 
-# Enhanced rate limiting with stricter limits for financial applications
+# Enhanced rate limiting with secure Redis fallback using built-in Flask-Limiter features
+def get_redis_url():
+    """
+    Get Redis URL with connection testing for rate limiting
+    """
+    redis_url = os.getenv('REDIS_URL', '').strip()
+    
+    # Try Redis first if configured
+    if redis_url and redis_url != 'memory://':
+        try:
+            import redis
+            # Test Redis connection
+            if redis_url.startswith('redis://'):
+                r = redis.Redis.from_url(redis_url, socket_connect_timeout=2, socket_timeout=2)
+            else:
+                r = redis.Redis(host='localhost', port=6379, socket_connect_timeout=2, socket_timeout=2)
+            
+            # Test connection
+            r.ping()
+            logger.info("✅ Redis connection successful - using Redis for rate limiting")
+            return redis_url
+        except Exception as e:
+            logger.warning(f"⚠️ Redis connection failed ({e}), Flask-Limiter will use automatic in-memory fallback")
+    
+    # Return None to trigger automatic in-memory fallback
+    logger.info("🔄 Redis not available - Flask-Limiter will use in-memory storage")
+    return None
+
 limiter = Limiter(
     app=app,
     key_func=secure_rate_limit_key_func,
     default_limits=["100 per day", "20 per hour", "5 per minute"],
-    storage_uri=os.getenv('REDIS_URL', 'memory://'),  # Use Redis in production
-    strategy="fixed-window-elastic-expiry",
-    headers_enabled=True
+    storage_uri=get_redis_url(),  # Will be None if Redis unavailable
+    strategy="fixed-window",
+    headers_enabled=True,
+    swallow_errors=True,  # Don't crash app on rate limiter errors
+    in_memory_fallback_enabled=True,  # Enable automatic fallback to in-memory
+    in_memory_fallback=["100 per day", "20 per hour", "5 per minute"]  # Fallback limits
 )
 
 # CORS with restricted origins
@@ -294,6 +336,48 @@ def validate_json_payload(data: Dict, max_keys: int = 20, max_depth: int = 5) ->
     
     return check_depth(data)
 
+def check_redis_health() -> Dict[str, Any]:
+    """Check Redis connection health for monitoring"""
+    redis_health = {
+        'available': False,
+        'connection_time_ms': None,
+        'error': None,
+        'version': None
+    }
+    
+    try:
+        import redis
+        import time
+        
+        redis_url = os.getenv('REDIS_URL', '').strip()
+        if not redis_url or redis_url == 'memory://':
+            redis_health['error'] = 'Redis URL not configured'
+            return redis_health
+        
+        start_time = time.time()
+        
+        if redis_url.startswith('redis://'):
+            r = redis.Redis.from_url(redis_url, socket_connect_timeout=2, socket_timeout=2)
+        else:
+            r = redis.Redis(host='localhost', port=6379, socket_connect_timeout=2, socket_timeout=2)
+        
+        # Test connection with ping
+        r.ping()
+        
+        connection_time = (time.time() - start_time) * 1000
+        redis_health.update({
+            'available': True,
+            'connection_time_ms': round(connection_time, 2),
+            'version': r.info().get('redis_version', 'unknown')
+        })
+        
+    except ImportError:
+        redis_health['error'] = 'Redis library not installed'
+    except Exception as e:
+        redis_health['error'] = str(e)
+    
+    return redis_health
+
 def validate_api_key(api_key: str) -> bool:
     """Validate API key for authentication"""
     if not api_key:
@@ -342,8 +426,35 @@ def create_safe_error_response(error: Exception, default_message: str = "An erro
 
 @app.before_request
 def security_request_monitor():
-    """Monitor requests for security threats"""
+    """Monitor requests for security threats and handle HTTPS enforcement"""
     try:
+        # HTTPS enforcement for production
+        if app.config.get('FORCE_HTTPS') and not request.is_secure:
+            # Check if request is coming through a trusted proxy that terminates SSL
+            proto_header = request.headers.get('X-Forwarded-Proto', '').lower()
+            if proto_header != 'https':
+                # Only redirect GET requests to avoid data loss
+                if request.method == 'GET':
+                    return redirect(request.url.replace('http://', 'https://', 1), code=301)
+                else:
+                    raise UpgradeRequired('HTTPS required for this operation')
+        
+        # Handle malformed SSL/TLS requests that appear as garbled HTTP
+        try:
+            # Check for SSL handshake data in HTTP request
+            if hasattr(request, 'data') and request.data:
+                # SSL handshake typically starts with these bytes
+                ssl_indicators = [b'\x16\x03', b'\x80', b'\x15\x03']
+                if any(request.data.startswith(indicator) for indicator in ssl_indicators):
+                    logger.warning(f"SSL handshake received on HTTP port from {request.remote_addr}")
+                    return jsonify({
+                        'success': False,
+                        'error': 'SSL/TLS required - please use HTTPS'
+                    }), 400
+        except Exception as ssl_check_error:
+            # Log SSL check error but don't block request
+            logger.debug(f"SSL check error: {ssl_check_error}")
+        
         # Get client information safely
         client_ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
         user_agent = request.headers.get('User-Agent', 'unknown')[:200]
@@ -393,7 +504,7 @@ def security_request_monitor():
 
 @app.after_request
 def set_security_headers(response):
-    """Add comprehensive security headers to all responses"""
+    """Add comprehensive security headers to all responses with enhanced protection"""
     # Prevent content type sniffing
     response.headers['X-Content-Type-Options'] = 'nosniff'
     
@@ -403,47 +514,104 @@ def set_security_headers(response):
     # XSS protection (legacy but still useful)
     response.headers['X-XSS-Protection'] = '1; mode=block'
     
-    # Force HTTPS in production
+    # Force HTTPS in production with enhanced HSTS
     if os.getenv('FLASK_ENV') == 'production':
         response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
     
-    # Content Security Policy - more restrictive for financial app
-    csp = (
-        "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline'; "  # Remove 'unsafe-eval' for better security
-        "style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' data: https:; "
-        "font-src 'self' https:; "
-        "connect-src 'self' https:; "
-        "frame-ancestors 'none'; "
-        "base-uri 'self'; "
-        "form-action 'self'; "
-        "upgrade-insecure-requests"
-    )
+    # Enhanced Content Security Policy for financial application
+    if request.path.startswith('/api/'):
+        # Stricter CSP for API endpoints
+        csp = (
+            "default-src 'none'; "
+            "frame-ancestors 'none'; "
+            "base-uri 'none'; "
+            "form-action 'none'"
+        )
+    else:
+        # More permissive CSP for web interface
+        csp = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: https:; "
+            "font-src 'self' https:; "
+            "connect-src 'self' https:; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'; "
+            "object-src 'none'; "
+            "media-src 'none'; "
+            "worker-src 'none'; "
+        )
+        if os.getenv('FLASK_ENV') == 'production':
+            csp += "upgrade-insecure-requests; "
+    
     response.headers['Content-Security-Policy'] = csp
     
-    # Referrer policy
-    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    # Enhanced referrer policy for financial data protection
+    response.headers['Referrer-Policy'] = 'no-referrer'
     
-    # Permissions policy (formerly Feature-Policy)
+    # Comprehensive permissions policy to block unnecessary features
     response.headers['Permissions-Policy'] = (
-        "accelerometer=(), camera=(), geolocation=(), "
-        "gyroscope=(), magnetometer=(), microphone=(), "
-        "payment=(), usb=()"
+        "accelerometer=(), ambient-light-sensor=(), autoplay=(), battery=(), "
+        "camera=(), cross-origin-isolated=(), display-capture=(), "
+        "document-domain=(), encrypted-media=(), execution-while-not-rendered=(), "
+        "execution-while-out-of-viewport=(), fullscreen=(), geolocation=(), "
+        "gyroscope=(), magnetometer=(), microphone=(), midi=(), "
+        "navigation-override=(), payment=(), picture-in-picture=(), "
+        "publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), "
+        "usb=(), web-share=(), xr-spatial-tracking=()"
     )
     
-    # Remove server header to reduce information disclosure
+    # Additional security headers for financial applications
+    response.headers['X-Permitted-Cross-Domain-Policies'] = 'none'
+    response.headers['Cross-Origin-Embedder-Policy'] = 'require-corp'
+    response.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
+    response.headers['Cross-Origin-Resource-Policy'] = 'same-origin'
+    
+    # Cache control for sensitive data
+    if request.path.startswith('/api/'):
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, private, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    
+    # Remove server identification headers
     response.headers.pop('Server', None)
+    response.headers.pop('X-Powered-By', None)
     
     return response
 
 @app.errorhandler(400)
 def bad_request(error):
-    """Handle 400 errors"""
+    """Handle 400 errors including SSL/TLS related issues"""
+    # Check if this might be an SSL/TLS related error
+    error_description = str(error).lower()
+    if any(ssl_term in error_description for ssl_term in ['ssl', 'tls', 'handshake', 'certificate']):
+        return jsonify({
+            'success': False,
+            'error': 'SSL/TLS configuration issue - please ensure HTTPS is properly configured',
+            'hint': 'This server requires HTTPS. Please check your connection and certificate configuration.'
+        }), 400
+    
     return jsonify({
         'success': False,
         'error': 'Bad request'
     }), 400
+
+class UpgradeRequired(HTTPException):
+    """Custom 426 Upgrade Required exception"""
+    code = 426
+    description = 'Upgrade Required'
+
+@app.errorhandler(UpgradeRequired)
+def upgrade_required(error):
+    """Handle 426 Upgrade Required errors (HTTP to HTTPS)"""
+    return jsonify({
+        'success': False,
+        'error': 'HTTPS required for this operation',
+        'upgrade_to': 'HTTPS',
+        'hint': 'Please use HTTPS instead of HTTP for secure communication'
+    }), 426
 
 @app.errorhandler(404) 
 def not_found(error):
@@ -1284,9 +1452,28 @@ def dashboard():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    """Health check с информацией о всех компонентах"""
+    """Comprehensive health check with security and infrastructure monitoring"""
+    redis_health = check_redis_health()
+    
+    # Determine overall health status
+    overall_status = 'healthy'
+    warnings = []
+    
+    if not redis_health['available']:
+        warnings.append('Redis unavailable - using in-memory rate limiting')
+    
+    connection_time = redis_health.get('connection_time_ms')
+    if connection_time is not None and connection_time > 100:
+        warnings.append('Redis connection slow')
+    
+    if os.getenv('FLASK_ENV') != 'production' and request.headers.get('X-Forwarded-Proto') != 'https':
+        warnings.append('Not using HTTPS in production')
+    
+    if warnings:
+        overall_status = 'degraded'
+    
     return jsonify({
-        'status': 'healthy',
+        'status': overall_status,
         'timestamp': datetime.now().isoformat(),
         'components': {
             'real_predictor': real_predictor is not None,
@@ -1298,7 +1485,20 @@ def health_check():
             'tennisexplorer_integrated': enhanced_collector is not None,
             'rapidapi_integrated': enhanced_collector is not None
         },
-        'version': '4.2'
+        'infrastructure': {
+            'redis': redis_health,
+            'rate_limiting': 'redis' if redis_health['available'] else 'memory',
+            'ssl_enabled': request.is_secure or request.headers.get('X-Forwarded-Proto') == 'https',
+            'environment': os.getenv('FLASK_ENV', 'development')
+        },
+        'security': {
+            'https_enforced': app.config.get('FORCE_HTTPS', False),
+            'secure_cookies': app.config.get('SESSION_COOKIE_SECURE', False),
+            'csp_enabled': True,
+            'hsts_enabled': os.getenv('FLASK_ENV') == 'production'
+        },
+        'warnings': warnings,
+        'version': '4.3-security-enhanced'
     })
 
 @app.route('/api/stats', methods=['GET'])
@@ -1986,6 +2186,63 @@ def get_comprehensive_api_status():
             'error': str(e)
         }), 500
 
+@app.route('/api/redis-status', methods=['GET'])
+@require_api_key()
+def get_redis_status():
+    """Get detailed Redis connection status and performance metrics"""
+    try:
+        redis_health = check_redis_health()
+        
+        # Additional performance tests if Redis is available
+        performance_metrics = {}
+        if redis_health['available']:
+            try:
+                import redis
+                import time
+                
+                redis_url = os.getenv('REDIS_URL', '').strip()
+                if redis_url.startswith('redis://'):
+                    r = redis.Redis.from_url(redis_url, socket_connect_timeout=2, socket_timeout=2)
+                else:
+                    r = redis.Redis(host='localhost', port=6379, socket_connect_timeout=2, socket_timeout=2)
+                
+                # Test write/read performance
+                start_time = time.time()
+                test_key = f"health_check_{int(time.time())}"
+                r.set(test_key, 'test_value', ex=5)  # Expire in 5 seconds
+                r.get(test_key)
+                r.delete(test_key)
+                write_read_time = (time.time() - start_time) * 1000
+                
+                # Get memory usage
+                info = r.info('memory')
+                
+                performance_metrics = {
+                    'write_read_time_ms': round(write_read_time, 2),
+                    'used_memory': info.get('used_memory_human', 'unknown'),
+                    'used_memory_peak': info.get('used_memory_peak_human', 'unknown'),
+                    'connected_clients': r.info('clients').get('connected_clients', 0)
+                }
+                
+            except Exception as e:
+                performance_metrics['error'] = str(e)
+        
+        return jsonify({
+            'success': True,
+            'redis_health': redis_health,
+            'performance_metrics': performance_metrics,
+            'rate_limiter_status': 'redis' if redis_health['available'] else 'in-memory fallback',
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Redis status check error: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to check Redis status',
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
 @app.route('/api/api-economy-status', methods=['GET'])
 def get_api_economy_status():
     """Статус API Economy (для кнопки 'API Status') - Legacy endpoint"""
@@ -2110,11 +2367,31 @@ if __name__ == '__main__':
     print("=" * 60)
     
     try:
+        # Enhanced server configuration for security
+        ssl_context = None
+        if os.getenv('FLASK_ENV') == 'production':
+            # In production, SSL should be handled by reverse proxy (nginx)
+            # But we can still configure SSL context if certificates are available
+            cert_file = os.getenv('SSL_CERT_PATH')
+            key_file = os.getenv('SSL_KEY_PATH')
+            
+            if cert_file and key_file and os.path.exists(cert_file) and os.path.exists(key_file):
+                ssl_context = (cert_file, key_file)
+                print(f"✅ SSL certificates found, enabling HTTPS")
+            else:
+                print("⚠️ Production mode: SSL should be handled by reverse proxy (nginx)")
+        
         app.run(
             host='0.0.0.0',
             port=5001,
             debug=False,
-            threaded=True
+            threaded=True,
+            ssl_context=ssl_context,
+            # Additional security configurations
+            use_reloader=False,  # Disable reloader in production
+            use_debugger=False   # Ensure debugger is disabled
         )
     except Exception as e:
         print(f"❌ Failed to start server: {e}")
+        # Log the full error for debugging
+        logger.error(f"Server startup failed: {e}", exc_info=True)
