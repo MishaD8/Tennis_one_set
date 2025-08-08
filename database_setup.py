@@ -59,7 +59,7 @@ def setup_database():
     # Database setup SQL commands
     setup_commands = [
         "CREATE DATABASE tennis_predictions;",
-        "CREATE USER tennis_user WITH PASSWORD 'tennis_pass';",
+        "CREATE USER tennis_user WITH PASSWORD 'secure_password_here';",
         "GRANT ALL PRIVILEGES ON DATABASE tennis_predictions TO tennis_user;",
         "ALTER USER tennis_user CREATEDB;"
     ]

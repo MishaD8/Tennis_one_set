@@ -6,11 +6,17 @@
 
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from werkzeug.middleware.proxy_fix import ProxyFix
 import os
 import logging
 import json
+import re
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Any
+import secrets
+import html
 
 # Import error handling
 try:
@@ -92,7 +98,29 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app)
+
+# Security Configuration
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', secrets.token_hex(32))
+app.config['WTF_CSRF_TIME_LIMIT'] = None
+app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_ENV') == 'production'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+# Trust proxy headers for rate limiting
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+# Rate limiting
+limiter = Limiter(
+    app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"]
+)
+
+# CORS with restricted origins
+CORS(app, 
+     origins=os.getenv('ALLOWED_ORIGINS', 'http://localhost:5001').split(','),
+     methods=['GET', 'POST'],
+     allow_headers=['Content-Type', 'Authorization'])
 
 # Глобальные переменные
 config = None
@@ -103,6 +131,98 @@ enhanced_collector = None
 universal_collector = None
 odds_collector = None
 daily_scheduler = None
+
+# Security Functions
+def validate_player_name(name: str) -> bool:
+    """Validate player name input"""
+    if not isinstance(name, str) or not name.strip():
+        return False
+    if len(name) > 100:  # Reasonable max length
+        return False
+    # Allow only letters, spaces, hyphens, apostrophes and periods
+    if not re.match(r"^[a-zA-ZÀ-ÿ\s\-'.]+$", name):
+        return False
+    return True
+
+def validate_tournament_name(name: str) -> bool:
+    """Validate tournament name input"""
+    if not isinstance(name, str) or not name.strip():
+        return False
+    if len(name) > 200:  # Reasonable max length
+        return False
+    # Allow alphanumeric, spaces, hyphens, and common tournament chars
+    if not re.match(r"^[a-zA-Z0-9\s\-'.()/&]+$", name):
+        return False
+    return True
+
+def validate_surface(surface: str) -> bool:
+    """Validate surface input"""
+    if not isinstance(surface, str):
+        return False
+    valid_surfaces = ['hard', 'clay', 'grass', 'carpet', 'unknown']
+    return surface.lower() in valid_surfaces
+
+def sanitize_input(data: Any) -> Any:
+    """Sanitize string inputs"""
+    if isinstance(data, str):
+        return html.escape(data.strip())
+    elif isinstance(data, dict):
+        return {key: sanitize_input(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [sanitize_input(item) for item in data]
+    return data
+
+@app.after_request
+def set_security_headers(response):
+    """Add security headers to all responses"""
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    response.headers['Content-Security-Policy'] = \"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'\"\n    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    return response
+
+@app.errorhandler(400)
+def bad_request(error):
+    """Handle 400 errors"""
+    return jsonify({
+        'success': False,
+        'error': 'Bad request'
+    }), 400
+
+@app.errorhandler(404) 
+def not_found(error):
+    """Handle 404 errors"""
+    return jsonify({
+        'success': False,
+        'error': 'Resource not found'
+    }), 404
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    """Handle rate limit errors"""
+    return jsonify({
+        'success': False,
+        'error': 'Rate limit exceeded. Please try again later.'
+    }), 429
+
+@app.errorhandler(500)
+def internal_server_error(error):
+    """Handle 500 errors without exposing internal details"""
+    logger.error(f"Internal server error: {error}")
+    return jsonify({
+        'success': False,
+        'error': 'Internal server error'
+    }), 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    """Handle all other exceptions"""
+    logger.error(f"Unhandled exception: {str(e)}", exc_info=True)
+    return jsonify({
+        'success': False,
+        'error': 'An unexpected error occurred'
+    }), 500
 
 def filter_quality_matches(matches):
     """Enhanced filter for ATP/WTA professional singles only"""
@@ -1019,15 +1139,16 @@ def get_matches():
         logger.error(f"❌ Matches error: {e}")
         return jsonify({
             'success': False,
-            'error': str(e),
+            'error': 'Failed to retrieve matches',
             'matches': []
         }), 500
 
 @app.route('/api/test-ml', methods=['POST'])
+@limiter.limit("10 per minute")
 def test_ml_prediction():
     """Тестирование ML предсказания"""
     try:
-        data = request.get_json()
+        data = request.get_json(force=True, max_content_length=1024)  # Limit payload size
         
         if not data:
             return jsonify({
@@ -1035,10 +1156,31 @@ def test_ml_prediction():
                 'error': 'No data provided'
             }), 400
         
+        # Sanitize and validate inputs
+        data = sanitize_input(data)
         player1 = data.get('player1', 'Flavio Cobolli')
         player2 = data.get('player2', 'Novak Djokovic')
         tournament = data.get('tournament', 'US Open')
         surface = data.get('surface', 'Hard')
+        
+        # Validate inputs
+        if not validate_player_name(player1) or not validate_player_name(player2):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid player names provided'
+            }), 400
+            
+        if not validate_tournament_name(tournament):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid tournament name provided'
+            }), 400
+            
+        if not validate_surface(surface):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid surface provided'
+            }), 400
         
         logger.info(f"🔮 Testing ML prediction: {player1} vs {player2}")
         
@@ -1124,7 +1266,7 @@ def test_ml_prediction():
         logger.error(f"❌ Test prediction error: {e}")
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': 'ML prediction test failed'
         }), 500
 
 @app.route('/api/value-bets', methods=['GET'])
@@ -1189,15 +1331,16 @@ def get_value_bets():
         logger.error(f"❌ Value bets error: {e}")
         return jsonify({
             'success': False,
-            'error': str(e),
+            'error': 'Failed to analyze value bets',
             'value_bets': []
         }), 500
 
 @app.route('/api/underdog-analysis', methods=['POST'])
+@limiter.limit("5 per minute")
 def analyze_underdog():
     """Детальный анализ underdog сценария"""
     try:
-        data = request.get_json()
+        data = request.get_json(force=True, max_content_length=1024)
         
         if not data:
             return jsonify({
@@ -1205,6 +1348,8 @@ def analyze_underdog():
                 'error': 'No data provided'
             }), 400
         
+        # Sanitize and validate inputs
+        data = sanitize_input(data)
         player1 = data.get('player1')
         player2 = data.get('player2')
         tournament = data.get('tournament', 'ATP Tournament')
@@ -1214,6 +1359,25 @@ def analyze_underdog():
             return jsonify({
                 'success': False,
                 'error': 'Both players are required'
+            }), 400
+            
+        # Validate inputs
+        if not validate_player_name(player1) or not validate_player_name(player2):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid player names provided'
+            }), 400
+            
+        if not validate_tournament_name(tournament):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid tournament name provided'
+            }), 400
+            
+        if not validate_surface(surface):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid surface provided'
             }), 400
         
         analyzer = UnderdogAnalyzer()
@@ -1257,7 +1421,7 @@ def analyze_underdog():
         logger.error(f"❌ Underdog analysis error: {e}")
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': 'Underdog analysis failed'
         }), 500
 
 @app.route('/api/refresh', methods=['GET', 'POST'])

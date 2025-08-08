@@ -1,4 +1,4 @@
-/* Tennis Underdog Analytics Dashboard JavaScript */
+/* Underdog Analytics Dashboard JavaScript */
 
 const API_BASE = window.location.origin + '/api';
 
