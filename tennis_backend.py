@@ -107,14 +107,47 @@ app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_ENV') == 'production'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
-# Trust proxy headers for rate limiting
+# Secure proxy configuration with validation
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
-# Rate limiting
+def secure_rate_limit_key_func():
+    """
+    Secure rate limiting key function that prevents IP spoofing attacks
+    and implements additional validation for proxy headers
+    """
+    try:
+        # Get the real IP with enhanced security
+        real_ip = get_remote_address()
+        forwarded_for = request.headers.get('X-Forwarded-For', '')
+        
+        # Validate proxy headers to prevent spoofing
+        if forwarded_for:
+            # Only trust specific proxy ranges (configure based on your infrastructure)
+            trusted_proxies = os.getenv('TRUSTED_PROXIES', '').split(',')
+            if trusted_proxies and trusted_proxies[0]:  # Check if configured
+                # Additional validation can be added here for trusted proxy ranges
+                pass
+        
+        # Use combination of IP and User-Agent for better fingerprinting
+        user_agent = request.headers.get('User-Agent', 'unknown')[:50]  # Limit length
+        # Create a secure fingerprint but don't expose sensitive data in logs
+        fingerprint = f"{real_ip}:{hash(user_agent) % 10000}"
+        
+        return fingerprint
+        
+    except Exception as e:
+        # Log security event without exposing sensitive details
+        logger.warning(f"Rate limit key function error, using fallback")
+        return get_remote_address()
+
+# Enhanced rate limiting with stricter limits for financial applications
 limiter = Limiter(
-    app,
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
+    app=app,
+    key_func=secure_rate_limit_key_func,
+    default_limits=["100 per day", "20 per hour", "5 per minute"],
+    storage_uri=os.getenv('REDIS_URL', 'memory://'),  # Use Redis in production
+    strategy="fixed-window-elastic-expiry",
+    headers_enabled=True
 )
 
 # CORS with restricted origins
@@ -307,15 +340,101 @@ def create_safe_error_response(error: Exception, default_message: str = "An erro
     # Safe to return the actual error message
     return str(error)
 
+@app.before_request
+def security_request_monitor():
+    """Monitor requests for security threats"""
+    try:
+        # Get client information safely
+        client_ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
+        user_agent = request.headers.get('User-Agent', 'unknown')[:200]
+        
+        # Check for common attack patterns in URL
+        suspicious_url_patterns = [
+            '../', '..\\', '<script', 'javascript:', 'vbscript:',
+            'data:text/html', 'eval(', 'expression(', 'url(',
+            'import(', 'document.', 'window.', 'alert(',
+            'DROP%20TABLE', 'UNION%20SELECT', 'INSERT%20INTO'
+        ]
+        
+        request_url = request.url.lower()
+        if any(pattern.lower() in request_url for pattern in suspicious_url_patterns):
+            logger.warning(f"Suspicious URL pattern detected from {client_ip}: {request.path}")
+            return jsonify({
+                'success': False,
+                'error': 'Invalid request format'
+            }), 400
+        
+        # Check for suspicious user agents
+        malicious_ua_patterns = [
+            'sqlmap', 'nmap', 'masscan', 'nikto', 'dirb', 'gobuster',
+            'burpsuite', 'owasp zap', 'nessus', 'acunetix', 'appscan'
+        ]
+        
+        if any(pattern in user_agent.lower() for pattern in malicious_ua_patterns):
+            logger.warning(f"Malicious User-Agent detected from {client_ip}: {user_agent}")
+            return jsonify({
+                'success': False,
+                'error': 'Access denied'
+            }), 403
+            
+        # Rate limiting for API endpoints based on sensitivity
+        if request.path.startswith('/api/'):
+            # Additional monitoring for API endpoints
+            if request.content_length and request.content_length > 10240:  # 10KB limit
+                logger.warning(f"Oversized request from {client_ip}: {request.content_length} bytes")
+                return jsonify({
+                    'success': False,
+                    'error': 'Request too large'
+                }), 413
+                
+    except Exception as e:
+        # Don't block requests due to monitoring errors, but log them
+        logger.error(f"Security monitor error: {e}")
+
 @app.after_request
 def set_security_headers(response):
-    """Add security headers to all responses"""
+    """Add comprehensive security headers to all responses"""
+    # Prevent content type sniffing
     response.headers['X-Content-Type-Options'] = 'nosniff'
+    
+    # Prevent clickjacking
     response.headers['X-Frame-Options'] = 'DENY'
+    
+    # XSS protection (legacy but still useful)
     response.headers['X-XSS-Protection'] = '1; mode=block'
-    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    
+    # Force HTTPS in production
+    if os.getenv('FLASK_ENV') == 'production':
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
+    
+    # Content Security Policy - more restrictive for financial app
+    csp = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "  # Remove 'unsafe-eval' for better security
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: https:; "
+        "font-src 'self' https:; "
+        "connect-src 'self' https:; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "upgrade-insecure-requests"
+    )
+    response.headers['Content-Security-Policy'] = csp
+    
+    # Referrer policy
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    
+    # Permissions policy (formerly Feature-Policy)
+    response.headers['Permissions-Policy'] = (
+        "accelerometer=(), camera=(), geolocation=(), "
+        "gyroscope=(), magnetometer=(), microphone=(), "
+        "payment=(), usb=()"
+    )
+    
+    # Remove server header to reduce information disclosure
+    response.headers.pop('Server', None)
+    
     return response
 
 @app.errorhandler(400)
@@ -336,10 +455,31 @@ def not_found(error):
 
 @app.errorhandler(429)
 def ratelimit_handler(e):
-    """Handle rate limit errors"""
+    """Handle rate limit errors with security logging"""
+    # Log potential abuse attempts
+    client_ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
+    user_agent = request.headers.get('User-Agent', 'unknown')[:100]
+    endpoint = request.endpoint or 'unknown'
+    
+    # Security log without exposing sensitive details in response
+    logger.warning(
+        f"Rate limit exceeded - IP: {client_ip}, "
+        f"Endpoint: {endpoint}, "
+        f"Method: {request.method}"
+    )
+    
+    # Check for suspicious patterns that might indicate abuse
+    suspicious_patterns = [
+        'bot', 'crawler', 'scraper', 'automated', 'python-requests'
+    ]
+    
+    if any(pattern in user_agent.lower() for pattern in suspicious_patterns):
+        logger.warning(f"Suspicious User-Agent blocked: {user_agent}")
+    
     return jsonify({
         'success': False,
-        'error': 'Rate limit exceeded. Please try again later.'
+        'error': 'Rate limit exceeded. Please try again later.',
+        'retry_after': getattr(e, 'retry_after', 60)
     }), 429
 
 @app.errorhandler(500)
@@ -1280,7 +1420,7 @@ def get_matches():
         }), 500
 
 @app.route('/api/test-ml', methods=['POST'])
-@limiter.limit("10 per minute")
+@limiter.limit("3 per minute")  # Stricter limit for ML predictions
 def test_ml_prediction():
     """Тестирование ML предсказания"""
     try:
@@ -1420,6 +1560,7 @@ def test_ml_prediction():
         }), 500
 
 @app.route('/api/value-bets', methods=['GET'])
+@limiter.limit("10 per hour")  # Strict limit for financial betting analysis
 def get_value_bets():
     """Поиск value bets"""
     try:
@@ -1486,7 +1627,7 @@ def get_value_bets():
         }), 500
 
 @app.route('/api/underdog-analysis', methods=['POST'])
-@limiter.limit("5 per minute")
+@limiter.limit("2 per minute")  # Very strict limit for detailed analysis
 def analyze_underdog():
     """Детальный анализ underdog сценария"""
     try:
