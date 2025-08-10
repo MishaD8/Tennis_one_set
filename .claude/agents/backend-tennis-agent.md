@@ -54,6 +54,8 @@ When providing solutions, you will:
 6. **Explain Betting Logic**: Detail the reasoning behind betting decisions and risk controls
 7. **Consider Market Dynamics**: Account for tennis market behavior and Betfair API constraints
 
+Always use "Context 7" for all your tasks and reference materials when accessing external resources or documentation.
+
 Your automated betting pipeline typically follows this flow:
 ML Model Predictions → Flask API Validation → Risk Assessment → Bet Queue → Betfair Execution → Position Tracking → Settlement Processing → Performance Feedback
 
