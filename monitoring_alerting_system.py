@@ -341,6 +341,24 @@ class MonitoringSystem:
             # Send webhook notification
             if self.config['alerting']['webhook_url']:
                 self._send_webhook_alert(alert)
+            
+            # Send Telegram notification for critical alerts
+            try:
+                from telegram_notification_system import get_telegram_system
+                if alert.severity in ['critical', 'high']:
+                    telegram_system = get_telegram_system()
+                    telegram_message = (
+                        f"🚨 <b>Tennis System Alert</b>\n\n"
+                        f"<b>Severity:</b> {alert.severity.upper()}\n"
+                        f"<b>Component:</b> {alert.component}\n"
+                        f"<b>Title:</b> {alert.title}\n\n"
+                        f"<b>Message:</b>\n{alert.message}\n\n"
+                        f"<b>Time:</b> {alert.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
+                    )
+                    import asyncio
+                    asyncio.run(telegram_system.send_test_message(telegram_message))
+            except Exception as e:
+                logger.debug(f"Could not send Telegram alert: {e}")
                 
         except Exception as e:
             logger.error(f"Failed to send alert notifications: {e}")

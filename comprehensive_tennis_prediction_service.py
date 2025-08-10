@@ -30,6 +30,7 @@ from second_set_underdog_ml_system import SecondSetUnderdogMLTrainer, SecondSetU
 from second_set_prediction_service import SecondSetPredictionService
 from second_set_feature_engineering import SecondSetFeatureEngineer
 from ranks_101_300_feature_engineering import Ranks101to300FeatureEngineer, Ranks101to300DataValidator
+from telegram_notification_system import get_telegram_system
 
 warnings.filterwarnings('ignore')
 
@@ -361,6 +362,24 @@ class ComprehensiveTennisPredictionService:
             
             # Log successful prediction
             self.monitor.log_prediction_success(prediction_result)
+            
+            # Send Telegram notification if criteria are met
+            try:
+                telegram_system = get_telegram_system()
+                if telegram_system.should_notify(prediction_result):
+                    telegram_sent = telegram_system.send_notification_sync(prediction_result)
+                    if telegram_sent:
+                        logger.info("📤 Telegram notification sent for underdog opportunity")
+                        prediction_result['telegram_notification_sent'] = True
+                    else:
+                        logger.warning("⚠️ Failed to send Telegram notification")
+                        prediction_result['telegram_notification_sent'] = False
+                else:
+                    logger.debug("📱 Prediction did not meet Telegram notification criteria")
+                    prediction_result['telegram_notification_sent'] = False
+            except Exception as e:
+                logger.error(f"❌ Error handling Telegram notification: {e}")
+                prediction_result['telegram_notification_sent'] = False
             
             # Add metadata
             prediction_result['prediction_metadata'] = {

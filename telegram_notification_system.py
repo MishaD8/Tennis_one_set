@@ -1,0 +1,471 @@
+#!/usr/bin/env python3
+"""
+🤖 Telegram Notification System for Tennis Predictions
+
+Sends Telegram notifications when the system finds strong underdog matches
+that meet the criteria for second set betting opportunities.
+
+Integrates with the comprehensive tennis prediction service to automatically
+notify users when profitable underdog opportunities are identified.
+
+Author: Claude Code (Anthropic)
+"""
+
+import logging
+import os
+import asyncio
+import aiohttp
+from datetime import datetime, timedelta
+from typing import Dict, List, Any
+from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
+
+@dataclass
+class TelegramConfig:
+    """Telegram bot configuration"""
+    bot_token: str
+    chat_ids: List[str]  # Support multiple recipients
+    enabled: bool = True
+    min_probability: float = 0.55  # Minimum underdog probability to notify
+    max_notifications_per_hour: int = 10
+    notification_cooldown_minutes: int = 30
+
+class TelegramNotificationSystem:
+    """
+    Telegram notification system for tennis underdog predictions
+    """
+    
+    def __init__(self, config: TelegramConfig = None):
+        self.config = config or self._load_config_from_env()
+        self.notification_history = []  # Track sent notifications
+        self.rate_limiter = {}  # Rate limiting per chat
+        
+        # Validate configuration
+        if not self._validate_config():
+            logger.error("❌ Invalid Telegram configuration")
+            self.config.enabled = False
+        
+        self._setup_logging()
+        
+    def _load_config_from_env(self) -> TelegramConfig:
+        """Load configuration from environment variables"""
+        return TelegramConfig(
+            bot_token=os.getenv('TELEGRAM_BOT_TOKEN', ''),
+            chat_ids=os.getenv('TELEGRAM_CHAT_IDS', '').split(','),
+            enabled=os.getenv('TELEGRAM_NOTIFICATIONS_ENABLED', 'true').lower() == 'true',
+            min_probability=float(os.getenv('TELEGRAM_MIN_PROBABILITY', '0.55')),
+            max_notifications_per_hour=int(os.getenv('TELEGRAM_MAX_NOTIFICATIONS_PER_HOUR', '10')),
+            notification_cooldown_minutes=int(os.getenv('TELEGRAM_COOLDOWN_MINUTES', '30'))
+        )
+    
+    def _validate_config(self) -> bool:
+        """Validate Telegram configuration"""
+        if not self.config.bot_token:
+            logger.error("❌ TELEGRAM_BOT_TOKEN not provided")
+            return False
+        
+        if not self.config.chat_ids or not any(chat_id.strip() for chat_id in self.config.chat_ids):
+            logger.error("❌ TELEGRAM_CHAT_IDS not provided")
+            return False
+        
+        # Clean up chat IDs
+        self.config.chat_ids = [chat_id.strip() for chat_id in self.config.chat_ids if chat_id.strip()]
+        
+        logger.info(f"✅ Telegram config valid: {len(self.config.chat_ids)} chat(s), min_prob={self.config.min_probability}")
+        return True
+    
+    def _setup_logging(self):
+        """Setup logging for telegram notifications"""
+        log_dir = 'logs'
+        os.makedirs(log_dir, exist_ok=True)
+        
+        file_handler = logging.FileHandler(f'{log_dir}/telegram_notifications.log')
+        file_handler.setLevel(logging.INFO)
+        
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        file_handler.setFormatter(formatter)
+        
+        self.telegram_logger = logging.getLogger('telegram_notifications')
+        self.telegram_logger.addHandler(file_handler)
+        self.telegram_logger.setLevel(logging.INFO)
+    
+    def should_notify(self, prediction_result: Dict) -> bool:
+        """Check if this prediction should trigger a notification"""
+        
+        if not self.config.enabled:
+            return False
+        
+        # Check if prediction was successful
+        if not prediction_result.get('success', False):
+            return False
+        
+        # Check minimum probability threshold
+        underdog_prob = prediction_result.get('underdog_second_set_probability', 0)
+        if underdog_prob < self.config.min_probability:
+            logger.debug(f"Underdog probability {underdog_prob:.1%} below threshold {self.config.min_probability:.1%}")
+            return False
+        
+        # Check confidence level
+        confidence = prediction_result.get('confidence', '').lower()
+        if confidence not in ['medium', 'high']:
+            logger.debug(f"Confidence level '{confidence}' not high enough for notification")
+            return False
+        
+        # Check rate limiting
+        if self._is_rate_limited():
+            logger.debug("Rate limited - too many notifications recently")
+            return False
+        
+        # Check for duplicate/similar matches (cooldown)
+        if self._is_duplicate_match(prediction_result):
+            logger.debug("Similar match recently notified (cooldown active)")
+            return False
+        
+        return True
+    
+    def _is_rate_limited(self) -> bool:
+        """Check if we're rate limited"""
+        now = datetime.now()
+        one_hour_ago = now - timedelta(hours=1)
+        
+        recent_notifications = [
+            n for n in self.notification_history 
+            if n.get('timestamp', now) > one_hour_ago
+        ]
+        
+        return len(recent_notifications) >= self.config.max_notifications_per_hour
+    
+    def _is_duplicate_match(self, prediction_result: Dict) -> bool:
+        """Check if this is a duplicate/similar match within cooldown period"""
+        now = datetime.now()
+        cooldown_cutoff = now - timedelta(minutes=self.config.notification_cooldown_minutes)
+        
+        match_context = prediction_result.get('match_context', {})
+        current_players = {match_context.get('player1', ''), match_context.get('player2', '')}
+        
+        for notification in self.notification_history:
+            if notification.get('timestamp', now) <= cooldown_cutoff:
+                continue
+            
+            # Check for same players
+            notified_context = notification.get('prediction', {}).get('match_context', {})
+            notified_players = {notified_context.get('player1', ''), notified_context.get('player2', '')}
+            
+            if current_players == notified_players:
+                return True
+        
+        return False
+    
+    async def send_underdog_notification(self, prediction_result: Dict) -> bool:
+        """Send Telegram notification for underdog prediction"""
+        
+        if not self.should_notify(prediction_result):
+            return False
+        
+        try:
+            message = self._format_underdog_message(prediction_result)
+            
+            # Send to all configured chats
+            success_count = 0
+            for chat_id in self.config.chat_ids:
+                if await self._send_message(chat_id, message):
+                    success_count += 1
+            
+            # Record successful notification
+            if success_count > 0:
+                self._record_notification(prediction_result, success_count)
+                
+                self.telegram_logger.info(
+                    f"📤 Sent underdog notification to {success_count}/{len(self.config.chat_ids)} chats: "
+                    f"{prediction_result.get('match_context', {}).get('player1', 'Unknown')} vs "
+                    f"{prediction_result.get('match_context', {}).get('player2', 'Unknown')}"
+                )
+                
+                return True
+            else:
+                logger.error("❌ Failed to send notification to any chat")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Error sending underdog notification: {e}")
+            return False
+    
+    def _format_underdog_message(self, prediction_result: Dict) -> str:
+        """Format the underdog prediction message for Telegram"""
+        
+        match_context = prediction_result.get('match_context', {})
+        underdog_prob = prediction_result.get('underdog_second_set_probability', 0)
+        confidence = prediction_result.get('confidence', 'Medium')
+        underdog_player = prediction_result.get('underdog_player', 'unknown')
+        
+        # Determine which player is the underdog
+        player1 = match_context.get('player1', 'Player 1')
+        player2 = match_context.get('player2', 'Player 2')
+        player1_rank = match_context.get('player1_rank', 'N/A')
+        player2_rank = match_context.get('player2_rank', 'N/A')
+        
+        if underdog_player == 'player1':
+            underdog_name = player1
+            underdog_rank = player1_rank
+            favorite_name = player2
+            favorite_rank = player2_rank
+        else:
+            underdog_name = player2
+            underdog_rank = player2_rank
+            favorite_name = player1
+            favorite_rank = player1_rank
+        
+        # Build message
+        message_lines = [
+            "🎾 <b>TENNIS UNDERDOG ALERT</b> 🚀",
+            "",
+            f"<b>Match:</b> {player1} vs {player2}",
+            f"<b>Tournament:</b> {match_context.get('tournament', 'Unknown')}",
+            f"<b>Surface:</b> {match_context.get('surface', 'Hard')}",
+            "",
+            f"🎯 <b>UNDERDOG:</b> {underdog_name} (Rank #{underdog_rank})",
+            f"📊 <b>Second Set Win Probability:</b> {underdog_prob:.1%}",
+            f"🔮 <b>Confidence:</b> {confidence}",
+            "",
+            f"⚡ <b>Opportunity:</b> {underdog_name} vs {favorite_name} (#{favorite_rank})",
+        ]
+        
+        # Add strategic insights if available
+        insights = prediction_result.get('strategic_insights', [])
+        if insights:
+            message_lines.extend(["", "<b>📈 Strategic Insights:</b>"])
+            for insight in insights[:3]:  # Limit to 3 insights
+                # Remove emoji from insight and add bullet point
+                clean_insight = insight
+                for emoji in ['🔥', '⚡', '🛡️', '🏆', '📊', '⚖️']:
+                    clean_insight = clean_insight.replace(emoji, '').strip()
+                message_lines.append(f"• {clean_insight}")
+        
+        # Add metadata
+        prediction_time = prediction_result.get('prediction_metadata', {}).get('prediction_time', '')
+        if prediction_time:
+            try:
+                pred_dt = datetime.fromisoformat(prediction_time.replace('Z', '+00:00'))
+                time_str = pred_dt.strftime('%H:%M UTC')
+                message_lines.extend(["", f"⏰ <i>Prediction made at {time_str}</i>"])
+            except:
+                pass
+        
+        # Add disclaimer
+        message_lines.extend([
+            "",
+            "⚠️ <i>This is an AI prediction for educational purposes. Always do your own research before making any betting decisions.</i>"
+        ])
+        
+        return "\n".join(message_lines)
+    
+    async def _send_message(self, chat_id: str, message: str) -> bool:
+        """Send message to specific Telegram chat"""
+        
+        url = f"https://api.telegram.org/bot{self.config.bot_token}/sendMessage"
+        
+        payload = {
+            'chat_id': chat_id,
+            'text': message,
+            'parse_mode': 'HTML',
+            'disable_web_page_preview': True
+        }
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=payload, timeout=10) as response:
+                    if response.status == 200:
+                        logger.debug(f"✅ Message sent to chat {chat_id}")
+                        return True
+                    else:
+                        response_text = await response.text()
+                        logger.error(f"❌ Failed to send message to chat {chat_id}: {response.status} - {response_text}")
+                        return False
+                        
+        except Exception as e:
+            logger.error(f"❌ Error sending message to chat {chat_id}: {e}")
+            return False
+    
+    def _record_notification(self, prediction_result: Dict, success_count: int):
+        """Record sent notification for rate limiting and deduplication"""
+        
+        notification_record = {
+            'timestamp': datetime.now(),
+            'prediction': prediction_result,
+            'chats_notified': success_count,
+            'underdog_probability': prediction_result.get('underdog_second_set_probability', 0)
+        }
+        
+        self.notification_history.append(notification_record)
+        
+        # Keep only recent history (last 24 hours)
+        cutoff_time = datetime.now() - timedelta(hours=24)
+        self.notification_history = [
+            n for n in self.notification_history 
+            if n.get('timestamp', datetime.now()) > cutoff_time
+        ]
+    
+    def send_notification_sync(self, prediction_result: Dict) -> bool:
+        """Synchronous wrapper for sending notifications"""
+        try:
+            # Create event loop if it doesn't exist
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # If loop is already running, create a task
+                    asyncio.create_task(self.send_underdog_notification(prediction_result))
+                    return True  # Return True optimistically
+                else:
+                    return loop.run_until_complete(self.send_underdog_notification(prediction_result))
+            except RuntimeError:
+                # No event loop in current thread, create new one
+                return asyncio.run(self.send_underdog_notification(prediction_result))
+                
+        except Exception as e:
+            logger.error(f"❌ Error in sync notification wrapper: {e}")
+            return False
+    
+    async def send_test_message(self, test_message: str = None) -> bool:
+        """Send test message to verify Telegram integration"""
+        
+        if not self.config.enabled:
+            logger.error("❌ Telegram notifications disabled")
+            return False
+        
+        test_msg = test_message or (
+            "🤖 <b>Tennis Prediction Bot - Test Message</b>\n\n"
+            "✅ Telegram integration is working!\n"
+            f"📅 Test sent at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n\n"
+            "🎾 Ready to receive underdog tennis predictions!"
+        )
+        
+        success_count = 0
+        for chat_id in self.config.chat_ids:
+            if await self._send_message(chat_id, test_msg):
+                success_count += 1
+        
+        logger.info(f"📤 Test message sent to {success_count}/{len(self.config.chat_ids)} chats")
+        return success_count > 0
+    
+    def get_notification_stats(self) -> Dict[str, Any]:
+        """Get notification statistics"""
+        
+        now = datetime.now()
+        one_hour_ago = now - timedelta(hours=1)
+        one_day_ago = now - timedelta(days=1)
+        
+        recent_notifications = [
+            n for n in self.notification_history 
+            if n.get('timestamp', now) > one_day_ago
+        ]
+        
+        hourly_notifications = [
+            n for n in recent_notifications
+            if n.get('timestamp', now) > one_hour_ago
+        ]
+        
+        return {
+            'enabled': self.config.enabled,
+            'chat_count': len(self.config.chat_ids),
+            'min_probability_threshold': self.config.min_probability,
+            'notifications_last_hour': len(hourly_notifications),
+            'notifications_last_24h': len(recent_notifications),
+            'rate_limit_remaining': max(0, self.config.max_notifications_per_hour - len(hourly_notifications)),
+            'average_underdog_probability': (
+                sum(n.get('underdog_probability', 0) for n in recent_notifications) / 
+                max(1, len(recent_notifications))
+            ) if recent_notifications else 0
+        }
+
+
+# Global instance for easy access
+_telegram_system = None
+
+def get_telegram_system() -> TelegramNotificationSystem:
+    """Get global Telegram notification system instance"""
+    global _telegram_system
+    if _telegram_system is None:
+        _telegram_system = TelegramNotificationSystem()
+    return _telegram_system
+
+def init_telegram_system(config: TelegramConfig = None) -> TelegramNotificationSystem:
+    """Initialize Telegram notification system"""
+    global _telegram_system
+    _telegram_system = TelegramNotificationSystem(config)
+    return _telegram_system
+
+def send_underdog_alert(prediction_result: Dict) -> bool:
+    """Convenience function to send underdog alert"""
+    telegram_system = get_telegram_system()
+    return telegram_system.send_notification_sync(prediction_result)
+
+def send_test_notification(message: str = None) -> bool:
+    """Convenience function to send test notification"""
+    telegram_system = get_telegram_system()
+    try:
+        return asyncio.run(telegram_system.send_test_message(message))
+    except Exception as e:
+        logger.error(f"❌ Error sending test notification: {e}")
+        return False
+
+# Test the system if run directly
+if __name__ == "__main__":
+    print("🤖 TELEGRAM NOTIFICATION SYSTEM TEST")
+    print("=" * 50)
+    
+    # Test configuration
+    config = TelegramConfig(
+        bot_token=os.getenv('TELEGRAM_BOT_TOKEN', 'test_token'),
+        chat_ids=[os.getenv('TELEGRAM_CHAT_ID', 'test_chat_id')],
+        min_probability=0.55
+    )
+    
+    system = TelegramNotificationSystem(config)
+    
+    print(f"📊 Configuration:")
+    print(f"  Enabled: {system.config.enabled}")
+    print(f"  Chat IDs: {len(system.config.chat_ids)}")
+    print(f"  Min Probability: {system.config.min_probability:.1%}")
+    
+    # Test notification stats
+    stats = system.get_notification_stats()
+    print(f"\n📈 Current Stats:")
+    print(f"  Notifications last hour: {stats['notifications_last_hour']}")
+    print(f"  Rate limit remaining: {stats['rate_limit_remaining']}")
+    
+    # Create sample prediction for testing
+    sample_prediction = {
+        'success': True,
+        'underdog_second_set_probability': 0.62,
+        'confidence': 'High',
+        'underdog_player': 'player1',
+        'match_context': {
+            'player1': 'Test Underdog',
+            'player2': 'Test Favorite',
+            'player1_rank': 150,
+            'player2_rank': 75,
+            'tournament': 'ATP 250 Test Tournament',
+            'surface': 'Hard'
+        },
+        'strategic_insights': [
+            '🔥 Strong underdog opportunity detected',
+            '📊 Ranking gap creates upset potential'
+        ],
+        'prediction_metadata': {
+            'prediction_time': datetime.now().isoformat()
+        }
+    }
+    
+    print(f"\n🧪 Testing notification logic:")
+    should_notify = system.should_notify(sample_prediction)
+    print(f"  Should notify: {should_notify}")
+    
+    if system.config.enabled and should_notify:
+        print(f"\n📤 Sending test notification...")
+        # Don't actually send in test mode unless explicitly configured
+        print(f"  (Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_IDS to test actual sending)")
+    
+    print(f"\n✅ Telegram system test completed!")
