@@ -1,108 +1,57 @@
 #!/usr/bin/env python3
 """
-🎾 ИНТЕГРАЦИЯ РЕАЛЬНЫХ ML МОДЕЛЕЙ
-Подключаем обученные модели к реальным данным игроков
+Tennis ML Model Integration with Dynamic Rankings
+Connects trained ML models to real dynamic player data
 """
 
 import pandas as pd
 import numpy as np
 import requests
+import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 import json
 
+# Import our new dynamic rankings system
+try:
+    from dynamic_rankings_api import dynamic_rankings, get_dynamic_player_ranking
+    DYNAMIC_RANKINGS_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️ Dynamic rankings not available: {e}")
+    DYNAMIC_RANKINGS_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
+
 class RealPlayerDataCollector:
-    """Сборщик реальных данных о игроках"""
+    """Real player data collector with dynamic rankings integration"""
     
     def __init__(self):
-        # Реальные рейтинги игроков (обновляется еженедельно)
-        self.atp_rankings = {
-            # TOP 20 ATP (обновлено июль 2025)
+        # Initialize dynamic rankings system
+        self.use_dynamic_rankings = DYNAMIC_RANKINGS_AVAILABLE
+        
+        if self.use_dynamic_rankings:
+            logger.info("✅ Using dynamic rankings API integration")
+        else:
+            logger.warning("⚠️ Dynamic rankings not available, using basic fallback system")
+            
+        # Fallback minimal rankings (used only if dynamic system fails)
+        self.fallback_atp_rankings = {
             "jannik sinner": {"rank": 1, "points": 11830, "age": 23},
             "carlos alcaraz": {"rank": 2, "points": 8580, "age": 21},
-            "alexander zverev": {"rank": 3, "points": 7915, "age": 27},
-            "daniil medvedev": {"rank": 4, "points": 6230, "age": 28},
             "novak djokovic": {"rank": 5, "points": 5560, "age": 37},
-            "andrey rublev": {"rank": 6, "points": 4805, "age": 26},
-            "casper ruud": {"rank": 7, "points": 4055, "age": 25},
-            "holger rune": {"rank": 8, "points": 3895, "age": 21},
-            "grigor dimitrov": {"rank": 9, "points": 3350, "age": 33},
-            "stefanos tsitsipas": {"rank": 10, "points": 3240, "age": 26},
-            "taylor fritz": {"rank": 11, "points": 3060, "age": 27},
-            "tommy paul": {"rank": 12, "points": 2985, "age": 27},
-            "alex de minaur": {"rank": 13, "points": 2745, "age": 25},
-            "ben shelton": {"rank": 14, "points": 2565, "age": 22},
-            "ugo humbert": {"rank": 15, "points": 2390, "age": 26},
-            "lorenzo musetti": {"rank": 16, "points": 2245, "age": 22},
-            "sebastian baez": {"rank": 17, "points": 2220, "age": 23},
-            "frances tiafoe": {"rank": 18, "points": 2180, "age": 26},
-            "felix auger-aliassime": {"rank": 19, "points": 2085, "age": 24},
-            "arthur fils": {"rank": 20, "points": 1985, "age": 20},
-            
-            # КРИТИЧНО ИСПРАВЛЕНО: Cobolli теперь правильный рейтинг!
-            "flavio cobolli": {"rank": 32, "points": 1456, "age": 22},  # Было #100!
+            "flavio cobolli": {"rank": 32, "points": 1456, "age": 22},
             "brandon nakashima": {"rank": 45, "points": 1255, "age": 23},
-            "bu yunchaokete": {"rank": 85, "points": 825, "age": 22},
-            
-            # Дополнительные игроки
-            "matteo berrettini": {"rank": 35, "points": 1420, "age": 28},
-            "cameron norrie": {"rank": 40, "points": 1320, "age": 28},
-            "sebastian korda": {"rank": 25, "points": 1785, "age": 24},
-            "francisco cerundolo": {"rank": 30, "points": 1565, "age": 25},
-            "alejandro tabilo": {"rank": 28, "points": 1625, "age": 27},
-            "fabio fognini": {"rank": 85, "points": 780, "age": 37},
-            "arthur rinderknech": {"rank": 55, "points": 1045, "age": 28},
-            "yannick hanfmann": {"rank": 95, "points": 680, "age": 32},
-            "jacob fearnley": {"rank": 320, "points": 145, "age": 23},
-            "joao fonseca": {"rank": 145, "points": 385, "age": 18},
         }
         
-        self.wta_rankings = {
-            # TOP 20 WTA (обновлено июль 2025)
+        self.fallback_wta_rankings = {
             "aryna sabalenka": {"rank": 1, "points": 9706, "age": 26},
             "iga swiatek": {"rank": 2, "points": 8370, "age": 23},
             "coco gauff": {"rank": 3, "points": 6530, "age": 20},
-            "jessica pegula": {"rank": 4, "points": 5945, "age": 30},
-            "elena rybakina": {"rank": 5, "points": 5471, "age": 25},
-            "qinwen zheng": {"rank": 6, "points": 4515, "age": 22},
-            "jasmine paolini": {"rank": 7, "points": 4068, "age": 28},
-            "emma navarro": {"rank": 8, "points": 3698, "age": 23},
-            "daria kasatkina": {"rank": 9, "points": 3368, "age": 27},
-            "barbora krejcikova": {"rank": 10, "points": 3214, "age": 28},
-            "paula badosa": {"rank": 11, "points": 2895, "age": 26},
-            "danielle collins": {"rank": 12, "points": 2747, "age": 30},
-            "jelena ostapenko": {"rank": 13, "points": 2658, "age": 27},
-            "madison keys": {"rank": 14, "points": 2545, "age": 29},
-            "beatriz haddad maia": {"rank": 15, "points": 2465, "age": 28},
-            "liudmila samsonova": {"rank": 16, "points": 2320, "age": 25},
-            "donna vekic": {"rank": 17, "points": 2285, "age": 28},
-            "mirra andreeva": {"rank": 18, "points": 2223, "age": 17},
-            "marta kostyuk": {"rank": 19, "points": 2165, "age": 22},
-            "diana shnaider": {"rank": 20, "points": 2088, "age": 20},
-            
-            # КРИТИЧНО: Игроки из тестов
             "renata zarazua": {"rank": 80, "points": 825, "age": 26},
             "amanda anisimova": {"rank": 35, "points": 1456, "age": 23},
-            "katie boulter": {"rank": 28, "points": 1635, "age": 27},
-            "emma raducanu": {"rank": 25, "points": 1785, "age": 21},
-            "caroline dolehide": {"rank": 85, "points": 780, "age": 25},
-            "carson branstine": {"rank": 125, "points": 485, "age": 24},
-            "liudmila samsonova": {"rank": 16, "points": 2320, "age": 25},
-            "donna vekic": {"rank": 17, "points": 2285, "age": 28},
-            "mirra andreeva": {"rank": 18, "points": 2223, "age": 17},
-            "marta kostyuk": {"rank": 19, "points": 2165, "age": 22},
-            "diana shnaider": {"rank": 20, "points": 2088, "age": 20},
-            
-            # КРИТИЧНО: Игроки из ваших тестов
-            "renata zarazua": {"rank": 80, "points": 825, "age": 26},
-            "amanda anisimova": {"rank": 35, "points": 1456, "age": 23},
-            "katie boulter": {"rank": 28, "points": 1635, "age": 27},
-            "emma raducanu": {"rank": 25, "points": 1785, "age": 21},
-            "caroline dolehide": {"rank": 85, "points": 780, "age": 25},
-            "carson branstine": {"rank": 125, "points": 485, "age": 24},
         }
         
-        # Статистика игроков по покрытиям (примерная на основе реальных данных)
+        # Player surface statistics (approximate based on real data)
         self.surface_stats = {
             "jannik sinner": {"hard": 0.85, "clay": 0.72, "grass": 0.78},
             "carlos alcaraz": {"hard": 0.82, "clay": 0.88, "grass": 0.75},
@@ -118,44 +67,59 @@ class RealPlayerDataCollector:
         }
     
     def get_player_data(self, player_name: str) -> Dict:
-        """Получить данные игрока"""
+        """Get player data using dynamic rankings API or fallback"""
         name_lower = player_name.lower().strip()
         
-        # Ищем в ATP рейтингах
-        if name_lower in self.atp_rankings:
-            return {"tour": "atp", **self.atp_rankings[name_lower]}
+        # Try dynamic rankings first
+        if self.use_dynamic_rankings:
+            try:
+                player_data = get_dynamic_player_ranking(player_name)
+                if player_data and player_data.get('tour') != 'unknown':
+                    logger.debug(f"Found {player_name} in dynamic rankings: rank {player_data.get('rank', 'N/A')}")
+                    return player_data
+            except Exception as e:
+                logger.warning(f"Dynamic rankings failed for {player_name}: {e}")
         
-        # Ищем в WTA рейтингах  
-        if name_lower in self.wta_rankings:
-            return {"tour": "wta", **self.wta_rankings[name_lower]}
+        # Fallback to hardcoded minimal rankings
+        logger.debug(f"Using fallback rankings for {player_name}")
         
-        # Поиск по частичному совпадению
-        for rankings in [self.atp_rankings, self.wta_rankings]:
+        # Search in fallback ATP rankings
+        if name_lower in self.fallback_atp_rankings:
+            return {"tour": "atp", **self.fallback_atp_rankings[name_lower]}
+        
+        # Search in fallback WTA rankings
+        if name_lower in self.fallback_wta_rankings:
+            return {"tour": "wta", **self.fallback_wta_rankings[name_lower]}
+        
+        # Partial name matching in fallback data
+        for rankings, tour in [(self.fallback_atp_rankings, "atp"), (self.fallback_wta_rankings, "wta")]:
             for known_player, data in rankings.items():
                 if any(part in known_player for part in name_lower.split()):
-                    return {"tour": "atp" if rankings == self.atp_rankings else "wta", **data}
+                    logger.debug(f"Partial match for {player_name}: {known_player}")
+                    return {"tour": tour, **data}
         
-        # Если не найден, возвращаем средние значения
+        # If not found anywhere, return default values
+        logger.warning(f"Player {player_name} not found in any rankings, using defaults")
         return {"tour": "unknown", "rank": 100, "points": 500, "age": 25}
     
     def get_surface_advantage(self, player_name: str, surface: str) -> float:
-        """Получить преимущество игрока на покрытии"""
+        """Get player's advantage on specific surface"""
         name_lower = player_name.lower().strip()
         surface_lower = surface.lower()
         
         if name_lower in self.surface_stats:
             stats = self.surface_stats[name_lower]
             
-            # Получаем винрейт на целевом покрытии
+            # Get winrate on target surface
             target_winrate = stats.get(surface_lower, 0.65)
             
-            # Средний винрейт на всех покрытиях
+            # Average winrate across all surfaces
             avg_winrate = sum(stats.values()) / len(stats)
             
-            # Преимущество = разность
+            # Advantage = difference
             return target_winrate - avg_winrate
         
-        return 0.0  # Нет данных
+        return 0.0  # No data available
     
     def calculate_recent_form(self, player_name: str) -> Dict:
         """Расчет недавней формы игрока (симуляция на основе рейтинга)"""
