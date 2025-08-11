@@ -7,13 +7,10 @@ Feeds comprehensive data to ML models for better predictions
 
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 
 # Import existing components
 from universal_tennis_data_collector import UniversalTennisDataCollector, UniversalOddsCollector
-# Note: Old API integrations removed during cleanup
-# from tennisexplorer_integration import TennisExplorerIntegration
-# from rapidapi_tennis_client import RapidAPITennisClient
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +22,8 @@ class EnhancedUniversalCollector:
         self.universal_collector = UniversalTennisDataCollector()
         self.odds_collector = UniversalOddsCollector()
         
-        # Note: Old API integrations removed during cleanup
-        self.tennisexplorer = None
-        self.rapidapi = None
-        logger.info("⚠️ TennisExplorer and RapidAPI removed during cleanup")
+        # Only using universal data collectors
+        logger.info("✅ Using UniversalCollector and UniversalOddsCollector")
         
         # Data cache
         self.data_cache = {}
@@ -40,56 +35,9 @@ class EnhancedUniversalCollector:
         logger.info("🔍 Collecting data from all sources...")
         all_matches = []
         
-        # 1. Get TennisExplorer data (highest priority - real matches)
-        # Note: TennisExplorer integration removed during cleanup
-        if False:  # self.tennisexplorer:
-            try:
-                te_matches = []  # self.tennisexplorer.get_enhanced_match_data(days_ahead)
-                if te_matches:
-                    logger.info(f"✅ TennisExplorer: {len(te_matches)} matches")
-                    for match in te_matches:
-                        match['data_source'] = 'TennisExplorer'
-                        match['quality_score'] = 95  # Highest quality
-                        all_matches.append(match)
-            except Exception as e:
-                logger.warning(f"TennisExplorer error: {e}")
         
-        # 2. Get RapidAPI scheduled matches FIRST (highest priority - matches before they start)
-        if self.rapidapi:
-            try:
-                # Priority 1: Get scheduled matches (not started yet)
-                scheduled_matches = self.rapidapi.get_scheduled_matches()
-                if scheduled_matches:
-                    logger.info(f"✅ RapidAPI: {len(scheduled_matches)} scheduled matches")
-                    for match in scheduled_matches:
-                        # Apply additional professional tournament filter
-                        tournament = match.get('tournament', {})
-                        if not self._is_professional_tournament(tournament):
-                            continue
-                        
-                        formatted_match = self._format_rapidapi_match(match)
-                        formatted_match['data_source'] = 'RapidAPI_Scheduled'
-                        formatted_match['quality_score'] = 95  # Highest quality - scheduled before start
-                        all_matches.append(formatted_match)
-                
-                # Priority 2: Get live matches as backup (already started)
-                live_matches = self.rapidapi.get_live_matches()
-                if live_matches:
-                    logger.info(f"✅ RapidAPI: {len(live_matches)} live matches (backup)")
-                    for match in live_matches:
-                        # Apply additional professional tournament filter
-                        tournament = match.get('tournament', {})
-                        if not self._is_professional_tournament(tournament):
-                            continue
-                        
-                        formatted_match = self._format_rapidapi_match(match)
-                        formatted_match['data_source'] = 'RapidAPI_Live'
-                        formatted_match['quality_score'] = 85  # Good quality - but already started
-                        all_matches.append(formatted_match)
-            except Exception as e:
-                logger.warning(f"RapidAPI matches error: {e}")
+        # 1. Get Universal Collector data (tournament calendar + generated matches)
         
-        # 3. Get Universal Collector data (tournament calendar + generated matches)
         try:
             universal_matches = self.universal_collector.get_current_matches()
             if universal_matches:
@@ -101,24 +49,8 @@ class EnhancedUniversalCollector:
         except Exception as e:
             logger.warning(f"Universal Collector error: {e}")
         
-        # 4. Get Odds API data if available
-        try:
-            # Note: API Economy removed during cleanup
-            # from api_economy_patch import economical_tennis_request
-            odds_result = {'success': False, 'message': 'API removed during cleanup'}
-            if odds_result.get('success', False):
-                odds_matches = odds_result.get('data', [])
-                if odds_matches:
-                    logger.info(f"✅ Odds API: {len(odds_matches)} matches")
-                    for match in odds_matches:
-                        formatted_match = self._format_odds_api_match(match)
-                        formatted_match['data_source'] = 'OddsAPI'
-                        formatted_match['quality_score'] = 90  # High quality - real betting data
-                        all_matches.append(formatted_match)
-        except Exception as e:
-            logger.warning(f"Odds API error: {e}")
         
-        # 5. PROFESSIONAL FILTERING: Only ATP/WTA singles matches
+        # 2. PROFESSIONAL FILTERING: Only ATP/WTA singles matches
         if all_matches:
             professional_matches = []
             for match in all_matches:
@@ -128,11 +60,11 @@ class EnhancedUniversalCollector:
             logger.info(f"🏆 Professional filtering: {len(professional_matches)} ATP/WTA matches (was {len(all_matches)})")
             all_matches = professional_matches
         
-        # 6. DEDUPLICATION: Remove duplicate matches across all sources
+        # 3. DEDUPLICATION: Remove duplicate matches across all sources
         if all_matches:
             all_matches = self._deduplicate_matches(all_matches)
         
-        # 7. Enhance with odds data
+        # 4. Enhance with odds data
         if all_matches:
             try:
                 odds_data = self.odds_collector.generate_realistic_odds(all_matches)
@@ -141,15 +73,8 @@ class EnhancedUniversalCollector:
             except Exception as e:
                 logger.warning(f"Odds enhancement error: {e}")
         
-        # 8. Add RapidAPI rankings data for player enhancement
-        if self.rapidapi and all_matches:
-            try:
-                all_matches = self._enhance_with_rapidapi_data(all_matches)
-                logger.info("✅ Enhanced matches with RapidAPI rankings")
-            except Exception as e:
-                logger.warning(f"RapidAPI enhancement error: {e}")
         
-        # 9. Calculate ML features for each match
+        # 5. Calculate ML features for each match
         enhanced_matches = []
         for match in all_matches:
             try:
@@ -189,187 +114,7 @@ class EnhancedUniversalCollector:
         
         return enhanced_matches
     
-    def _enhance_with_rapidapi_data(self, matches: List[Dict]) -> List[Dict]:
-        """Enhance matches with RapidAPI rankings data"""
-        
-        # Get current rankings
-        atp_rankings = None
-        wta_rankings = None
-        
-        try:
-            if self.rapidapi.get_remaining_requests() > 2:  # Only if we have requests left
-                atp_rankings = self.rapidapi.get_atp_rankings()
-                wta_rankings = self.rapidapi.get_wta_rankings()
-        except Exception as e:
-            logger.warning(f"Could not get rankings: {e}")
-        
-        enhanced_matches = []
-        for match in matches:
-            try:
-                # Try to find player rankings
-                player1_rank = self._get_player_ranking_from_rapidapi(
-                    match.get('player1', ''), atp_rankings, wta_rankings
-                )
-                player2_rank = self._get_player_ranking_from_rapidapi(
-                    match.get('player2', ''), atp_rankings, wta_rankings
-                )
-                
-                if player1_rank:
-                    match['player1_ranking'] = player1_rank
-                    match['player1_ranking_source'] = 'RapidAPI'
-                
-                if player2_rank:
-                    match['player2_ranking'] = player2_rank
-                    match['player2_ranking_source'] = 'RapidAPI'
-                
-                enhanced_matches.append(match)
-                
-            except Exception as e:
-                logger.warning(f"Error enhancing match with RapidAPI data: {e}")
-                enhanced_matches.append(match)
-        
-        return enhanced_matches
     
-    def _get_player_ranking_from_rapidapi(self, player_name: str, atp_rankings: List, wta_rankings: List) -> Optional[int]:
-        """Find player ranking from RapidAPI data"""
-        
-        if not player_name:
-            return None
-        
-        player_name_clean = player_name.replace('🎾 ', '').lower().strip()
-        
-        # Search in ATP rankings
-        if atp_rankings:
-            for player_data in atp_rankings:
-                try:
-                    name = player_data.get('team', {}).get('name', '').lower()
-                    if player_name_clean in name or name in player_name_clean:
-                        return player_data.get('ranking', None)
-                except:
-                    continue
-        
-        # Search in WTA rankings
-        if wta_rankings:
-            for player_data in wta_rankings:
-                try:
-                    name = player_data.get('team', {}).get('name', '').lower()
-                    if player_name_clean in name or name in player_name_clean:
-                        return player_data.get('ranking', None)
-                except:
-                    continue
-        
-        return None
-    
-    def _format_rapidapi_match(self, match: Dict) -> Dict:
-        """Format RapidAPI match data to standard format"""
-        
-        try:
-            # Extract basic match info
-            home_team = match.get('homeTeam', {})
-            away_team = match.get('awayTeam', {})
-            tournament = match.get('tournament', {})
-            
-            # Get player names
-            player1 = home_team.get('name', 'Unknown Player')
-            player2 = away_team.get('name', 'Unknown Player')
-            
-            # Get tournament info
-            tournament_name = tournament.get('name', 'Unknown Tournament')
-            ground_type = tournament.get('groundType', 'Hard')
-            
-            # Map ground type to surface
-            surface_map = {
-                'Red clay': 'Clay',
-                'Hardcourt outdoor': 'Hard', 
-                'Hardcourt indoor': 'Hard',
-                'Grass': 'Grass'
-            }
-            surface = surface_map.get(ground_type, 'Hard')
-            
-            # Get match status and round info
-            status = match.get('status', {})
-            round_info = match.get('roundInfo', {})
-            start_timestamp = match.get('startTimestamp', None)
-            
-            # Format time based on status
-            status_type = status.get('type', 'unknown')
-            if status_type == 'inprogress':
-                time_str = 'LIVE NOW'
-            elif status_type in ['scheduled', 'notstarted'] and start_timestamp:
-                # Convert timestamp to readable time
-                try:
-                    start_time = datetime.fromtimestamp(start_timestamp)
-                    time_str = start_time.strftime('%H:%M')
-                except:
-                    time_str = 'Scheduled'
-            else:
-                time_str = 'Scheduled'
-            
-            # Format the match
-            formatted_match = {
-                'id': f"rapidapi_{match.get('id', 'unknown')}",
-                'player1': player1,
-                'player2': player2,
-                'tournament': tournament_name,
-                'surface': surface,
-                'date': datetime.now().strftime('%Y-%m-%d'),
-                'time': time_str,
-                'round': round_info.get('name', 'Unknown Round'),
-                'court': 'Main Court',
-                'status': status_type,
-                'level': self._determine_tournament_level(tournament),
-                'location': self._extract_location_from_tournament(tournament_name),
-                'start_timestamp': start_timestamp
-            }
-            
-            # Add player rankings if available
-            if 'ranking' in home_team:
-                formatted_match['player1_ranking'] = home_team['ranking']
-            if 'ranking' in away_team:
-                formatted_match['player2_ranking'] = away_team['ranking']
-            
-            return formatted_match
-            
-        except Exception as e:
-            logger.warning(f"Error formatting RapidAPI match: {e}")
-            return {
-                'id': 'error_match',
-                'player1': 'Unknown Player 1',
-                'player2': 'Unknown Player 2',
-                'tournament': 'Unknown Tournament',
-                'surface': 'Hard',
-                'date': datetime.now().strftime('%Y-%m-%d'),
-                'time': 'unknown',
-                'round': 'Unknown',
-                'court': 'Court 1',
-                'status': 'error'
-            }
-    
-    def _determine_tournament_level(self, tournament: Dict) -> str:
-        """Determine tournament level from tournament data"""
-        name = tournament.get('name', '').lower()
-        category = tournament.get('category', {}).get('name', '').upper()
-        tennis_points = tournament.get('tennisPoints', 0)
-        
-        if 'grand slam' in name or tennis_points >= 2000:
-            return 'Grand Slam'
-        elif tennis_points >= 1000:
-            return f'{category} 1000'
-        elif tennis_points >= 500:
-            return f'{category} 500'
-        elif tennis_points >= 250:
-            return f'{category} 250'
-        else:
-            return f'{category} Tournament'
-    
-    def _extract_location_from_tournament(self, tournament_name: str) -> str:
-        """Extract location from tournament name"""
-        # Try to extract location from tournament name
-        parts = tournament_name.split(',')
-        if len(parts) >= 2:
-            return parts[0].strip()
-        else:
-            return tournament_name.strip()
     
     def _calculate_ml_features(self, match: Dict) -> Dict:
         """Calculate ML features for the match"""
@@ -479,10 +224,9 @@ class EnhancedUniversalCollector:
         
         all_matches = self.get_comprehensive_match_data()
         
-        # If no real matches found but sources are active, generate realistic samples
-        if len(all_matches) == 0:  # Note: removed API checks during cleanup
-            logger.info("🎾 No current matches found, generating tournament-based sample matches...")
-            all_matches = self._generate_realistic_tournament_matches()
+        # If no real matches found, log info
+        if len(all_matches) == 0:
+            logger.info("🎾 No current matches found from universal collector")
         
         ml_ready_matches = [
             match for match in all_matches 
@@ -552,78 +296,6 @@ class EnhancedUniversalCollector:
         total_score = min(base_score + quality_bonus + data_bonus, 1.0)
         return round(total_score, 3)
     
-    def _format_odds_api_match(self, match: Dict) -> Dict:
-        """Format Odds API match data to standard format"""
-        try:
-            # Extract match info from Odds API format
-            home_team = match.get('home_team', 'Unknown Player')
-            away_team = match.get('away_team', 'Unknown Player')
-            commence_time = match.get('commence_time', '')
-            
-            # Parse tournament info from sport_title or match id
-            tournament_name = f"Tournament {match.get('id', 'Unknown')}"
-            if 'kitzbuhel' in match.get('id', '').lower():
-                tournament_name = 'Kitzbuhel Open'
-                surface = 'Clay'
-            else:
-                surface = 'Hard'  # Default for Odds API
-            
-            # Extract odds if available
-            player1_odds = 2.0
-            player2_odds = 2.0
-            
-            if 'bookmakers' in match and match['bookmakers']:
-                bookmaker = match['bookmakers'][0]
-                if 'markets' in bookmaker and bookmaker['markets']:
-                    h2h_market = bookmaker['markets'][0]
-                    if 'outcomes' in h2h_market and len(h2h_market['outcomes']) >= 2:
-                        player1_odds = h2h_market['outcomes'][0].get('price', 2.0)
-                        player2_odds = h2h_market['outcomes'][1].get('price', 2.0)
-            
-            # Format time
-            time_str = 'Scheduled'
-            if commence_time:
-                try:
-                    from datetime import datetime
-                    start_time = datetime.fromisoformat(commence_time.replace('Z', '+00:00'))
-                    time_str = start_time.strftime('%H:%M')
-                except:
-                    time_str = 'Scheduled'
-            
-            formatted_match = {
-                'id': f"odds_{match.get('id', 'unknown')}",
-                'player1': home_team,
-                'player2': away_team,
-                'tournament': tournament_name,
-                'surface': surface,
-                'date': datetime.now().strftime('%Y-%m-%d'),
-                'time': time_str,
-                'round': 'Round 1',
-                'court': 'Court 1',
-                'status': 'scheduled',
-                'level': 'ATP 250',
-                'location': tournament_name.split()[0],
-                'player1_odds': player1_odds,
-                'player2_odds': player2_odds,
-                'commence_time': commence_time
-            }
-            
-            return formatted_match
-            
-        except Exception as e:
-            logger.warning(f"Error formatting Odds API match: {e}")
-            return {
-                'id': 'odds_error_match',
-                'player1': 'Unknown Player 1',
-                'player2': 'Unknown Player 2',
-                'tournament': 'Unknown Tournament',
-                'surface': 'Hard',
-                'date': datetime.now().strftime('%Y-%m-%d'),
-                'time': 'unknown',
-                'round': 'Unknown',
-                'court': 'Court 1',
-                'status': 'error'
-            }
     
     def _deduplicate_matches(self, matches: List[Dict]) -> List[Dict]:
         """Remove duplicate matches across all data sources with priority-based selection"""
@@ -816,8 +488,8 @@ class EnhancedUniversalCollector:
             'data_sources': {
                 'universal_collector': True,
                 'odds_collector': True,
-                'tennisexplorer': False,  # Note: removed during cleanup
-                'rapidapi': False  # Note: removed during cleanup
+                'tennisexplorer': False,
+                'rapidapi': False
             },
             'cache_info': {
                 'cached_items': len(self.data_cache),
@@ -825,21 +497,12 @@ class EnhancedUniversalCollector:
             }
         }
         
-        # Add RapidAPI status if available
-        if self.rapidapi:
-            try:
-                rapidapi_status = self.rapidapi.get_status()
-                status['rapidapi_status'] = rapidapi_status
-            except:
-                status['rapidapi_status'] = {'error': 'Could not get status'}
         
         return status
     
     def clear_cache(self):
         """Clear all cached data"""
         self.data_cache.clear()
-        if self.rapidapi:
-            self.rapidapi.clear_cache()
         logger.info("🗑️ All caches cleared")
 
     def _is_professional_tournament(self, tournament: Dict) -> bool:

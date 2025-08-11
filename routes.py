@@ -39,7 +39,6 @@ except ImportError as e:
     logger.info(f"⚠️ Prediction service not available: {e}")
     PREDICTION_SERVICE_AVAILABLE = False
 
-# Note: Odds API and API Economy integrations removed during cleanup
 ODDS_API_AVAILABLE = False
 API_ECONOMY_AVAILABLE = False
 
@@ -1182,7 +1181,6 @@ def register_routes(app: Flask):
                 except Exception as e:
                     logger.warning(f"Daily scheduler manual update failed: {e}")
             
-            # Note: API Economy removed during cleanup
             
             # Last resort - return information about unavailability
             return jsonify({
@@ -1401,8 +1399,7 @@ def register_routes(app: Flask):
                         'timestamp': datetime.now().isoformat()
                     })
                 else:
-                    # Note: API Economy removed during cleanup
-                    pass
+                            pass
             
             # Final fallback
             return jsonify({
@@ -1424,6 +1421,346 @@ def register_routes(app: Flask):
             return jsonify({
                 'success': False,
                 'error': str(e)
+            }), 500
+
+    # API-Tennis.com specific routes
+    @app.route('/api/api-tennis/status', methods=['GET'])
+    def get_api_tennis_status():
+        """Get API-Tennis.com integration status"""
+        try:
+            from api_tennis_data_collector import get_api_tennis_data_collector
+            collector = get_api_tennis_data_collector()
+            
+            status = collector.get_integration_status()
+            
+            return jsonify({
+                'success': True,
+                'api_tennis_status': status,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except ImportError:
+            return jsonify({
+                'success': False,
+                'error': 'API-Tennis integration not available',
+                'timestamp': datetime.now().isoformat()
+            })
+        except Exception as e:
+            logger.error(f"API-Tennis status error: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }), 500
+
+    @app.route('/api/api-tennis/tournaments', methods=['GET'])
+    def get_api_tennis_tournaments():
+        """Get tournaments from API-Tennis.com"""
+        try:
+            from api_tennis_data_collector import get_api_tennis_data_collector
+            collector = get_api_tennis_data_collector()
+            
+            if not collector.is_available():
+                return jsonify({
+                    'success': False,
+                    'error': 'API-Tennis not configured or unavailable',
+                    'tournaments': []
+                })
+            
+            tournaments = collector.get_tournaments()
+            
+            return jsonify({
+                'success': True,
+                'tournaments': tournaments,
+                'count': len(tournaments),
+                'data_source': 'API-Tennis',
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except ImportError:
+            return jsonify({
+                'success': False,
+                'error': 'API-Tennis integration not available',
+                'tournaments': []
+            })
+        except Exception as e:
+            logger.error(f"API-Tennis tournaments error: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'tournaments': []
+            }), 500
+
+    @app.route('/api/api-tennis/matches', methods=['GET'])
+    def get_api_tennis_matches():
+        """Get matches from API-Tennis.com"""
+        try:
+            from api_tennis_data_collector import get_api_tennis_data_collector
+            collector = get_api_tennis_data_collector()
+            
+            if not collector.is_available():
+                return jsonify({
+                    'success': False,
+                    'error': 'API-Tennis not configured or unavailable',
+                    'matches': []
+                })
+            
+            # Get parameters
+            include_live = request.args.get('include_live', 'true').lower() == 'true'
+            days_ahead = int(request.args.get('days_ahead', '2'))
+            
+            # Get current matches
+            current_matches = collector.get_current_matches(include_live=include_live)
+            
+            # Get upcoming matches if requested
+            if days_ahead > 0:
+                upcoming_matches = collector.get_upcoming_matches(days_ahead)
+                # Combine and deduplicate
+                all_matches = current_matches + upcoming_matches
+                seen_ids = set()
+                unique_matches = []
+                for match in all_matches:
+                    match_id = match.get('id')
+                    if match_id not in seen_ids:
+                        seen_ids.add(match_id)
+                        unique_matches.append(match)
+                matches = unique_matches
+            else:
+                matches = current_matches
+            
+            return jsonify({
+                'success': True,
+                'matches': matches,
+                'count': len(matches),
+                'data_source': 'API-Tennis',
+                'parameters': {
+                    'include_live': include_live,
+                    'days_ahead': days_ahead
+                },
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except ImportError:
+            return jsonify({
+                'success': False,
+                'error': 'API-Tennis integration not available',
+                'matches': []
+            })
+        except Exception as e:
+            logger.error(f"API-Tennis matches error: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'matches': []
+            }), 500
+
+    @app.route('/api/api-tennis/player/<player_name>/matches', methods=['GET'])
+    def get_api_tennis_player_matches(player_name):
+        """Get matches for a specific player from API-Tennis.com"""
+        try:
+            from api_tennis_data_collector import get_api_tennis_data_collector
+            collector = get_api_tennis_data_collector()
+            
+            if not collector.is_available():
+                return jsonify({
+                    'success': False,
+                    'error': 'API-Tennis not configured or unavailable',
+                    'matches': []
+                })
+            
+            # Validate player name
+            if not validate_player_name(player_name):
+                return jsonify({
+                    'success': False,
+                    'error': 'Invalid player name provided',
+                    'matches': []
+                }), 400
+            
+            days_ahead = int(request.args.get('days_ahead', '30'))
+            matches = collector.get_player_matches(player_name, days_ahead)
+            
+            return jsonify({
+                'success': True,
+                'player': player_name,
+                'matches': matches,
+                'count': len(matches),
+                'days_ahead': days_ahead,
+                'data_source': 'API-Tennis',
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except ImportError:
+            return jsonify({
+                'success': False,
+                'error': 'API-Tennis integration not available',
+                'matches': []
+            })
+        except Exception as e:
+            logger.error(f"API-Tennis player matches error: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'matches': []
+            }), 500
+
+    @app.route('/api/api-tennis/match/<int:match_id>/odds', methods=['GET'])
+    def get_api_tennis_match_odds(match_id):
+        """Get betting odds for a specific match from API-Tennis.com"""
+        try:
+            from api_tennis_data_collector import get_api_tennis_data_collector
+            collector = get_api_tennis_data_collector()
+            
+            if not collector.is_available():
+                return jsonify({
+                    'success': False,
+                    'error': 'API-Tennis not configured or unavailable',
+                    'odds': {}
+                })
+            
+            odds_data = collector.get_match_odds(match_id)
+            
+            return jsonify({
+                'success': True,
+                'match_id': match_id,
+                'odds': odds_data,
+                'data_source': 'API-Tennis',
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except ImportError:
+            return jsonify({
+                'success': False,
+                'error': 'API-Tennis integration not available',
+                'odds': {}
+            })
+        except Exception as e:
+            logger.error(f"API-Tennis match odds error: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'odds': {}
+            }), 500
+
+    @app.route('/api/api-tennis/enhanced', methods=['GET'])
+    def get_enhanced_api_tennis_data():
+        """Get comprehensive data using Enhanced API-Tennis collector"""
+        try:
+            from api_tennis_data_collector import get_enhanced_api_tennis_collector
+            collector = get_enhanced_api_tennis_collector()
+            
+            days_ahead = int(request.args.get('days_ahead', '2'))
+            matches = collector.get_comprehensive_match_data(days_ahead)
+            
+            # Get status information
+            status = collector.get_status()
+            
+            return jsonify({
+                'success': True,
+                'matches': matches,
+                'count': len(matches),
+                'collector_status': status,
+                'parameters': {
+                    'days_ahead': days_ahead
+                },
+                'data_source': 'Enhanced_API_Tennis_Collector',
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except ImportError:
+            return jsonify({
+                'success': False,
+                'error': 'Enhanced API-Tennis collector not available',
+                'matches': []
+            })
+        except Exception as e:
+            logger.error(f"Enhanced API-Tennis data error: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'matches': []
+            }), 500
+
+    @app.route('/api/api-tennis/clear-cache', methods=['POST'])
+    @require_api_key()
+    def clear_api_tennis_cache():
+        """Clear API-Tennis.com cache"""
+        try:
+            from api_tennis_data_collector import get_api_tennis_data_collector
+            collector = get_api_tennis_data_collector()
+            
+            if not collector.is_available():
+                return jsonify({
+                    'success': False,
+                    'error': 'API-Tennis not configured or unavailable'
+                })
+            
+            collector.clear_cache()
+            
+            return jsonify({
+                'success': True,
+                'message': 'API-Tennis cache cleared successfully',
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except ImportError:
+            return jsonify({
+                'success': False,
+                'error': 'API-Tennis integration not available'
+            })
+        except Exception as e:
+            logger.error(f"Clear API-Tennis cache error: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+
+    @app.route('/api/api-tennis/test-connection', methods=['GET'])
+    def test_api_tennis_connection():
+        """Test API-Tennis.com connection and API key"""
+        try:
+            from api_tennis_integration import get_api_tennis_client
+            client = get_api_tennis_client()
+            
+            # Test basic connectivity by getting event types
+            try:
+                event_types = client.get_event_types()
+                
+                if isinstance(event_types, dict) and event_types.get('success') == 1:
+                    return jsonify({
+                        'success': True,
+                        'message': 'API-Tennis connection successful',
+                        'event_types_count': len(event_types.get('result', [])),
+                        'api_version': '2.9.4',
+                        'client_status': client.get_client_status(),
+                        'timestamp': datetime.now().isoformat()
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'error': 'API-Tennis returned invalid response',
+                        'response': event_types,
+                        'timestamp': datetime.now().isoformat()
+                    })
+                    
+            except Exception as api_error:
+                return jsonify({
+                    'success': False,
+                    'error': f'API-Tennis connection failed: {api_error}',
+                    'timestamp': datetime.now().isoformat()
+                })
+            
+        except ImportError:
+            return jsonify({
+                'success': False,
+                'error': 'API-Tennis integration not available',
+                'timestamp': datetime.now().isoformat()
+            })
+        except Exception as e:
+            logger.error(f"Test API-Tennis connection error: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
             }), 500
 
     logger.info("✅ All routes registered successfully")

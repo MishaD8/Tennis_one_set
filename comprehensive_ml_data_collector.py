@@ -23,10 +23,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Import existing modules
 from enhanced_universal_collector import EnhancedUniversalCollector
-# Note: Old API integrations removed during cleanup
-# from enhanced_api_integration import EnhancedAPIIntegration, init_enhanced_api
-# from rapidapi_tennis_client import RapidAPITennisClient
-# from tennisexplorer_integration import TennisExplorerIntegration
 from second_set_feature_engineering import SecondSetFeatureEngineer
 from ranks_101_300_feature_engineering import Ranks101to300FeatureEngineer, Ranks101to300DataValidator
 
@@ -182,31 +178,17 @@ class ComprehensiveMLDataCollector:
         except Exception as e:
             logger.error(f"❌ Enhanced Universal Collector failed: {e}")
         
-        # 2. Enhanced API Integration (Odds API)
-        try:
-            self.enhanced_api = init_enhanced_api()
-            logger.info("✅ Enhanced API Integration (Odds API) initialized")
-        except Exception as e:
-            logger.error(f"❌ Enhanced API Integration failed: {e}")
+        # 2. Enhanced API Integration (disabled)
+        self.enhanced_api = None
+        logger.info("⚠️ Enhanced API Integration disabled")
         
-        # 3. RapidAPI Tennis Client
-        try:
-            self.rapidapi_client = RapidAPITennisClient()
-            logger.info("✅ RapidAPI Tennis Client initialized")
-        except Exception as e:
-            logger.error(f"❌ RapidAPI Tennis Client failed: {e}")
+        # 3. RapidAPI Tennis Client (disabled)
+        self.rapidapi_client = None
+        logger.info("⚠️ RapidAPI Tennis Client disabled")
         
-        # 4. Tennis Explorer Integration
-        try:
-            self.tennis_explorer = TennisExplorerIntegration()
-            if self.tennis_explorer.initialize():
-                logger.info("✅ Tennis Explorer Integration initialized")
-            else:
-                self.tennis_explorer = None
-                logger.warning("⚠️ Tennis Explorer Integration failed initialization")
-        except Exception as e:
-            logger.error(f"❌ Tennis Explorer Integration failed: {e}")
-            self.tennis_explorer = None
+        # 4. Tennis Explorer Integration (disabled)
+        self.tennis_explorer = None
+        logger.info("⚠️ Tennis Explorer Integration disabled")
     
     def collect_comprehensive_data(self, max_matches: int = 100, priority_second_set: bool = True) -> Dict[str, Any]:
         """

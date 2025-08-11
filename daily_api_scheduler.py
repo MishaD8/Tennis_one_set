@@ -165,7 +165,6 @@ class DailyAPIScheduler:
             logger.info(f"⏰ Making scheduled {period} API request...")
             
             # Import API modules (avoid circular imports)
-            # Note: enhanced API integration removed during cleanup
             
             api = get_enhanced_api()
             if api:
@@ -265,7 +264,6 @@ class DailyAPIScheduler:
             logger.info(f"🔧 Making manual API request: {reason}")
             
             # Import API modules
-            # Note: enhanced API integration removed during cleanup
             
             api = get_enhanced_api()
             if api:

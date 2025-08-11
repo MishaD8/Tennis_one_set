@@ -6,10 +6,11 @@
 
 3 - For our models, use only best-of-3 sets format as in ATP tournaments. Grand Slam events like Australian Open, French Open, Wimbledon, and US Open use best-of-5 sets but we will exclude those formats from our analysis.
 
-4 - FOCUSING ONLY on ranks 101-300
+4 - FOCUSING ONLY on ranks 50-300
 
 5 - Use machine learning models to improve the accuracy of underdog predictions, specifically targeting underdogs likely to win SECOND SET !!!
 
 The resource from which all data is supplied for ML system
 
-https://api.api-tennis.com/tennis/
+https://api-tennis.com/documentation
+

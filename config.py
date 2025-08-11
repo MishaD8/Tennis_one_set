@@ -36,6 +36,7 @@ class Config:
     # API Configuration
     TENNIS_API_KEY = os.getenv('TENNIS_API_KEY', '')
     RAPIDAPI_KEY = os.getenv('RAPIDAPI_KEY', '')
+    API_TENNIS_KEY = os.getenv('API_TENNIS_KEY', '')  # API-Tennis.com key
     BETFAIR_APP_KEY = os.getenv('BETFAIR_APP_KEY', '')
     BETFAIR_USERNAME = os.getenv('BETFAIR_USERNAME', '')
     BETFAIR_PASSWORD = os.getenv('BETFAIR_PASSWORD', '')
@@ -136,6 +137,9 @@ def validate_config() -> Dict[str, Any]:
     
     if not config.RAPIDAPI_KEY:
         validation_results['warnings'].append('RAPIDAPI_KEY not configured')
+    
+    if not config.API_TENNIS_KEY:
+        validation_results['warnings'].append('API_TENNIS_KEY not configured - API-Tennis.com integration disabled')
     
     # Check Betfair configuration for betting functionality
     if not config.BETFAIR_APP_KEY:
