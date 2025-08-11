@@ -23,9 +23,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Import existing modules
 from enhanced_universal_collector import EnhancedUniversalCollector
-from enhanced_api_integration import EnhancedAPIIntegration, init_enhanced_api
-from rapidapi_tennis_client import RapidAPITennisClient
-from tennisexplorer_integration import TennisExplorerIntegration
+# Note: Old API integrations removed during cleanup
+# from enhanced_api_integration import EnhancedAPIIntegration, init_enhanced_api
+# from rapidapi_tennis_client import RapidAPITennisClient
+# from tennisexplorer_integration import TennisExplorerIntegration
 from second_set_feature_engineering import SecondSetFeatureEngineer
 from ranks_101_300_feature_engineering import Ranks101to300FeatureEngineer, Ranks101to300DataValidator
 

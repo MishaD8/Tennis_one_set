@@ -11,8 +11,9 @@ from typing import Dict, List, Optional, Any
 
 # Import existing components
 from universal_tennis_data_collector import UniversalTennisDataCollector, UniversalOddsCollector
-from tennisexplorer_integration import TennisExplorerIntegration
-from rapidapi_tennis_client import RapidAPITennisClient
+# Note: Old API integrations removed during cleanup
+# from tennisexplorer_integration import TennisExplorerIntegration
+# from rapidapi_tennis_client import RapidAPITennisClient
 
 logger = logging.getLogger(__name__)
 
@@ -24,27 +25,10 @@ class EnhancedUniversalCollector:
         self.universal_collector = UniversalTennisDataCollector()
         self.odds_collector = UniversalOddsCollector()
         
-        # Initialize TennisExplorer
+        # Note: Old API integrations removed during cleanup
         self.tennisexplorer = None
-        try:
-            self.tennisexplorer = TennisExplorerIntegration()
-            if self.tennisexplorer.initialize():
-                logger.info("✅ TennisExplorer integration initialized")
-            else:
-                logger.warning("⚠️ TennisExplorer integration failed")
-                self.tennisexplorer = None
-        except Exception as e:
-            logger.warning(f"TennisExplorer not available: {e}")
-            self.tennisexplorer = None
-        
-        # Initialize RapidAPI
         self.rapidapi = None
-        try:
-            self.rapidapi = RapidAPITennisClient()
-            logger.info("✅ RapidAPI Tennis client initialized")
-        except Exception as e:
-            logger.warning(f"RapidAPI not available: {e}")
-            self.rapidapi = None
+        logger.info("⚠️ TennisExplorer and RapidAPI removed during cleanup")
         
         # Data cache
         self.data_cache = {}
@@ -57,9 +41,10 @@ class EnhancedUniversalCollector:
         all_matches = []
         
         # 1. Get TennisExplorer data (highest priority - real matches)
-        if self.tennisexplorer:
+        # Note: TennisExplorer integration removed during cleanup
+        if False:  # self.tennisexplorer:
             try:
-                te_matches = self.tennisexplorer.get_enhanced_match_data(days_ahead)
+                te_matches = []  # self.tennisexplorer.get_enhanced_match_data(days_ahead)
                 if te_matches:
                     logger.info(f"✅ TennisExplorer: {len(te_matches)} matches")
                     for match in te_matches:
@@ -118,8 +103,9 @@ class EnhancedUniversalCollector:
         
         # 4. Get Odds API data if available
         try:
-            from api_economy_patch import economical_tennis_request
-            odds_result = economical_tennis_request('tennis')
+            # Note: API Economy removed during cleanup
+            # from api_economy_patch import economical_tennis_request
+            odds_result = {'success': False, 'message': 'API removed during cleanup'}
             if odds_result.get('success', False):
                 odds_matches = odds_result.get('data', [])
                 if odds_matches:
@@ -494,7 +480,7 @@ class EnhancedUniversalCollector:
         all_matches = self.get_comprehensive_match_data()
         
         # If no real matches found but sources are active, generate realistic samples
-        if len(all_matches) == 0 and (self.tennisexplorer or self.rapidapi):
+        if len(all_matches) == 0:  # Note: removed API checks during cleanup
             logger.info("🎾 No current matches found, generating tournament-based sample matches...")
             all_matches = self._generate_realistic_tournament_matches()
         
@@ -830,8 +816,8 @@ class EnhancedUniversalCollector:
             'data_sources': {
                 'universal_collector': True,
                 'odds_collector': True,
-                'tennisexplorer': self.tennisexplorer is not None,
-                'rapidapi': self.rapidapi is not None
+                'tennisexplorer': False,  # Note: removed during cleanup
+                'rapidapi': False  # Note: removed during cleanup
             },
             'cache_info': {
                 'cached_items': len(self.data_cache),

@@ -39,21 +39,9 @@ except ImportError as e:
     logger.info(f"⚠️ Prediction service not available: {e}")
     PREDICTION_SERVICE_AVAILABLE = False
 
-try:
-    from correct_odds_api_integration import TennisOddsIntegrator
-    ODDS_API_AVAILABLE = True
-    logger.info("✅ Odds API integration loaded")
-except ImportError as e:
-    logger.info(f"⚠️ Odds API integration not available: {e}")
-    ODDS_API_AVAILABLE = False
-
-try:
-    from api_economy_patch import economical_tennis_request, get_api_usage
-    API_ECONOMY_AVAILABLE = True
-    logger.info("✅ API Economy loaded")
-except ImportError as e:
-    logger.info(f"⚠️ API Economy not available: {e}")
-    API_ECONOMY_AVAILABLE = False
+# Note: Odds API and API Economy integrations removed during cleanup
+ODDS_API_AVAILABLE = False
+API_ECONOMY_AVAILABLE = False
 
 try:
     from enhanced_universal_collector import EnhancedUniversalCollector
@@ -653,13 +641,8 @@ def register_routes(app: Flask):
                 ml_status = 'simulation'
                 prediction_type = 'ADVANCED_SIMULATION'
             
-            # API usage stats
-            api_stats = {}
-            if API_ECONOMY_AVAILABLE:
-                try:
-                    api_stats = get_api_usage()
-                except Exception as e:
-                    logger.warning(f"Could not get API usage: {e}")
+            # API usage stats - Note: Old APIs removed
+            api_stats = {'message': 'Old API integrations removed'}
             
             stats = {
                 'total_matches': 6,
@@ -1071,25 +1054,12 @@ def register_routes(app: Flask):
     @app.route('/api/refresh', methods=['GET', 'POST'])
     @require_api_key()
     def refresh_data():
-        """Refresh data"""
+        """Refresh data - Note: Old API integrations removed"""
         try:
-            # If API Economy is available, try to refresh data
-            if API_ECONOMY_AVAILABLE:
-                try:
-                    result = economical_tennis_request('tennis', force_fresh=True)
-                    return jsonify({
-                        'success': True,
-                        'message': 'Data refreshed from API',
-                        'source': result.get('source', 'unknown'),
-                        'timestamp': datetime.now().isoformat()
-                    })
-                except Exception as e:
-                    logger.warning(f"API refresh failed: {e}")
-            
-            # Fallback - just return success
+            # Return success - old API integrations were removed
             return jsonify({
                 'success': True,
-                'message': 'Data refresh requested',
+                'message': 'Data refresh requested (old APIs removed)',
                 'source': 'simulation',
                 'timestamp': datetime.now().isoformat()
             })
@@ -1212,28 +1182,7 @@ def register_routes(app: Flask):
                 except Exception as e:
                     logger.warning(f"Daily scheduler manual update failed: {e}")
             
-            # Fallback: API Economy if available
-            if API_ECONOMY_AVAILABLE:
-                try:
-                    from api_economy_patch import trigger_manual_update
-                    result = trigger_manual_update()
-                    
-                    if result:
-                        return jsonify({
-                            'success': True,
-                            'message': 'Manual update triggered via API Economy',
-                            'source': 'api_economy_fallback',
-                            'timestamp': datetime.now().isoformat()
-                        })
-                    else:
-                        return jsonify({
-                            'success': False,
-                            'error': 'Failed to trigger manual update',
-                            'source': 'api_economy_failed'
-                        }), 500
-                        
-                except Exception as e:
-                    logger.warning(f"API Economy manual update failed: {e}")
+            # Note: API Economy removed during cleanup
             
             # Last resort - return information about unavailability
             return jsonify({
@@ -1297,25 +1246,11 @@ def register_routes(app: Flask):
                     'message': 'Daily scheduler not initialized'
                 }
             
-            # API Economy Status (legacy support)
-            if API_ECONOMY_AVAILABLE:
-                try:
-                    from api_economy_patch import get_api_usage
-                    usage_stats = get_api_usage()
-                    status_response['api_economy'] = {
-                        'available': True,
-                        'usage_stats': usage_stats
-                    }
-                except Exception as e:
-                    status_response['api_economy'] = {
-                        'available': False,
-                        'error': str(e)
-                    }
-            else:
-                status_response['api_economy'] = {
-                    'available': False,
-                    'message': 'API Economy not available'
-                }
+            # API Economy Status (removed during cleanup)
+            status_response['api_economy'] = {
+                'available': False,
+                'message': 'API Economy removed during cleanup'
+            }
             
             return jsonify(status_response)
             
@@ -1466,21 +1401,8 @@ def register_routes(app: Flask):
                         'timestamp': datetime.now().isoformat()
                     })
                 else:
-                    # Fallback to API Economy if available
-                    if API_ECONOMY_AVAILABLE:
-                        try:
-                            from api_economy_patch import get_api_usage
-                            usage_stats = get_api_usage()
-                            
-                            return jsonify({
-                                'success': True,
-                                'api_economy_available': True,
-                                'api_usage': usage_stats,
-                                'daily_scheduler_available': False,
-                                'timestamp': datetime.now().isoformat()
-                            })
-                        except Exception as e:
-                            logger.warning(f"Failed to get API usage: {e}")
+                    # Note: API Economy removed during cleanup
+                    pass
             
             # Final fallback
             return jsonify({

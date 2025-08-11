@@ -129,7 +129,7 @@ def initialize_services():
             logger.info(f"⚠️ Prediction service not available: {e}")
 
         try:
-            from correct_odds_api_integration import TennisOddsIntegrator
+            # Note: removed old API integration during cleanup
             odds_integrator = TennisOddsIntegrator()
             logger.info("✅ Odds API integration loaded")
         except ImportError as e:
