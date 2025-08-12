@@ -6,12 +6,23 @@ Get Telegram Chat ID helper script
 import requests
 import os
 import sys
+from dotenv import load_dotenv
 
 def get_chat_id():
-    bot_token = os.getenv('TELEGRAM_BOT_TOKEN', '8369911887:AAHvXoNVTjpl3H3u0rVtuMxUkKEEozGIkFs')
+    # Load environment variables from .env file
+    load_dotenv()
+    
+    bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
     
     if not bot_token:
-        print("❌ TELEGRAM_BOT_TOKEN not set")
+        print("❌ TELEGRAM_BOT_TOKEN not set in environment variables or .env file")
+        print("Please set your bot token:")
+        print("  Option 1: export TELEGRAM_BOT_TOKEN='your_bot_token_here'")
+        print("  Option 2: Add TELEGRAM_BOT_TOKEN=your_bot_token_here to .env file")
+        print("\nTo get a bot token:")
+        print("  1. Open Telegram and search for @BotFather")
+        print("  2. Send /newbot command and follow instructions")
+        print("  3. Copy the bot token provided")
         return
     
     print("🔍 Fetching recent messages to find your chat ID...")

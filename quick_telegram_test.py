@@ -4,22 +4,36 @@ Quick test of Telegram integration without full data collection
 """
 
 import os
+from dotenv import load_dotenv
 from telegram_notification_system import TelegramNotificationSystem, TelegramConfig
 from datetime import datetime
 
 def test_telegram_with_manual_prediction():
     """Test Telegram notification with a manually created prediction"""
     
+    # Load environment variables from .env file
+    load_dotenv()
+    
     # Set up configuration
+    bot_token = os.getenv('TELEGRAM_BOT_TOKEN', '').strip()
+    chat_ids_str = os.getenv('TELEGRAM_CHAT_IDS', '').strip()
+    
+    chat_ids = []
+    if chat_ids_str:
+        chat_ids = [chat_id.strip() for chat_id in chat_ids_str.split(',') if chat_id.strip()]
+    
     config = TelegramConfig(
-        bot_token=os.getenv('TELEGRAM_BOT_TOKEN', ''),
-        chat_ids=[os.getenv('TELEGRAM_CHAT_IDS', '').strip()],
+        bot_token=bot_token,
+        chat_ids=chat_ids,
         enabled=True,
         min_probability=0.55
     )
     
-    if not config.bot_token or not config.chat_ids[0]:
-        print("❌ Please set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_IDS environment variables")
+    if not config.bot_token or not config.chat_ids:
+        print("❌ Please set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_IDS environment variables or in .env file")
+        print("  Option 1: export TELEGRAM_BOT_TOKEN='your_bot_token_here'")
+        print("  Option 2: Add TELEGRAM_BOT_TOKEN=your_bot_token_here to .env file")
+        print("Use 'python get_chat_id.py' to find your chat ID")
         return False
     
     print("🤖 Testing Telegram Notification System")

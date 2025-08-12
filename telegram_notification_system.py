@@ -18,6 +18,7 @@ import aiohttp
 from datetime import datetime, timedelta
 from typing import Dict, List, Any
 from dataclasses import dataclass
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
@@ -50,27 +51,84 @@ class TelegramNotificationSystem:
         
     def _load_config_from_env(self) -> TelegramConfig:
         """Load configuration from environment variables"""
+        # Load environment variables from .env file
+        load_dotenv()
+        
+        # Get environment variables with validation
+        bot_token = os.getenv('TELEGRAM_BOT_TOKEN', '').strip()
+        chat_ids_str = os.getenv('TELEGRAM_CHAT_IDS', '').strip()
+        enabled_str = os.getenv('TELEGRAM_NOTIFICATIONS_ENABLED', 'true').lower()
+        
+        # Parse chat IDs safely
+        chat_ids = []
+        if chat_ids_str:
+            chat_ids = [chat_id.strip() for chat_id in chat_ids_str.split(',') if chat_id.strip()]
+        
+        # Parse numeric values safely
+        try:
+            min_probability = float(os.getenv('TELEGRAM_MIN_PROBABILITY', '0.55'))
+            if not (0.0 <= min_probability <= 1.0):
+                logger.warning(f"Invalid TELEGRAM_MIN_PROBABILITY value: {min_probability}, using 0.55")
+                min_probability = 0.55
+        except (ValueError, TypeError):
+            logger.warning("Invalid TELEGRAM_MIN_PROBABILITY value, using default 0.55")
+            min_probability = 0.55
+            
+        try:
+            max_notifications_per_hour = int(os.getenv('TELEGRAM_MAX_NOTIFICATIONS_PER_HOUR', '10'))
+            if max_notifications_per_hour <= 0:
+                logger.warning(f"Invalid TELEGRAM_MAX_NOTIFICATIONS_PER_HOUR value: {max_notifications_per_hour}, using 10")
+                max_notifications_per_hour = 10
+        except (ValueError, TypeError):
+            logger.warning("Invalid TELEGRAM_MAX_NOTIFICATIONS_PER_HOUR value, using default 10")
+            max_notifications_per_hour = 10
+            
+        try:
+            notification_cooldown_minutes = int(os.getenv('TELEGRAM_COOLDOWN_MINUTES', '30'))
+            if notification_cooldown_minutes < 0:
+                logger.warning(f"Invalid TELEGRAM_COOLDOWN_MINUTES value: {notification_cooldown_minutes}, using 30")
+                notification_cooldown_minutes = 30
+        except (ValueError, TypeError):
+            logger.warning("Invalid TELEGRAM_COOLDOWN_MINUTES value, using default 30")
+            notification_cooldown_minutes = 30
+        
         return TelegramConfig(
-            bot_token=os.getenv('TELEGRAM_BOT_TOKEN', ''),
-            chat_ids=os.getenv('TELEGRAM_CHAT_IDS', '').split(','),
-            enabled=os.getenv('TELEGRAM_NOTIFICATIONS_ENABLED', 'true').lower() == 'true',
-            min_probability=float(os.getenv('TELEGRAM_MIN_PROBABILITY', '0.55')),
-            max_notifications_per_hour=int(os.getenv('TELEGRAM_MAX_NOTIFICATIONS_PER_HOUR', '10')),
-            notification_cooldown_minutes=int(os.getenv('TELEGRAM_COOLDOWN_MINUTES', '30'))
+            bot_token=bot_token,
+            chat_ids=chat_ids,
+            enabled=enabled_str in ['true', 'yes', '1', 'on'],
+            min_probability=min_probability,
+            max_notifications_per_hour=max_notifications_per_hour,
+            notification_cooldown_minutes=notification_cooldown_minutes
         )
     
     def _validate_config(self) -> bool:
         """Validate Telegram configuration"""
         if not self.config.bot_token:
-            logger.error("❌ TELEGRAM_BOT_TOKEN not provided")
+            logger.error("❌ TELEGRAM_BOT_TOKEN not provided in environment variables or .env file")
+            logger.error("Please set your bot token:")
+            logger.error("  Option 1: export TELEGRAM_BOT_TOKEN='your_bot_token_here'")
+            logger.error("  Option 2: Add TELEGRAM_BOT_TOKEN=your_bot_token_here to .env file")
             return False
         
-        if not self.config.chat_ids or not any(chat_id.strip() for chat_id in self.config.chat_ids):
-            logger.error("❌ TELEGRAM_CHAT_IDS not provided")
+        # Validate bot token format (basic check)
+        if not self.config.bot_token.count(':') == 1:
+            logger.error("❌ Invalid TELEGRAM_BOT_TOKEN format. Expected format: 123456789:ABCdefGhIJKlmNoPQRstUVwxyz")
             return False
         
-        # Clean up chat IDs
+        if not self.config.chat_ids:
+            logger.error("❌ TELEGRAM_CHAT_IDS not provided in environment variables or .env file")
+            logger.error("Please set your chat IDs:")
+            logger.error("  Option 1: export TELEGRAM_CHAT_IDS='your_chat_id_here'")
+            logger.error("  Option 2: Add TELEGRAM_CHAT_IDS=your_chat_id_here to .env file")
+            logger.error("Use 'python get_chat_id.py' to find your chat ID")
+            return False
+        
+        # Clean up and validate chat IDs
         self.config.chat_ids = [chat_id.strip() for chat_id in self.config.chat_ids if chat_id.strip()]
+        
+        if not self.config.chat_ids:
+            logger.error("❌ No valid chat IDs found after filtering")
+            return False
         
         logger.info(f"✅ Telegram config valid: {len(self.config.chat_ids)} chat(s), min_prob={self.config.min_probability}")
         return True

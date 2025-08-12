@@ -11,6 +11,7 @@ Author: Claude Code (Anthropic)
 import os
 import logging
 from datetime import datetime
+from dotenv import load_dotenv
 from telegram_notification_system import TelegramNotificationSystem, TelegramConfig, get_telegram_system
 
 # Setup logging
@@ -19,6 +20,9 @@ logger = logging.getLogger(__name__)
 
 def test_telegram_integration():
     """Test complete Telegram integration"""
+    
+    # Load environment variables from .env file
+    load_dotenv()
     
     print("🧪 TESTING TELEGRAM INTEGRATION")
     print("=" * 45)
@@ -151,6 +155,9 @@ def test_telegram_integration():
         print(f"   2. Set environment variables:")
         print(f"      export TELEGRAM_BOT_TOKEN='your_bot_token'")
         print(f"      export TELEGRAM_CHAT_IDS='your_chat_id'")
+        print(f"   Or add to .env file:")
+        print(f"      TELEGRAM_BOT_TOKEN=your_bot_token")
+        print(f"      TELEGRAM_CHAT_IDS=your_chat_id")
         print(f"   3. Test with: python telegram_setup.py --send-test")
     
     return True

@@ -14,3 +14,4 @@ The resource from which all data is supplied for ML system
 
 https://api-tennis.com/documentation
 
+https://api-tennis.com/documentation_websocket

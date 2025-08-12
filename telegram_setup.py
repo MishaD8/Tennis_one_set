@@ -17,6 +17,7 @@ import os
 import asyncio
 import argparse
 import json
+from dotenv import load_dotenv
 from telegram_notification_system import TelegramNotificationSystem, TelegramConfig, send_test_notification
 from datetime import datetime
 
@@ -39,8 +40,8 @@ def print_setup_instructions():
     print("   • Find 'chat':{'id': XXXXXXX} in the response")
     print()
     print("3. Set Environment Variables:")
-    print("   export TELEGRAM_BOT_TOKEN='8369911887:AAHvXoNVTjpl3H3u0rVtuMxUkKEEozGIkFs'")
-    print("   export TELEGRAM_CHAT_IDS='@underdog_one_set_bot'")
+    print("   export TELEGRAM_BOT_TOKEN=")
+    print("   export TELEGRAM_CHAT_IDS=")
     print("   export TELEGRAM_NOTIFICATIONS_ENABLED='true'")
     print("   export TELEGRAM_MIN_PROBABILITY='0.55'")
     print()
@@ -55,11 +56,19 @@ def test_configuration():
     print("🧪 TESTING TELEGRAM CONFIGURATION")
     print("=" * 40)
     
+    # Load environment variables from .env file
+    load_dotenv()
+    
     # Check environment variables
     bot_token = os.getenv('TELEGRAM_BOT_TOKEN', '')
     chat_ids = os.getenv('TELEGRAM_CHAT_IDS', '')
     enabled = os.getenv('TELEGRAM_NOTIFICATIONS_ENABLED', 'true').lower() == 'true'
-    min_prob = float(os.getenv('TELEGRAM_MIN_PROBABILITY', '0.55'))
+    
+    try:
+        min_prob = float(os.getenv('TELEGRAM_MIN_PROBABILITY', '0.55'))
+    except ValueError:
+        print("⚠️  Invalid TELEGRAM_MIN_PROBABILITY value, using default 0.55")
+        min_prob = 0.55
     
     print(f"📊 Configuration Check:")
     print(f"  Bot Token: {'✅ Set' if bot_token else '❌ Missing'}")
@@ -69,7 +78,14 @@ def test_configuration():
     
     if not bot_token or not chat_ids:
         print("\n❌ Configuration incomplete!")
-        print("Please set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_IDS environment variables.")
+        print("Please set the required environment variables:")
+        print("  Option 1: Export environment variables:")
+        print("    export TELEGRAM_BOT_TOKEN='your_bot_token_here'")
+        print("    export TELEGRAM_CHAT_IDS='your_chat_id_here'")
+        print("  Option 2: Add to .env file:")
+        print("    TELEGRAM_BOT_TOKEN=your_bot_token_here")
+        print("    TELEGRAM_CHAT_IDS=your_chat_id_here")
+        print("\nUse 'python get_chat_id.py' to find your chat ID.")
         return False
     
     # Test system initialization
@@ -102,9 +118,13 @@ def test_configuration():
 async def check_bot_info():
     """Check bot information via Telegram API"""
     
+    # Load environment variables from .env file
+    load_dotenv()
+    
     bot_token = os.getenv('TELEGRAM_BOT_TOKEN', '')
     if not bot_token:
-        print("❌ TELEGRAM_BOT_TOKEN not set")
+        print("❌ TELEGRAM_BOT_TOKEN not set in environment variables or .env file")
+        print("Please set your bot token first using 'python telegram_setup.py --setup' for instructions")
         return
     
     print("🔍 CHECKING BOT INFORMATION")
