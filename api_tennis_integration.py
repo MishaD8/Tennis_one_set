@@ -375,7 +375,16 @@ class APITennisClient:
         data = self._make_request('get_fixtures', params)
         
         matches = []
-        if isinstance(data, list):
+        # API-Tennis returns data in format: {"success": 1, "result": [...]}
+        if isinstance(data, dict) and data.get('success') == 1:
+            result = data.get('result', [])
+            if isinstance(result, list):
+                for match_data in result:
+                    match = self._parse_match_data(match_data)
+                    if match:
+                        matches.append(match)
+        elif isinstance(data, list):
+            # Fallback for direct list response
             for match_data in data:
                 match = self._parse_match_data(match_data)
                 if match:
@@ -389,7 +398,17 @@ class APITennisClient:
         data = self._make_request('get_livescore')
         
         matches = []
-        if isinstance(data, list):
+        # API-Tennis returns data in format: {"success": 1, "result": [...]}
+        if isinstance(data, dict) and data.get('success') == 1:
+            result = data.get('result', [])
+            if isinstance(result, list):
+                for match_data in result:
+                    match = self._parse_match_data(match_data)
+                    if match:
+                        match.status = MatchStatus.LIVE.value
+                        matches.append(match)
+        elif isinstance(data, list):
+            # Fallback for direct list response
             for match_data in data:
                 match = self._parse_match_data(match_data)
                 if match:
@@ -503,40 +522,51 @@ class APITennisClient:
     def _parse_match_data(self, match_data: Dict[str, Any]) -> Optional[TennisMatch]:
         """Parse API match data into TennisMatch object"""
         try:
-            # Extract player information
+            # Extract player information from API-Tennis format
             player1 = TennisPlayer(
-                id=match_data.get('home_team', {}).get('id'),
-                name=match_data.get('home_team', {}).get('name', ''),
-                country=match_data.get('home_team', {}).get('country', '')
+                id=match_data.get('first_player_key'),
+                name=match_data.get('event_first_player', ''),
+                country=''  # API-Tennis doesn't provide country in fixtures
             )
             
             player2 = TennisPlayer(
-                id=match_data.get('away_team', {}).get('id'),
-                name=match_data.get('away_team', {}).get('name', ''),
-                country=match_data.get('away_team', {}).get('country', '')
+                id=match_data.get('second_player_key'),
+                name=match_data.get('event_second_player', ''),
+                country=''  # API-Tennis doesn't provide country in fixtures
             )
             
-            # Parse start time
+            # Parse start time from event_date and event_time
             start_time = None
             if match_data.get('event_date'):
                 try:
-                    start_time = datetime.fromisoformat(match_data['event_date'].replace('Z', '+00:00'))
-                except:
+                    date_str = match_data['event_date']
+                    time_str = match_data.get('event_time', '00:00')
+                    
+                    # Combine date and time
+                    datetime_str = f"{date_str} {time_str}"
+                    start_time = datetime.strptime(datetime_str, '%Y-%m-%d %H:%M')
+                except Exception as e:
+                    logger.debug(f"Failed to parse datetime: {e}")
                     pass
+            
+            # Determine surface from tournament name (API-Tennis doesn't provide surface directly)
+            surface = self._determine_surface_from_tournament(match_data.get('tournament_name', ''))
             
             # Create match object
             match = TennisMatch(
-                id=match_data.get('event_id'),
+                id=match_data.get('event_key'),
                 player1=player1,
                 player2=player2,
-                tournament_id=match_data.get('league_id'),
-                tournament_name=match_data.get('league_name', ''),
-                round=match_data.get('event_stage', ''),
+                tournament_id=match_data.get('tournament_key'),
+                tournament_name=match_data.get('tournament_name', ''),
+                surface=surface,
+                round=match_data.get('tournament_round', ''),
                 status=match_data.get('event_status', ''),
                 start_time=start_time,
                 score=match_data.get('event_final_result', ''),
-                location=match_data.get('country', ''),
-                level=match_data.get('league_tier', '')
+                event_type=match_data.get('event_type_type', ''),
+                location=self._extract_location_from_tournament(match_data.get('tournament_name', '')),
+                level=self._determine_level_from_event_type(match_data.get('event_type_type', ''))
             )
             
             return match
@@ -544,6 +574,68 @@ class APITennisClient:
         except Exception as e:
             logger.warning(f"Failed to parse match data: {e}")
             return None
+    
+    def _determine_surface_from_tournament(self, tournament_name: str) -> str:
+        """Determine surface from tournament name"""
+        if not tournament_name:
+            return 'Hard'
+        
+        tournament_lower = tournament_name.lower()
+        if any(keyword in tournament_lower for keyword in ['french', 'roland garros', 'monte carlo', 'rome', 'madrid']):
+            return 'Clay'
+        elif any(keyword in tournament_lower for keyword in ['wimbledon', 'grass']):
+            return 'Grass'
+        else:
+            return 'Hard'  # Default for most tournaments
+    
+    def _extract_location_from_tournament(self, tournament_name: str) -> str:
+        """Extract location from tournament name"""
+        if not tournament_name:
+            return ''
+        
+        # Common tournament location mappings
+        location_map = {
+            'wimbledon': 'London',
+            'french open': 'Paris',
+            'roland garros': 'Paris',
+            'us open': 'New York',
+            'australian open': 'Melbourne',
+            'indian wells': 'Indian Wells',
+            'miami': 'Miami',
+            'monte carlo': 'Monte Carlo',
+            'madrid': 'Madrid',
+            'rome': 'Rome',
+            'cincinnati': 'Cincinnati'
+        }
+        
+        tournament_lower = tournament_name.lower()
+        for tournament, location in location_map.items():
+            if tournament in tournament_lower:
+                return location
+        
+        # Try to extract location from tournament name patterns
+        words = tournament_name.split()
+        if len(words) >= 2:
+            return words[-1]  # Often the last word is the location
+        
+        return tournament_name
+    
+    def _determine_level_from_event_type(self, event_type: str) -> str:
+        """Determine tournament level from event type"""
+        if not event_type:
+            return 'Unknown'
+        
+        event_lower = event_type.lower()
+        if 'atp' in event_lower:
+            return 'ATP'
+        elif 'wta' in event_lower:
+            return 'WTA'
+        elif 'challenger' in event_lower:
+            return 'Challenger'
+        elif 'itf' in event_lower:
+            return 'ITF'
+        else:
+            return 'Other'
     
     def get_today_matches(self) -> List[TennisMatch]:
         """Get today's matches"""
