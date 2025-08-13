@@ -109,12 +109,30 @@ class Ranks50to300FeatureEngineer:
         return features
     
     def _validate_rank_range(self, player1_data: Dict, player2_data: Dict) -> bool:
-        """Validate both players are in 50-300 rank range"""
+        """Validate this is a proper underdog scenario for ranks 50-300 analysis
+        
+        FIXED: Now validates that we have a valid underdog scenario where:
+        1. The underdog (higher-ranked player) is in ranks 50-300
+        2. The favorite is not a top-49 player (would invalidate underdog analysis)
+        """
         p1_rank = player1_data.get('rank', 999)
         p2_rank = player2_data.get('rank', 999)
         
-        return (self.rank_range[0] <= p1_rank <= self.rank_range[1] and
-                self.rank_range[0] <= p2_rank <= self.rank_range[1])
+        # Determine who is the underdog (higher ranking number)
+        if p1_rank > p2_rank:
+            underdog_rank = p1_rank
+            favorite_rank = p2_rank
+        else:
+            underdog_rank = p2_rank
+            favorite_rank = p1_rank
+        
+        # Underdog must be in 50-300 range
+        underdog_in_range = self.rank_range[0] <= underdog_rank <= self.rank_range[1]
+        
+        # Favorite must not be in top-49 (would invalidate underdog scenario)
+        favorite_not_top_49 = favorite_rank >= 50
+        
+        return underdog_in_range and favorite_not_top_49
     
     def _create_rank_position_features(self, player1_data: Dict, player2_data: Dict) -> Dict:
         """Create features based on rank positions within 50-300 tier"""
@@ -631,16 +649,26 @@ class Ranks50to300DataValidator:
             'warnings': []
         }
         
-        # Check rank range
+        # Check rank range with underdog scenario validation
         p1_rank = match_data.get('player1', {}).get('rank', 999)
         p2_rank = match_data.get('player2', {}).get('rank', 999)
         
-        if not (self.rank_range[0] <= p1_rank <= self.rank_range[1]):
-            validation_result['errors'].append(f"Player 1 rank {p1_rank} outside target range 50-300")
+        # Determine underdog and favorite
+        if p1_rank > p2_rank:
+            underdog_rank = p1_rank
+            favorite_rank = p2_rank
+        else:
+            underdog_rank = p2_rank
+            favorite_rank = p1_rank
+        
+        # Validate underdog is in target range
+        if not (self.rank_range[0] <= underdog_rank <= self.rank_range[1]):
+            validation_result['errors'].append(f"Underdog rank {underdog_rank} outside target range 50-300")
             validation_result['valid'] = False
         
-        if not (self.rank_range[0] <= p2_rank <= self.rank_range[1]):
-            validation_result['errors'].append(f"Player 2 rank {p2_rank} outside target range 50-300")
+        # Validate favorite is not top-49 (would invalidate underdog scenario)
+        if favorite_rank < 50:
+            validation_result['errors'].append(f"Favorite rank {favorite_rank} is top-49, invalidates underdog analysis")
             validation_result['valid'] = False
         
         # Check data completeness

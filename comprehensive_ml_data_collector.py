@@ -586,17 +586,36 @@ class ComprehensiveMLDataCollector:
         return True
     
     def _has_player_in_ranks_50_300(self, match: Dict) -> bool:
-        """Check if at least one player is ranked 50-300"""
+        """Check if match is valid for 50-300 underdog analysis
+        
+        FIXED: This now validates that we have a proper underdog scenario where:
+        1. The underdog (higher-ranked player) is in ranks 50-300
+        2. The favorite is not a top-49 player
+        
+        This prevents matches like Cobolli (#22) vs Player (#150) from being included.
+        """
         player1_rank = self._extract_player_rank(match, 'player1')
         player2_rank = self._extract_player_rank(match, 'player2')
         
-        # Check if either player is in target range
-        if player1_rank and 50 <= player1_rank <= 300:
-            return True
-        if player2_rank and 50 <= player2_rank <= 300:
-            return True
+        # Both ranks must be available for valid analysis
+        if not player1_rank or not player2_rank:
+            return False
         
-        return False
+        # Determine who would be the underdog (higher ranking number)
+        if player1_rank > player2_rank:
+            underdog_rank = player1_rank
+            favorite_rank = player2_rank
+        else:
+            underdog_rank = player2_rank
+            favorite_rank = player1_rank
+        
+        # STRICT VALIDATION: Underdog must be in 50-300 range
+        underdog_in_range = 50 <= underdog_rank <= 300
+        
+        # STRICT VALIDATION: Favorite must NOT be in top-49
+        favorite_not_top_49 = favorite_rank >= 50
+        
+        return underdog_in_range and favorite_not_top_49
     
     def _is_ranks_50_300_match(self, match: Dict) -> bool:
         """Check if match involves ranks 50-300 players"""

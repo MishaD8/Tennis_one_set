@@ -505,9 +505,10 @@ class ComprehensiveTennisPredictionService:
             validation_result['errors'].append("Match is not ATP/WTA singles")
             validation_result['valid'] = False
         
-        # Check for ranks 50-300
+        # Check for valid 50-300 underdog scenario
         if not self._has_player_in_target_ranks(match_data):
-            validation_result['warnings'].append("No player found in ranks 50-300")
+            validation_result['errors'].append("Match does not meet 50-300 underdog criteria")
+            validation_result['valid'] = False
         
         # Use data validator for comprehensive validation
         try:
@@ -548,12 +549,64 @@ class ComprehensiveTennisPredictionService:
         return True
     
     def _has_player_in_target_ranks(self, match_data: Dict) -> bool:
-        """Check if at least one player is in ranks 50-300"""
+        """Check if match is valid for 50-300 underdog analysis
+        
+        CRITICAL: For underdog analysis, we need a valid underdog scenario where:
+        1. The underdog (higher-ranked player) is in ranks 50-300
+        2. The favorite is not a top-49 player (which would invalidate the underdog analysis)
+        
+        This prevents matches like Cobolli (#22) vs Player (#150) from being analyzed,
+        since Cobolli (#22) being the favorite makes this outside our target scope.
+        """
         
         player1_rank = match_data.get('player1_ranking') or self._estimate_player_rank(match_data.get('player1', ''))
         player2_rank = match_data.get('player2_ranking') or self._estimate_player_rank(match_data.get('player2', ''))
         
-        return (50 <= player1_rank <= 300) or (50 <= player2_rank <= 300)
+        # Determine who would be the underdog (higher ranking number)
+        if player1_rank > player2_rank:
+            underdog_rank = player1_rank
+            favorite_rank = player2_rank
+        else:
+            underdog_rank = player2_rank
+            favorite_rank = player1_rank
+        
+        # STRICT VALIDATION: Underdog must be in 50-300 range
+        underdog_in_range = 50 <= underdog_rank <= 300
+        
+        # STRICT VALIDATION: Favorite must NOT be in top-49 (otherwise invalidates underdog scenario)
+        favorite_not_top_49 = favorite_rank >= 50
+        
+        return underdog_in_range and favorite_not_top_49
+    
+    def _validate_underdog_scenario(self, player1_rank: int, player2_rank: int) -> bool:
+        """Validate that this is a proper underdog scenario for our 50-300 system
+        
+        Args:
+            player1_rank: Player 1's ATP/WTA ranking
+            player2_rank: Player 2's ATP/WTA ranking
+            
+        Returns:
+            True if this is a valid underdog scenario, False otherwise
+        """
+        # Determine who is the underdog (higher ranking number)
+        if player1_rank > player2_rank:
+            underdog_rank = player1_rank
+            favorite_rank = player2_rank
+        else:
+            underdog_rank = player2_rank
+            favorite_rank = player1_rank
+        
+        # Underdog must be in 50-300 range
+        if not (50 <= underdog_rank <= 300):
+            logger.warning(f"Underdog rank {underdog_rank} outside target range 50-300")
+            return False
+        
+        # Favorite must not be in top-49 (would invalidate underdog analysis)
+        if favorite_rank < 50:
+            logger.warning(f"Favorite rank {favorite_rank} is top-49, invalidates underdog scenario")
+            return False
+        
+        return True
     
     def _extract_player_data(self, match_data: Dict, player_key: str) -> Dict:
         """Extract player data for validation"""
@@ -651,9 +704,14 @@ class ComprehensiveTennisPredictionService:
                 # Simple average
                 ensemble_pred = np.mean(list(individual_predictions.values()))
             
-            # Determine underdog
+            # Determine underdog with validation
             player1_rank = player1_data['rank']
             player2_rank = player2_data['rank']
+            
+            # CRITICAL VALIDATION: Ensure this is a valid 50-300 underdog scenario
+            if not self._validate_underdog_scenario(player1_rank, player2_rank):
+                raise Exception(f"Invalid underdog scenario: ranks {player1_rank} vs {player2_rank}. "
+                               f"System only analyzes underdogs ranked 50-300 vs opponents ranked 50+.")
             
             if player1_rank > player2_rank:  # Higher rank number = lower rank = underdog
                 underdog_player = "player1"
