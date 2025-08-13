@@ -196,8 +196,8 @@ def validate_player_name(name: str) -> bool:
     if len(name) > 100:
         return False
     
-    # Character validation - allow letters, spaces, apostrophes, hyphens, dots
-    if not re.match(r"^[a-zA-Z\s\'\-\.]+$", name):
+    # Character validation - allow letters, numbers, spaces, apostrophes, hyphens, dots
+    if not re.match(r"^[a-zA-Z0-9\s\'\-\.]+$", name):
         return False
         
     return True
@@ -356,12 +356,15 @@ def format_match_for_dashboard(match_data: Dict, source: str = "unknown") -> Dic
                 'player2': match_data.get('odds_player2', 2.0)
             }
         
-        # Additional fields
+        # Additional fields with safe access
+        prediction = formatted.get('prediction', {})
+        odds = formatted.get('odds', {})
+        
         formatted.update({
-            'prediction_type': formatted['prediction']['prediction_type'],
-            'underdog_probability': formatted['prediction']['probability'],
-            'value_bet': formatted['prediction']['probability'] > (1 / formatted['odds']['player1']),
-            'key_factors': formatted['prediction']['key_factors']
+            'prediction_type': prediction.get('prediction_type', 'ANALYSIS'),
+            'underdog_probability': prediction.get('probability', 0.5),
+            'value_bet': prediction.get('probability', 0.5) > (1 / odds.get('player1', 2.0)) if odds.get('player1', 0) > 0 else False,
+            'key_factors': prediction.get('key_factors', [])
         })
         
         return formatted
@@ -726,7 +729,7 @@ def register_routes(app: Flask):
                 'matches': formatted_matches,
                 'count': len(formatted_matches),
                 'source': matches_result.get('source', 'unknown'),
-                'prediction_type': formatted_matches[0]['prediction_type'] if formatted_matches else 'UNKNOWN',
+                'prediction_type': formatted_matches[0].get('prediction_type', 'UNKNOWN') if formatted_matches else 'UNKNOWN',
                 'timestamp': datetime.now().isoformat()
             })
             
@@ -746,11 +749,22 @@ def register_routes(app: Flask):
         try:
             # Get and validate JSON payload
             try:
-                data = request.get_json(force=True, max_content_length=1024)
+                if not request.is_json:
+                    return jsonify({
+                        'success': False,
+                        'error': 'Content-Type must be application/json'
+                    }), 400
+                
+                data = request.get_json()
+                if data is None:
+                    return jsonify({
+                        'success': False,
+                        'error': 'Invalid JSON payload'
+                    }), 400
             except Exception as e:
                 return jsonify({
                     'success': False,
-                    'error': 'Invalid JSON payload'
+                    'error': 'Failed to parse JSON'
                 }), 400
             
             if not data:
@@ -954,11 +968,22 @@ def register_routes(app: Flask):
         try:
             # Get and validate JSON payload
             try:
-                data = request.get_json(force=True, max_content_length=1024)
+                if not request.is_json:
+                    return jsonify({
+                        'success': False,
+                        'error': 'Content-Type must be application/json'
+                    }), 400
+                
+                data = request.get_json()
+                if data is None:
+                    return jsonify({
+                        'success': False,
+                        'error': 'Invalid JSON payload'
+                    }), 400
             except Exception as e:
                 return jsonify({
                     'success': False,
-                    'error': 'Invalid JSON payload'
+                    'error': 'Failed to parse JSON'
                 }), 400
             
             if not data:
