@@ -73,7 +73,13 @@ class SecondSetDataCollector:
     
     def _initialize_database(self):
         """Initialize specialized database for second set training data"""
-        with sqlite3.connect(self.db_path) as conn:
+        # Use thread-safe connection with explicit parameters
+        with sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0) as conn:
+            # Enable WAL mode for better concurrency
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")
+            conn.execute("PRAGMA temp_store=memory")
+            conn.execute("PRAGMA mmap_size=268435456")
             # Main training matches table
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS training_matches (
@@ -170,14 +176,12 @@ class SecondSetDataCollector:
                 )
             """)
             
-            # Create indexes for performance
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_match_date ON training_matches(match_date);
-                CREATE INDEX IF NOT EXISTS idx_ranking_gap ON training_matches(ranking_gap);
-                CREATE INDEX IF NOT EXISTS idx_data_quality ON training_matches(data_completeness_score);
-                CREATE INDEX IF NOT EXISTS idx_underdog_target ON training_matches(underdog_won_second_set);
-                CREATE INDEX IF NOT EXISTS idx_tournament_level ON training_matches(tournament_level);
-            """)
+            # Create indexes for performance (split into individual execute calls)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_match_date ON training_matches(match_date)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_ranking_gap ON training_matches(ranking_gap)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_data_quality ON training_matches(data_completeness_score)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_underdog_target ON training_matches(underdog_won_second_set)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_tournament_level ON training_matches(tournament_level)")
             
             logger.info(f"Initialized second set training database: {self.db_path}")
     
@@ -328,7 +332,7 @@ class SecondSetDataCollector:
             {'name': 'ATP Barcelona Open', 'level': 'ATP500', 'surface': 'clay'},
         ]
         
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0) as conn:
             for i in range(count):
                 try:
                     # Random player matchup
@@ -431,7 +435,7 @@ class SecondSetDataCollector:
     
     def _calculate_avg_quality_score(self) -> float:
         """Calculate average quality score of collected data"""
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0) as conn:
             cursor = conn.execute("""
                 SELECT AVG(data_completeness_score) 
                 FROM training_matches 
@@ -442,7 +446,7 @@ class SecondSetDataCollector:
     
     def _log_collection_results(self, results: Dict):
         """Log collection results to database"""
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0) as conn:
             conn.execute("""
                 INSERT INTO collection_log (
                     source, matches_collected, matches_valid, avg_quality_score, 
@@ -459,7 +463,7 @@ class SecondSetDataCollector:
     
     def get_training_dataset_statistics(self) -> Dict:
         """Get comprehensive statistics about collected training data"""
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0) as conn:
             stats = {}
             
             # Basic counts

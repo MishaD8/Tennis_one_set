@@ -68,7 +68,12 @@ class MLDataPipeline:
     
     def _initialize_database(self):
         """Initialize SQLite database for training data"""
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0) as conn:
+            # Enable WAL mode for better concurrency
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")
+            conn.execute("PRAGMA temp_store=memory")
+            conn.execute("PRAGMA mmap_size=268435456")
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS match_data (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -127,11 +132,10 @@ class MLDataPipeline:
                 )
             """)
             
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_match_date ON match_data(match_date);
-                CREATE INDEX IF NOT EXISTS idx_data_quality ON match_data(quality_score);
-                CREATE INDEX IF NOT EXISTS idx_underdog_target ON match_data(underdog_won_second_set);
-            """)
+            # Create indexes (individual execute calls for thread safety)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_match_date ON match_data(match_date)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_data_quality ON match_data(quality_score)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_underdog_target ON match_data(underdog_won_second_set)")
     
     def collect_historical_data(self, start_date: datetime, end_date: datetime) -> int:
         """
@@ -282,7 +286,7 @@ class MLDataPipeline:
         """
         logger.info(f"Creating training dataset with quality >= {min_quality_score}")
         
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0) as conn:
             # Get high-quality matches
             query = """
                 SELECT match_id, features_json, target_value 

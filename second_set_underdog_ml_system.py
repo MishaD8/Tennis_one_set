@@ -3,11 +3,11 @@
 🎾 SECOND SET UNDERDOG ML SYSTEM
 
 Advanced ML system specifically designed for predicting second set outcomes
-for underdog players ranked 101-300 in ATP/WTA singles tournaments.
+for underdog players ranked 50-300 in ATP/WTA singles tournaments.
 
 Key Features:
 - Specialized models for second set prediction
-- Focus on underdog players (ranks 101-300)
+- Focus on underdog players (ranks 50-300)
 - Integration with comprehensive data collection
 - Production-ready model training and evaluation
 - Robust error handling and fallback mechanisms
@@ -54,7 +54,7 @@ except ImportError:
 # Local imports
 from comprehensive_ml_data_collector import ComprehensiveMLDataCollector
 from second_set_feature_engineering import SecondSetFeatureEngineer
-from ranks_101_300_feature_engineering import Ranks101to300FeatureEngineer
+from ranks_50_300_feature_engineering import Ranks50to300FeatureEngineer
 from enhanced_ml_training_system import (
     EnhancedCrossValidation, AdvancedMetricsEvaluator, 
     BasicHyperparameterTuner, FeatureSelector

@@ -174,9 +174,14 @@ class APITennisMLIntegration:
             logger.error(f"Error converting match to ML format: {e}")
             return {}
     
-    def generate_predictions_for_matches(self, matches: List[TennisMatch]) -> List[Dict[str, Any]]:
+    def generate_predictions_for_matches(self, matches: List[TennisMatch], enhance_rankings: bool = True) -> List[Dict[str, Any]]:
         """Generate ML predictions for a list of matches"""
         predictions = []
+        
+        # Enhance matches with ranking data if requested
+        if enhance_rankings and hasattr(self.api_client, 'enhance_matches_with_rankings'):
+            logger.info("Enhancing matches with ranking data for better predictions")
+            matches = self.api_client.enhance_matches_with_rankings(matches)
         
         for match in matches:
             try:
@@ -185,6 +190,12 @@ class APITennisMLIntegration:
                 
                 if not ml_data:
                     continue
+                
+                # Log ranking data availability
+                p1_rank = ml_data.get('player1', {}).get('ranking')
+                p2_rank = ml_data.get('player2', {}).get('ranking')
+                if p1_rank and p2_rank:
+                    logger.debug(f"Match with rankings: {ml_data['player1']['name']} (#{p1_rank}) vs {ml_data['player2']['name']} (#{p2_rank})")
                 
                 # Generate prediction using available ML components
                 prediction_result = self._generate_single_prediction(ml_data)

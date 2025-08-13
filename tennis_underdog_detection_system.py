@@ -7,7 +7,7 @@ as specified in CLAUDE.md requirements:
 
 1. ✅ Identifies strong underdogs likely to win SECOND set
 2. ✅ Only ATP and WTA singles tournaments  
-3. ✅ Focuses ONLY on ranks 101-300
+3. ✅ Focuses ONLY on ranks 50-300
 4. ✅ Uses ML models to improve prediction accuracy for SECOND SET wins
 5. ✅ Integrates data from The Odds API (500 requests/month limit)
 6. ✅ Integrates data from Tennis Explorer (5 requests/day limit)  
@@ -51,7 +51,7 @@ class TennisUnderdogDetectionSystem:
         self.system_info = {
             'name': 'Tennis Underdog Detection System',
             'version': '1.0.0',
-            'target': 'Second set underdog predictions for ATP/WTA ranks 101-300',
+            'target': 'Second set underdog predictions for ATP/WTA ranks 50-300',
             'initialized_at': datetime.now().isoformat()
         }
         
@@ -232,18 +232,18 @@ class TennisUnderdogDetectionSystem:
         return validation
     
     def _validate_ranks_focus(self) -> Dict[str, Any]:
-        """Validate requirement 3: Focus on ranks 101-300"""
+        """Validate requirement 3: Focus on ranks 50-300"""
         
         validation = {
-            'requirement': 'Focus ONLY on ranks 101-300',
+            'requirement': 'Focus ONLY on ranks 50-300',
             'passed': False,
             'details': []
         }
         
         try:
-            # Check if ranks 101-300 feature engineering exists
-            ranks_features_exist = os.path.exists('ranks_101_300_feature_engineering.py')
-            validation['details'].append(f"Ranks 101-300 feature engineering: {'✅' if ranks_features_exist else '❌'}")
+            # Check if ranks 50-300 feature engineering exists
+            ranks_features_exist = os.path.exists('ranks_50_300_feature_engineering.py')
+            validation['details'].append(f"Ranks 50-300 feature engineering: {'✅' if ranks_features_exist else '❌'}")
             
             # Check for rank filtering in data collector
             data_collector = self.prediction_service.data_collector
@@ -263,15 +263,15 @@ class TennisUnderdogDetectionSystem:
                 'player2': 'Player 2'
             }
             
-            in_range_accepted = data_collector._has_player_in_ranks_101_300(test_match_in_range)
-            out_range_rejected = not data_collector._has_player_in_ranks_101_300(test_match_out_range)
+            in_range_accepted = data_collector._has_player_in_ranks_50_300(test_match_in_range)
+            out_range_rejected = not data_collector._has_player_in_ranks_50_300(test_match_out_range)
             
-            validation['details'].append(f"Ranks 101-300 detection: {'✅' if in_range_accepted else '❌'}")
+            validation['details'].append(f"Ranks 50-300 detection: {'✅' if in_range_accepted else '❌'}")
             validation['details'].append(f"Out-of-range rejection: {'✅' if out_range_rejected else '❌'}")
             
             # Check for rank-specific features
-            from ranks_101_300_feature_engineering import Ranks101to300FeatureEngineer
-            rank_engineer = Ranks101to300FeatureEngineer()
+            from ranks_50_300_feature_engineering import Ranks50to300FeatureEngineer
+            rank_engineer = Ranks50to300FeatureEngineer()
             has_rank_specific_features = hasattr(rank_engineer, 'create_complete_feature_set')
             
             validation['details'].append(f"Rank-specific features: {'✅' if has_rank_specific_features else '❌'}")
@@ -432,7 +432,7 @@ class TennisUnderdogDetectionSystem:
         logger.info("🎯 SYSTEM CAPABILITIES:")
         logger.info("  ✅ Second set underdog prediction with ML models")
         logger.info("  ✅ ATP/WTA singles tournament filtering")
-        logger.info("  ✅ Focus on players ranked 101-300")
+        logger.info("  ✅ Focus on players ranked 50-300")
         logger.info("  ✅ Multi-API data integration with rate limiting")
         logger.info("  ✅ Comprehensive feature engineering")
         logger.info("  ✅ Production-ready logging and monitoring")
@@ -571,7 +571,7 @@ class TennisUnderdogDetectionSystem:
             'capabilities_summary': [
                 'Second set underdog prediction with machine learning',
                 'ATP/WTA singles tournament focus',
-                'Ranks 101-300 player targeting', 
+                'Ranks 50-300 player targeting', 
                 'Multi-API data integration (Odds API, Tennis Explorer, RapidAPI)',
                 'Rate-limited API usage respecting limits',
                 'Comprehensive feature engineering',
@@ -611,7 +611,7 @@ def main():
     print("This system implements ALL requirements from CLAUDE.md:")
     print("1. ✅ Identify strong underdogs likely to win SECOND set")
     print("2. ✅ Only ATP and WTA singles tournaments")
-    print("3. ✅ Focus ONLY on ranks 101-300") 
+    print("3. ✅ Focus ONLY on ranks 50-300") 
     print("4. ✅ Use ML models to improve second set prediction accuracy")
     print("5. ✅ Collect data from The Odds API (500/month limit)")
     print("6. ✅ Collect data from Tennis Explorer (5/day limit)")
@@ -669,7 +669,7 @@ def main():
         
         if system.system_ready:
             print("\n🚀 The Tennis Underdog Detection System is now operational!")
-            print("🎾 Ready to identify second set underdog opportunities for ATP/WTA players ranked 101-300")
+            print("🎾 Ready to identify second set underdog opportunities for ATP/WTA players ranked 50-300")
         else:
             print("\n⚠️ System requires additional setup or data before full operation")
     

@@ -6,7 +6,7 @@ This module implements a comprehensive data collection system that:
 1. Integrates data from The Odds API, Tennis Explorer, and RapidAPI Tennis API
 2. Respects rate limits: 500/month (Odds API), 5/day (Tennis Explorer), 50/day (RapidAPI)  
 3. Filters for ATP/WTA singles tournaments only
-4. Focuses on players ranked 101-300 for underdog detection
+4. Focuses on players ranked 50-300 for underdog detection
 5. Collects data specifically for second set prediction models
 
 Author: Claude Code (Anthropic)
@@ -24,7 +24,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # Import existing modules
 from enhanced_universal_collector import EnhancedUniversalCollector
 from second_set_feature_engineering import SecondSetFeatureEngineer
-from ranks_101_300_feature_engineering import Ranks101to300FeatureEngineer, Ranks101to300DataValidator
+from ranks_50_300_feature_engineering import Ranks50to300FeatureEngineer, Ranks50to300DataValidator
 
 # Security imports for tournament filtering (CLAUDE.md requirement #3)
 from secure_tournament_filter import SecureTournamentFilter, SecurityLevel
@@ -139,8 +139,8 @@ class ComprehensiveMLDataCollector:
     def __init__(self):
         self.rate_limit_manager = RateLimitManager()
         self.feature_engineer_second_set = SecondSetFeatureEngineer()
-        self.feature_engineer_ranks = Ranks101to300FeatureEngineer()
-        self.data_validator = Ranks101to300DataValidator()
+        self.feature_engineer_ranks = Ranks50to300FeatureEngineer()
+        self.data_validator = Ranks50to300DataValidator()
         
         # Security: Initialize secure tournament filtering (CLAUDE.md requirement #3)
         # Only best-of-3 sets format tournaments (excludes Grand Slams)
@@ -259,8 +259,8 @@ class ComprehensiveMLDataCollector:
             'failed_phases': failed_phases,
             'api_usage_after': self.rate_limit_manager.get_usage_summary(),
             'total_matches_collected': len(self.collected_data['matches']),
-            'ranks_101_300_matches': len([m for m in self.collected_data['matches'] 
-                                        if self._is_ranks_101_300_match(m)])
+            'ranks_50_300_matches': len([m for m in self.collected_data['matches'] 
+                                        if self._is_ranks_50_300_match(m)])
         })
         
         logger.info(f"🎯 Data collection completed: {len(self.collected_data['matches'])} total matches")
@@ -370,27 +370,27 @@ class ComprehensiveMLDataCollector:
             # Get ATP rankings
             atp_rankings = self.rapidapi_client.get_atp_rankings()
             if atp_rankings:
-                # Filter for ranks 101-300
-                atp_101_300 = [
+                # Filter for ranks 50-300
+                atp_50_300 = [
                     player for player in atp_rankings 
-                    if 101 <= player.get('ranking', 0) <= 300
+                    if 50 <= player.get('ranking', 0) <= 300
                 ]
-                rankings_data['atp_rankings_101_300'] = atp_101_300
+                rankings_data['atp_rankings_50_300'] = atp_50_300
             
             # Get WTA rankings
             wta_rankings = self.rapidapi_client.get_wta_rankings()  
             if wta_rankings:
-                # Filter for ranks 101-300
-                wta_101_300 = [
+                # Filter for ranks 50-300
+                wta_50_300 = [
                     player for player in wta_rankings
-                    if 101 <= player.get('ranking', 0) <= 300
+                    if 50 <= player.get('ranking', 0) <= 300
                 ]
-                rankings_data['wta_rankings_101_300'] = wta_101_300
+                rankings_data['wta_rankings_50_300'] = wta_50_300
             
             self.rate_limit_manager.record_request('rapidapi_tennis')
             
-            total_players = len(rankings_data.get('atp_rankings_101_300', [])) + len(rankings_data.get('wta_rankings_101_300', []))
-            logger.info(f"📊 RapidAPI rankings: {total_players} players in ranks 101-300")
+            total_players = len(rankings_data.get('atp_rankings_50_300', [])) + len(rankings_data.get('wta_rankings_50_300', []))
+            logger.info(f"📊 RapidAPI rankings: {total_players} players in ranks 50-300")
             
             return rankings_data
             
@@ -502,7 +502,7 @@ class ComprehensiveMLDataCollector:
         professional_matches = []
         for match in filtered_matches:
             # Additional professional tournament validation (defense in depth)
-            if self._is_professional_tournament_match(match) and self._has_player_in_ranks_101_300(match):
+            if self._is_professional_tournament_match(match) and self._has_player_in_ranks_50_300(match):
                 # Double-check with secure validator
                 if self.secure_tournament_validator(match):
                     professional_matches.append(match)
@@ -585,22 +585,22 @@ class ComprehensiveMLDataCollector:
         
         return True
     
-    def _has_player_in_ranks_101_300(self, match: Dict) -> bool:
-        """Check if at least one player is ranked 101-300"""
+    def _has_player_in_ranks_50_300(self, match: Dict) -> bool:
+        """Check if at least one player is ranked 50-300"""
         player1_rank = self._extract_player_rank(match, 'player1')
         player2_rank = self._extract_player_rank(match, 'player2')
         
         # Check if either player is in target range
-        if player1_rank and 101 <= player1_rank <= 300:
+        if player1_rank and 50 <= player1_rank <= 300:
             return True
-        if player2_rank and 101 <= player2_rank <= 300:
+        if player2_rank and 50 <= player2_rank <= 300:
             return True
         
         return False
     
-    def _is_ranks_101_300_match(self, match: Dict) -> bool:
-        """Check if match involves ranks 101-300 players"""
-        return self._has_player_in_ranks_101_300(match)
+    def _is_ranks_50_300_match(self, match: Dict) -> bool:
+        """Check if match involves ranks 50-300 players"""
+        return self._has_player_in_ranks_50_300(match)
     
     def _extract_player_rank(self, match: Dict, player_key: str) -> Optional[int]:
         """Extract player ranking from match data"""
@@ -714,7 +714,7 @@ class ComprehensiveMLDataCollector:
             validation_result = self.data_validator.validate_match_data(validation_data)
             
             if validation_result['valid']:
-                # Generate comprehensive features for ranks 101-300
+                # Generate comprehensive features for ranks 50-300
                 ml_features = self.feature_engineer_ranks.create_complete_feature_set(
                     match.get('player1', 'Player 1'),
                     match.get('player2', 'Player 2'),
@@ -926,8 +926,8 @@ class ComprehensiveMLDataCollector:
         # Count ML-ready matches
         ml_ready_count = len([m for m in matches if m.get('ml_ready', False)])
         
-        # Count ranks 101-300 matches
-        ranks_101_300_count = len([m for m in matches if self._is_ranks_101_300_match(m)])
+        # Count ranks 50-300 matches
+        ranks_50_300_count = len([m for m in matches if self._is_ranks_50_300_match(m)])
         
         # API usage summary
         api_usage = self.rate_limit_manager.get_usage_summary()
@@ -935,7 +935,7 @@ class ComprehensiveMLDataCollector:
         summary = {
             'total_matches_collected': len(matches),
             'ml_ready_matches': ml_ready_count,
-            'ranks_101_300_matches': ranks_101_300_count,
+            'ranks_50_300_matches': ranks_50_300_count,
             'matches_by_source': source_counts,
             'api_usage_summary': api_usage,
             'collection_metadata': self.collected_data.get('collection_metadata', {}),
@@ -971,7 +971,7 @@ if __name__ == "__main__":
     print(f"\n📈 Collection Results:")
     print(f"  Total matches: {len(collected_data['matches'])}")
     print(f"  ML-ready matches: {len([m for m in collected_data['matches'] if m.get('ml_ready', False)])}")
-    print(f"  Ranks 101-300 matches: {len([m for m in collected_data['matches'] if collector._is_ranks_101_300_match(m)])}")
+    print(f"  Ranks 50-300 matches: {len([m for m in collected_data['matches'] if collector._is_ranks_50_300_match(m)])}")
     
     # Generate ML training dataset
     print("\n🤖 Generating ML training dataset...")
@@ -992,6 +992,6 @@ if __name__ == "__main__":
     summary = collector.get_collection_summary()
     print(f"  Total matches: {summary['total_matches_collected']}")
     print(f"  ML-ready: {summary['ml_ready_matches']}")
-    print(f"  Target ranks (101-300): {summary['ranks_101_300_matches']}")
+    print(f"  Target ranks (50-300): {summary['ranks_50_300_matches']}")
     
     print("\n✅ Comprehensive ML data collection completed!")

@@ -57,7 +57,12 @@ class MLTrainingMonitor:
         """Initialize monitoring database"""
         self.data_dir.mkdir(exist_ok=True)
         
-        with sqlite3.connect(self.monitor_db) as conn:
+        with sqlite3.connect(self.monitor_db, check_same_thread=False, timeout=30.0) as conn:
+            # Enable WAL mode for better concurrency
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")
+            conn.execute("PRAGMA temp_store=memory")
+            conn.execute("PRAGMA mmap_size=268435456")
             # Training sessions table
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS training_sessions (
@@ -187,7 +192,7 @@ class MLTrainingMonitor:
                 )
             """)
             
-            # Create indexes
+            # Create indexes (individual execute calls for thread safety)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_session_id ON training_sessions(session_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_model_performance ON model_performance(session_id, model_name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_training_progress ON training_progress(session_id, stage)")
@@ -206,7 +211,7 @@ class MLTrainingMonitor:
         """
         session_id = f"train_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
-        with sqlite3.connect(self.monitor_db) as conn:
+        with sqlite3.connect(self.monitor_db, check_same_thread=False, timeout=30.0) as conn:
             conn.execute("""
                 INSERT INTO training_sessions (
                     session_id, status, models_trained, hyperparameter_tuning,
@@ -228,7 +233,7 @@ class MLTrainingMonitor:
                             status: str, progress: int = 0, 
                             message: str = "", details: Dict = None):
         """Log training progress for a specific stage"""
-        with sqlite3.connect(self.monitor_db) as conn:
+        with sqlite3.connect(self.monitor_db, check_same_thread=False, timeout=30.0) as conn:
             conn.execute("""
                 INSERT INTO training_progress (
                     session_id, stage, status, progress_percentage, message, details
@@ -244,7 +249,7 @@ class MLTrainingMonitor:
     def log_model_performance(self, session_id: str, model_name: str, 
                             performance_metrics: Dict, training_details: Dict = None):
         """Log detailed model performance metrics"""
-        with sqlite3.connect(self.monitor_db) as conn:
+        with sqlite3.connect(self.monitor_db, check_same_thread=False, timeout=30.0) as conn:
             conn.execute("""
                 INSERT INTO model_performance (
                     session_id, model_name, accuracy, precision, recall, f1_score, auc_roc,
@@ -296,7 +301,7 @@ class MLTrainingMonitor:
     
     def _log_alert(self, alert: Dict):
         """Log a performance alert"""
-        with sqlite3.connect(self.monitor_db) as conn:
+        with sqlite3.connect(self.monitor_db, check_same_thread=False, timeout=30.0) as conn:
             conn.execute("""
                 INSERT INTO performance_alerts (
                     alert_type, severity, message, details
@@ -311,7 +316,7 @@ class MLTrainingMonitor:
     
     def log_data_quality(self, data_quality_metrics: Dict, data_source: str = "training"):
         """Log data quality metrics"""
-        with sqlite3.connect(self.monitor_db) as conn:
+        with sqlite3.connect(self.monitor_db, check_same_thread=False, timeout=30.0) as conn:
             conn.execute("""
                 INSERT INTO data_quality_log (
                     data_source, total_samples, complete_samples, missing_data_percentage,
@@ -347,7 +352,7 @@ class MLTrainingMonitor:
         """Mark training session as completed and log final results"""
         duration_minutes = final_results.get('training_duration_minutes', 0)
         
-        with sqlite3.connect(self.monitor_db) as conn:
+        with sqlite3.connect(self.monitor_db, check_same_thread=False, timeout=30.0) as conn:
             conn.execute("""
                 UPDATE training_sessions SET 
                     end_time = CURRENT_TIMESTAMP,
@@ -384,7 +389,7 @@ class MLTrainingMonitor:
     
     def get_training_summary(self, session_id: Optional[str] = None) -> Dict:
         """Get comprehensive training summary"""
-        with sqlite3.connect(self.monitor_db) as conn:
+        with sqlite3.connect(self.monitor_db, check_same_thread=False, timeout=30.0) as conn:
             if session_id:
                 # Specific session summary
                 session_query = "SELECT * FROM training_sessions WHERE session_id = ?"
@@ -448,7 +453,7 @@ class MLTrainingMonitor:
     
     def get_model_performance_comparison(self, days_back: int = 30) -> Dict:
         """Compare model performance over time"""
-        with sqlite3.connect(self.monitor_db) as conn:
+        with sqlite3.connect(self.monitor_db, check_same_thread=False, timeout=30.0) as conn:
             query = f"""
                 SELECT 
                     model_name,

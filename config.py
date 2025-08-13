@@ -162,6 +162,21 @@ TENNIS_SURFACES = ['Hard', 'Clay', 'Grass', 'Carpet']
 TOURNAMENT_CATEGORIES = ['ATP Masters 1000', 'ATP 500', 'ATP 250', 'WTA 1000', 'WTA 500', 'WTA 250']
 BET_TYPES = ['Match Winner', 'Set Betting', 'Handicap', 'Total Games', 'Over/Under']
 
+# Tennis ranking configuration
+RANKING_RANGE = {
+    'MIN_RANK': 50,
+    'MAX_RANK': 300,
+    'TIER_SIZE': 250,  # 300 - 50
+    'MILESTONES': {
+        'top_50_threshold': 50,
+        'top_100_threshold': 100,
+        'relegation_risk': 280,
+        'mid_tier': 175,
+        'upper_tier': 100,
+        'promotion_zone': 125
+    }
+}
+
 # ML Model configurations
 ML_MODELS = {
     'random_forest': {'file': 'random_forest.pkl', 'type': 'sklearn'},

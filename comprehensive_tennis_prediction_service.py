@@ -5,7 +5,7 @@
 Production-ready prediction service that integrates:
 - Data collection from all APIs (Odds API, Tennis Explorer, RapidAPI)
 - ML models trained specifically for second set underdog prediction
-- Focus on ATP/WTA players ranked 101-300
+- Focus on ATP/WTA players ranked 50-300
 - Real-time prediction with comprehensive logging and monitoring
 
 This service provides the complete ML system for tennis underdog detection
@@ -29,7 +29,7 @@ from comprehensive_ml_data_collector import ComprehensiveMLDataCollector
 from second_set_underdog_ml_system import SecondSetUnderdogMLTrainer, SecondSetUnderdogDataPreprocessor
 from second_set_prediction_service import SecondSetPredictionService
 from second_set_feature_engineering import SecondSetFeatureEngineer
-from ranks_101_300_feature_engineering import Ranks101to300FeatureEngineer, Ranks101to300DataValidator
+from ranks_50_300_feature_engineering import Ranks50to300FeatureEngineer, Ranks50to300DataValidator
 from telegram_notification_system import get_telegram_system
 
 warnings.filterwarnings('ignore')
@@ -132,7 +132,7 @@ class ComprehensiveTennisPredictionService:
     
     This is the production-ready service that fulfills the CLAUDE.md requirements:
     - Identifies strong underdogs likely to win the SECOND set
-    - Focuses on ATP/WTA singles, ranks 101-300
+    - Focuses on ATP/WTA singles, ranks 50-300
     - Uses ML models with data from all three APIs
     - Provides comprehensive logging and monitoring
     """
@@ -147,8 +147,8 @@ class ComprehensiveTennisPredictionService:
         # Initialize core components
         self.data_collector = ComprehensiveMLDataCollector()
         self.feature_engineer_second_set = SecondSetFeatureEngineer()
-        self.feature_engineer_ranks = Ranks101to300FeatureEngineer()
-        self.data_validator = Ranks101to300DataValidator()
+        self.feature_engineer_ranks = Ranks50to300FeatureEngineer()
+        self.data_validator = Ranks50to300DataValidator()
         
         # ML components
         self.ml_trainer = None
@@ -505,9 +505,9 @@ class ComprehensiveTennisPredictionService:
             validation_result['errors'].append("Match is not ATP/WTA singles")
             validation_result['valid'] = False
         
-        # Check for ranks 101-300
+        # Check for ranks 50-300
         if not self._has_player_in_target_ranks(match_data):
-            validation_result['warnings'].append("No player found in ranks 101-300")
+            validation_result['warnings'].append("No player found in ranks 50-300")
         
         # Use data validator for comprehensive validation
         try:
@@ -548,12 +548,12 @@ class ComprehensiveTennisPredictionService:
         return True
     
     def _has_player_in_target_ranks(self, match_data: Dict) -> bool:
-        """Check if at least one player is in ranks 101-300"""
+        """Check if at least one player is in ranks 50-300"""
         
         player1_rank = match_data.get('player1_ranking') or self._estimate_player_rank(match_data.get('player1', ''))
         player2_rank = match_data.get('player2_ranking') or self._estimate_player_rank(match_data.get('player2', ''))
         
-        return (101 <= player1_rank <= 300) or (101 <= player2_rank <= 300)
+        return (50 <= player1_rank <= 300) or (50 <= player2_rank <= 300)
     
     def _extract_player_data(self, match_data: Dict, player_key: str) -> Dict:
         """Extract player data for validation"""

@@ -436,44 +436,55 @@ class APITennisClient:
         
         return self._make_request('get_H2H', params)
     
-    def get_standings(self, league_id: int) -> List[Dict[str, Any]]:
+    def get_standings(self, event_type: str = 'ATP') -> List[Dict[str, Any]]:
         """
-        Get tournament standings/rankings
+        Get tournament standings/rankings - CORRECTED according to API documentation
         
         Args:
-            league_id: Tournament/league ID
+            event_type: 'ATP' or 'WTA' (correct parameter according to docs)
             
         Returns:
-            List of player standings
+            List of player standings with rankings
         """
-        params = {'league_id': league_id}
-        return self._make_request('get_standings', params)
+        params = {'event_type': event_type}
+        data = self._make_request('get_standings', params)
+        
+        # Handle the response format
+        if isinstance(data, dict) and data.get('success') == 1:
+            return data.get('result', [])
+        return data if isinstance(data, list) else []
     
-    def get_players(self, league_id: int = None) -> List[TennisPlayer]:
+    def get_players(self, player_key: int = None) -> List[TennisPlayer]:
         """
-        Get players list
+        Get players list - CORRECTED according to API documentation
         
         Args:
-            league_id: Optional tournament ID filter
+            player_key: Optional specific player key to get details for
             
         Returns:
-            List of TennisPlayer objects
+            List of TennisPlayer objects with ranking data
         """
         params = {}
-        if league_id:
-            params['league_id'] = league_id
+        if player_key:
+            params['player_key'] = player_key
         
-        data = self._make_request('get_teams', params)
+        data = self._make_request('get_players', params)
         
         players = []
-        if isinstance(data, list):
+        # Handle the response format
+        if isinstance(data, dict) and data.get('success') == 1:
+            result = data.get('result', [])
+            if isinstance(result, list):
+                for player_data in result:
+                    player = self._parse_player_data(player_data)
+                    if player:
+                        players.append(player)
+        elif isinstance(data, list):
+            # Fallback for direct list response
             for player_data in data:
-                player = TennisPlayer(
-                    id=player_data.get('id'),
-                    name=player_data.get('name', ''),
-                    country=player_data.get('country', '')
-                )
-                players.append(player)
+                player = self._parse_player_data(player_data)
+                if player:
+                    players.append(player)
         
         logger.info(f"Retrieved {len(players)} players")
         return players
@@ -518,6 +529,46 @@ class APITennisClient:
             params['fixture_id'] = fixture_id
         
         return self._make_request('get_liveodds', params)
+    
+    def _parse_player_data(self, player_data: Dict[str, Any]) -> Optional[TennisPlayer]:
+        """Parse API player data into TennisPlayer object with ranking"""
+        try:
+            # Extract basic player information
+            player = TennisPlayer(
+                id=player_data.get('player_key'),
+                name=player_data.get('player_name', ''),
+                country=player_data.get('player_country', '')
+            )
+            
+            # Extract ranking from stats
+            stats = player_data.get('stats', [])
+            if stats:
+                # Look for the most recent singles ranking
+                current_year = str(datetime.now().year)
+                rankings = []
+                
+                for stat in stats:
+                    if stat.get('type', '').lower() == 'singles':
+                        rank = stat.get('rank')
+                        season = stat.get('season', '')
+                        
+                        if rank and rank.isdigit():
+                            rankings.append({
+                                'rank': int(rank),
+                                'season': season,
+                                'year_priority': 1 if season == current_year else 0
+                            })
+                
+                if rankings:
+                    # Sort by year priority (current year first), then by rank
+                    rankings.sort(key=lambda x: (x['year_priority'], x['rank']), reverse=True)
+                    player.ranking = rankings[0]['rank']
+            
+            return player
+            
+        except Exception as e:
+            logger.warning(f"Failed to parse player data: {e}")
+            return None
     
     def _parse_match_data(self, match_data: Dict[str, Any]) -> Optional[TennisMatch]:
         """Parse API match data into TennisMatch object"""
@@ -641,6 +692,98 @@ class APITennisClient:
         """Get today's matches"""
         today = datetime.now().strftime('%Y-%m-%d')
         return self.get_fixtures(date_start=today, date_stop=today)
+    
+    def get_ranking_mapping(self, event_types: List[str] = ['ATP', 'WTA']) -> Dict[int, int]:
+        """
+        Create a mapping of player_key -> current_ranking from standings
+        
+        Args:
+            event_types: List of event types to get rankings for
+            
+        Returns:
+            Dictionary mapping player keys to rankings
+        """
+        ranking_map = {}
+        
+        for event_type in event_types:
+            try:
+                standings = self.get_standings(event_type)
+                
+                for player in standings:
+                    player_key = player.get('player_key')
+                    place = player.get('place')
+                    
+                    if player_key and place:
+                        try:
+                            ranking_map[int(player_key)] = int(place)
+                        except (ValueError, TypeError):
+                            continue
+                            
+                logger.info(f"Added {len(standings)} {event_type} rankings to mapping")
+                
+            except Exception as e:
+                logger.error(f"Error getting rankings for {event_type}: {e}")
+        
+        logger.info(f"Total ranking mapping: {len(ranking_map)} players")
+        return ranking_map
+    
+    def enhance_matches_with_rankings(self, matches: List[TennisMatch]) -> List[TennisMatch]:
+        """
+        Enhance matches with player rankings
+        
+        Args:
+            matches: List of TennisMatch objects
+            
+        Returns:
+            List of enhanced matches with ranking data
+        """
+        if not matches:
+            return matches
+        
+        logger.info(f"Enhancing {len(matches)} matches with ranking data")
+        
+        # Get rankings mapping once for all matches
+        rankings = self.get_ranking_mapping()
+        
+        enhanced_matches = []
+        for match in matches:
+            try:
+                # Enhance player 1
+                if match.player1 and match.player1.id and match.player1.id in rankings:
+                    match.player1.ranking = rankings[match.player1.id]
+                
+                # Enhance player 2
+                if match.player2 and match.player2.id and match.player2.id in rankings:
+                    match.player2.ranking = rankings[match.player2.id]
+                
+                enhanced_matches.append(match)
+                
+            except Exception as e:
+                logger.error(f"Error enhancing match {match.id}: {e}")
+                enhanced_matches.append(match)  # Add original match on error
+        
+        # Count how many matches have rankings
+        ranked_count = sum(1 for m in enhanced_matches 
+                          if (m.player1 and m.player1.ranking) or (m.player2 and m.player2.ranking))
+        
+        logger.info(f"Enhanced {ranked_count}/{len(enhanced_matches)} matches with ranking data")
+        return enhanced_matches
+    
+    def get_fixtures_with_rankings(self, 
+                                 date_start: str = None,
+                                 date_stop: str = None,
+                                 **kwargs) -> List[TennisMatch]:
+        """
+        Get fixtures enhanced with ranking data
+        
+        Returns:
+            List of matches with ranking information
+        """
+        # Get basic fixtures
+        matches = self.get_fixtures(date_start=date_start, date_stop=date_stop, **kwargs)
+        
+        # Enhance with rankings
+        return self.enhance_matches_with_rankings(matches)
     
     def get_upcoming_matches(self, days_ahead: int = 7) -> List[TennisMatch]:
         """

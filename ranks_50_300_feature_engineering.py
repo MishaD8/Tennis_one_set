@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-🎯 RANK-SPECIFIC FEATURE ENGINEERING FOR RANKS 101-300
+🎯 RANK-SPECIFIC FEATURE ENGINEERING FOR RANKS 50-300
 Specialized feature engineering system for second set underdog predictions
-focusing exclusively on players ranked 101-300.
+focusing exclusively on players ranked 50-300.
 
 Strategic Focus:
-- Career trajectory analysis within 101-300 tier
+- Career trajectory analysis within 50-300 tier
 - Tournament level adaptation features
 - Rank gap psychology and pressure factors
 - Second set comeback patterns specific to this tier
@@ -22,24 +22,26 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class Ranks101to300FeatureEngineer:
+class Ranks50to300FeatureEngineer:
     """
-    Specialized feature engineering for ranks 101-300 second set predictions
+    Specialized feature engineering for ranks 50-300 second set predictions
     
     This class creates features specifically designed for the psychological,
-    competitive, and strategic dynamics of players ranked 101-300.
+    competitive, and strategic dynamics of players ranked 50-300.
     """
     
     def __init__(self):
-        self.rank_range = (101, 300)
-        self.tier_size = 199  # 300 - 101
+        self.rank_range = (50, 300)
+        self.tier_size = 250  # 300 - 50
         
         # Key milestone ranks
         self.milestones = {
+            'top_50_threshold': 50,
             'top_100_threshold': 100,
             'relegation_risk': 280,
-            'mid_tier': 200,
-            'promotion_zone': 150
+            'mid_tier': 175,
+            'upper_tier': 100,
+            'promotion_zone': 125
         }
         
         # Career stage definitions
@@ -54,7 +56,7 @@ class Ranks101to300FeatureEngineer:
                                    player1_data: Dict, player2_data: Dict,
                                    match_context: Dict, first_set_data: Dict) -> Dict:
         """
-        Create complete feature set for ranks 101-300 second set prediction
+        Create complete feature set for ranks 50-300 second set prediction
         
         Args:
             player1_name: Name of player 1
@@ -65,14 +67,14 @@ class Ranks101to300FeatureEngineer:
             first_set_data: First set outcome and statistics
             
         Returns:
-            Dict: Complete feature set optimized for ranks 101-300
+            Dict: Complete feature set optimized for ranks 50-300
         """
         
         features = {}
         
         # Validate players are in target rank range
         if not self._validate_rank_range(player1_data, player2_data):
-            raise ValueError("Players must be in ranks 101-300 range")
+            raise ValueError("Players must be in ranks 50-300 range")
         
         # 1. Core rank position features
         features.update(self._create_rank_position_features(player1_data, player2_data))
@@ -107,7 +109,7 @@ class Ranks101to300FeatureEngineer:
         return features
     
     def _validate_rank_range(self, player1_data: Dict, player2_data: Dict) -> bool:
-        """Validate both players are in 101-300 rank range"""
+        """Validate both players are in 50-300 rank range"""
         p1_rank = player1_data.get('rank', 999)
         p2_rank = player2_data.get('rank', 999)
         
@@ -115,17 +117,19 @@ class Ranks101to300FeatureEngineer:
                 self.rank_range[0] <= p2_rank <= self.rank_range[1])
     
     def _create_rank_position_features(self, player1_data: Dict, player2_data: Dict) -> Dict:
-        """Create features based on rank positions within 101-300 tier"""
+        """Create features based on rank positions within 50-300 tier"""
         features = {}
         
-        p1_rank = player1_data.get('rank', 200)
-        p2_rank = player2_data.get('rank', 200)
+        p1_rank = player1_data.get('rank', 175)
+        p2_rank = player2_data.get('rank', 175)
         
-        # Tier position (0 to 1, where 0 = rank 101, 1 = rank 300)
-        features['player1_tier_position'] = (p1_rank - 101) / self.tier_size
-        features['player2_tier_position'] = (p2_rank - 101) / self.tier_size
+        # Tier position (0 to 1, where 0 = rank 50, 1 = rank 300)
+        features['player1_tier_position'] = (p1_rank - 50) / self.tier_size
+        features['player2_tier_position'] = (p2_rank - 50) / self.tier_size
         
         # Distance from key milestones
+        features['player1_distance_from_50'] = max(0, p1_rank - 50) / 250
+        features['player2_distance_from_50'] = max(0, p2_rank - 50) / 250
         features['player1_distance_from_100'] = max(0, p1_rank - 100) / 200
         features['player2_distance_from_100'] = max(0, p2_rank - 100) / 200
         
@@ -133,9 +137,13 @@ class Ranks101to300FeatureEngineer:
         features['player1_relegation_risk'] = max(0, (p1_rank - 250) / 50)
         features['player2_relegation_risk'] = max(0, (p2_rank - 250) / 50)
         
-        # Promotion opportunity (closer to top 100)
-        features['player1_promotion_opportunity'] = max(0, (150 - p1_rank) / 50)
-        features['player2_promotion_opportunity'] = max(0, (150 - p2_rank) / 50)
+        # Promotion opportunity (closer to top 50)
+        features['player1_top_50_opportunity'] = max(0, (75 - p1_rank) / 25)
+        features['player2_top_50_opportunity'] = max(0, (75 - p2_rank) / 25)
+        
+        # Top 100 opportunity
+        features['player1_top_100_opportunity'] = max(0, (125 - p1_rank) / 75)
+        features['player2_top_100_opportunity'] = max(0, (125 - p2_rank) / 75)
         
         # Ranking gap analysis
         rank_gap = abs(p1_rank - p2_rank)
@@ -171,13 +179,13 @@ class Ranks101to300FeatureEngineer:
         return features
     
     def _create_career_trajectory_features(self, player1_data: Dict, player2_data: Dict) -> Dict:
-        """Create career trajectory features specific to 101-300 tier"""
+        """Create career trajectory features specific to 50-300 tier"""
         features = {}
         
         for i, player_data in enumerate([player1_data, player2_data], 1):
             prefix = f'player{i}'
             
-            current_rank = player_data.get('rank', 200)
+            current_rank = player_data.get('rank', 175)
             age = player_data.get('age', 25)
             
             # Rank changes over different periods
@@ -198,7 +206,9 @@ class Ranks101to300FeatureEngineer:
             # Career high context
             career_high = player_data.get('career_high_rank', 300)
             features[f'{prefix}_career_high_gap'] = current_rank - career_high
-            features[f'{prefix}_comeback_attempt'] = 1 if (career_high < 100 and current_rank > 150) else 0
+            features[f'{prefix}_comeback_attempt'] = 1 if (career_high < 50 and current_rank > 100) else 0
+            features[f'{prefix}_former_top_50'] = 1 if career_high <= 50 else 0
+            features[f'{prefix}_former_top_100'] = 1 if career_high <= 100 else 0
             features[f'{prefix}_first_time_in_tier'] = 1 if (career_high > current_rank and age < 24) else 0
             
             # Momentum indicators
@@ -217,7 +227,7 @@ class Ranks101to300FeatureEngineer:
     
     def _create_tournament_context_features(self, match_context: Dict, 
                                            player1_data: Dict, player2_data: Dict) -> Dict:
-        """Create tournament context features for 101-300 players"""
+        """Create tournament context features for 50-300 players"""
         features = {}
         
         tournament_level = match_context.get('tournament_level', 'ATP_250')
@@ -234,17 +244,17 @@ class Ranks101to300FeatureEngineer:
             features[f'{prefix}_challenger_dominance'] = player_data.get('challenger_win_rate', 0.5) - 0.5
             
             # Tournament level adaptation
-            current_rank = player_data.get('rank', 200)
+            current_rank = player_data.get('rank', 175)
             
             if tournament_level in ['ATP_500', 'ATP_250']:
-                # Many 101-300 players are "playing up"
-                features[f'{prefix}_playing_up_level'] = 1
-                features[f'{prefix}_big_stage_pressure'] = min(1.0, (300 - current_rank) / 200)
+                # Many 50-300 players have varying comfort levels at ATP events
+                features[f'{prefix}_playing_up_level'] = 1 if current_rank > 100 else 0
+                features[f'{prefix}_big_stage_pressure'] = min(1.0, (300 - current_rank) / 250)
                 features[f'{prefix}_atp_comfort'] = features[f'{prefix}_atp_experience']
             else:
-                # Challenger level - comfort zone
+                # Challenger level - comfort zone for lower ranked players
                 features[f'{prefix}_playing_up_level'] = 0
-                features[f'{prefix}_comfort_level'] = 1
+                features[f'{prefix}_comfort_level'] = 1 if current_rank > 150 else 0.5
                 features[f'{prefix}_challenger_advantage'] = features[f'{prefix}_challenger_dominance']
             
             # Qualifying experience
@@ -259,16 +269,17 @@ class Ranks101to300FeatureEngineer:
         features['tournament_importance'] = match_context.get('tournament_importance', 2)
         features['is_challenger_event'] = 1 if tournament_level == 'Challenger' else 0
         features['is_atp_event'] = 1 if tournament_level in ['ATP_250', 'ATP_500'] else 0
+        features['is_masters_event'] = 1 if tournament_level == 'ATP_Masters_1000' else 0
         
         return features
     
     def _create_underdog_dynamics_features(self, player1_data: Dict, player2_data: Dict, 
                                          first_set_data: Dict) -> Dict:
-        """Create underdog/favorite dynamics specific to 101-300 tier"""
+        """Create underdog/favorite dynamics specific to 50-300 tier"""
         features = {}
         
-        p1_rank = player1_data.get('rank', 200)
-        p2_rank = player2_data.get('rank', 200)
+        p1_rank = player1_data.get('rank', 175)
+        p2_rank = player2_data.get('rank', 175)
         
         # Determine underdog
         underdog_player = 1 if p1_rank > p2_rank else 2
@@ -291,7 +302,7 @@ class Ranks101to300FeatureEngineer:
             features['underdog_won_first_set'] = 0
             features['underdog_lost_first_set'] = 1
             features['underdog_nothing_to_lose'] = min(0.2, rank_gap / 120)
-            features['favorite_comfort_zone'] = min(0.15, (300 - favorite_rank) / 200)
+            features['favorite_comfort_zone'] = min(0.15, (300 - favorite_rank) / 250)
         else:
             # Unknown first set result
             features['underdog_won_first_set'] = 0
@@ -313,16 +324,22 @@ class Ranks101to300FeatureEngineer:
             features['heavy_underdog'] = 1
             features['underdog_base_probability'] = 0.18
         
-        # Psychological factors specific to 101-300 tier
+        # Psychological factors specific to 50-300 tier
         underdog_data = player1_data if underdog_player == 1 else player2_data
         favorite_data = player2_data if underdog_player == 1 else player1_data
         
         # Underdog motivation factors
         features['underdog_career_high_motivation'] = 1 if underdog_data.get('career_high_rank', 300) < underdog_rank else 0
-        features['underdog_breakthrough_potential'] = 1 if (underdog_data.get('age', 30) < 25 and underdog_rank > 200) else 0
+        features['underdog_breakthrough_potential'] = 1 if (underdog_data.get('age', 30) < 25 and underdog_rank > 150) else 0
         
-        # Favorite pressure factors
-        features['favorite_ranking_pressure'] = min(0.3, max(0, (favorite_rank - 120) / 80))
+        # Favorite pressure factors - adjusted for expanded range
+        if favorite_rank <= 50:
+            features['favorite_ranking_pressure'] = min(0.2, max(0, (favorite_rank - 30) / 20))
+        elif favorite_rank <= 100:
+            features['favorite_ranking_pressure'] = min(0.3, max(0, (favorite_rank - 75) / 25))
+        else:
+            features['favorite_ranking_pressure'] = min(0.3, max(0, (favorite_rank - 120) / 80))
+        
         features['favorite_expectation_weight'] = min(0.25, rank_gap / 150)
         
         return features
@@ -367,19 +384,21 @@ class Ranks101to300FeatureEngineer:
         # Tiebreak indicator
         features['had_tiebreak'] = 1 if '7-6' in first_set_score or '6-7' in first_set_score else 0
         
-        # Historical second set performance for 101-300 players
+        # Historical second set performance for 50-300 players
         for i, player_data in enumerate([player1_data, player2_data], 1):
             prefix = f'player{i}'
             
             # Second set improvement patterns (estimated from historical data)
             age = player_data.get('age', 25)
-            rank = player_data.get('rank', 200)
+            rank = player_data.get('rank', 175)
             
             # Younger players in this tier often improve in second sets
-            features[f'{prefix}_second_set_improvement'] = max(0, (25 - age) / 10) * 0.1 if rank > 150 else 0
+            features[f'{prefix}_second_set_improvement'] = max(0, (25 - age) / 10) * 0.1 if rank > 100 else 0
             
-            # Comeback ability based on career stage
-            if player_data.get('career_high_rank', 300) < 100:  # Former top 100
+            # Comeback ability based on career stage and ranking tier
+            if player_data.get('career_high_rank', 300) <= 50:  # Former top 50
+                features[f'{prefix}_comeback_ability'] = 0.8
+            elif player_data.get('career_high_rank', 300) <= 100:  # Former top 100
                 features[f'{prefix}_comeback_ability'] = 0.7
             elif age < 24:  # Young and hungry
                 features[f'{prefix}_comeback_ability'] = 0.6
@@ -390,7 +409,7 @@ class Ranks101to300FeatureEngineer:
         winner = first_set_data.get('winner', 'player1')
         loser = 'player2' if winner == 'player1' else 'player1'
         
-        # Momentum often swings in 101-300 tier after close sets
+        # Momentum often swings in 50-300 tier after close sets
         if features['first_set_close']:
             features['momentum_with_loser'] = 0.15  # Loser gains momentum
         else:
@@ -400,17 +419,19 @@ class Ranks101to300FeatureEngineer:
     
     def _create_psychological_features(self, player1_data: Dict, player2_data: Dict, 
                                       match_context: Dict) -> Dict:
-        """Create psychological pressure features for 101-300 players"""
+        """Create psychological pressure features for 50-300 players"""
         features = {}
         
         for i, player_data in enumerate([player1_data, player2_data], 1):
             prefix = f'player{i}'
             
-            rank = player_data.get('rank', 200)
+            rank = player_data.get('rank', 175)
             age = player_data.get('age', 25)
             
-            # Ranking anxiety (specific to 101-300 tier)
-            if 100 < rank <= 120:
+            # Ranking anxiety (specific to 50-300 tier)
+            if 50 < rank <= 75:
+                features[f'{prefix}_top_50_anxiety'] = 0.35  # Pressure to break into top 50
+            elif 100 < rank <= 120:
                 features[f'{prefix}_top_100_anxiety'] = 0.3  # Pressure to break into top 100
             elif 280 <= rank <= 300:
                 features[f'{prefix}_relegation_anxiety'] = 0.25  # Fear of falling out of tier
@@ -418,16 +439,18 @@ class Ranks101to300FeatureEngineer:
                 features[f'{prefix}_ranking_anxiety'] = 0.1
             
             # Career stage pressure
-            if age < 24 and rank > 200:
+            if age < 24 and rank > 150:
                 features[f'{prefix}_breakthrough_pressure'] = 0.2
-            elif age > 30 and rank > 250:
+            elif age > 30 and rank > 200:
                 features[f'{prefix}_career_survival_pressure'] = 0.25
             else:
                 features[f'{prefix}_career_pressure'] = 0.1
             
             # Tournament importance pressure
             tournament_level = match_context.get('tournament_level', 'ATP_250')
-            if tournament_level in ['ATP_500', 'ATP_250'] and rank > 150:
+            if tournament_level in ['ATP_Masters_1000'] and rank > 100:
+                features[f'{prefix}_masters_pressure'] = 0.3
+            elif tournament_level in ['ATP_500', 'ATP_250'] and rank > 150:
                 features[f'{prefix}_big_tournament_pressure'] = 0.2
             else:
                 features[f'{prefix}_tournament_pressure'] = 0.05
@@ -443,7 +466,7 @@ class Ranks101to300FeatureEngineer:
     
     def _create_surface_features(self, match_context: Dict, 
                                 player1_data: Dict, player2_data: Dict) -> Dict:
-        """Create surface-specific features for 101-300 players"""
+        """Create surface-specific features for 50-300 players"""
         features = {}
         
         surface = match_context.get('surface', 'Hard').lower()
@@ -458,7 +481,7 @@ class Ranks101to300FeatureEngineer:
             features[f'{prefix}_surface_advantage'] = surface_wr - overall_wr
             features[f'{prefix}_surface_specialist'] = 1 if abs(features[f'{prefix}_surface_advantage']) > 0.15 else 0
             
-            # Surface experience (important for 101-300 players)
+            # Surface experience (important for 50-300 players)
             surface_matches = player_data.get(f'{surface}_court_matches', 50)
             features[f'{prefix}_surface_experience'] = min(surface_matches / 100, 1.0)
         
@@ -473,7 +496,7 @@ class Ranks101to300FeatureEngineer:
         """Create experience-based features"""
         features = {}
         
-        # Head-to-head (limited in 101-300 tier)
+        # Head-to-head (more common in 50-300 tier than pure 101-300)
         h2h_matches = match_context.get('h2h_matches', 0)
         features['h2h_matches'] = h2h_matches
         features['limited_h2h'] = 1 if h2h_matches <= 2 else 0
@@ -532,7 +555,7 @@ class Ranks101to300FeatureEngineer:
         """Create combination features from existing features"""
         combo_features = {}
         
-        # Key combination features for 101-300 tier
+        # Key combination features for 50-300 tier
         
         # Rank gap × first set closeness
         combo_features['rank_gap_times_first_set_closeness'] = (
@@ -566,6 +589,11 @@ class Ranks101to300FeatureEngineer:
                      features.get('player2_experience_years', 0.5))
         combo_features['experience_gap'] = exp_gap
         
+        # Former elite player comeback potential
+        former_elite = (features.get('player1_former_top_50', 0) + 
+                       features.get('player2_former_top_50', 0))
+        combo_features['former_elite_comeback_factor'] = former_elite * 0.2
+        
         return combo_features
     
     def _calculate_games_difference(self, score: str) -> int:
@@ -588,14 +616,14 @@ class Ranks101to300FeatureEngineer:
             pass
         return 10
 
-class Ranks101to300DataValidator:
-    """Validate data quality for ranks 101-300 predictions"""
+class Ranks50to300DataValidator:
+    """Validate data quality for ranks 50-300 predictions"""
     
     def __init__(self):
-        self.rank_range = (101, 300)
+        self.rank_range = (50, 300)
     
     def validate_match_data(self, match_data: Dict) -> Dict[str, any]:
-        """Validate match data for ranks 101-300 prediction"""
+        """Validate match data for ranks 50-300 prediction"""
         
         validation_result = {
             'valid': True,
@@ -608,11 +636,11 @@ class Ranks101to300DataValidator:
         p2_rank = match_data.get('player2', {}).get('rank', 999)
         
         if not (self.rank_range[0] <= p1_rank <= self.rank_range[1]):
-            validation_result['errors'].append(f"Player 1 rank {p1_rank} outside target range 101-300")
+            validation_result['errors'].append(f"Player 1 rank {p1_rank} outside target range 50-300")
             validation_result['valid'] = False
         
         if not (self.rank_range[0] <= p2_rank <= self.rank_range[1]):
-            validation_result['errors'].append(f"Player 2 rank {p2_rank} outside target range 101-300")
+            validation_result['errors'].append(f"Player 2 rank {p2_rank} outside target range 50-300")
             validation_result['valid'] = False
         
         # Check data completeness
@@ -632,20 +660,20 @@ class Ranks101to300DataValidator:
 
 # Example usage and testing
 if __name__ == "__main__":
-    print("🎯 RANKS 101-300 FEATURE ENGINEERING SYSTEM TEST")
+    print("🎯 RANKS 50-300 FEATURE ENGINEERING SYSTEM TEST")
     print("=" * 60)
     
     # Test feature engineering
-    feature_engineer = Ranks101to300FeatureEngineer()
+    feature_engineer = Ranks50to300FeatureEngineer()
     
-    # Sample data for ranks 101-300 players
+    # Sample data for ranks 50-300 players
     player1_data = {
-        'rank': 145,
+        'rank': 85,  # Updated to be within new range
         'age': 23,
-        'rank_3_months_ago': 180,
-        'rank_6_months_ago': 220,
-        'rank_12_months_ago': 280,
-        'career_high_rank': 145,
+        'rank_3_months_ago': 120,
+        'rank_6_months_ago': 180,
+        'rank_12_months_ago': 250,
+        'career_high_rank': 85,
         'recent_win_rate_10': 0.6,
         'hard_court_win_rate': 0.55,
         'overall_win_rate': 0.52,
@@ -653,12 +681,12 @@ if __name__ == "__main__":
     }
     
     player2_data = {
-        'rank': 225,
+        'rank': 165,  # Updated to be within new range
         'age': 27,
-        'rank_3_months_ago': 210,
-        'rank_6_months_ago': 195,
-        'rank_12_months_ago': 180,
-        'career_high_rank': 85,  # Former top 100 player
+        'rank_3_months_ago': 150,
+        'rank_6_months_ago': 135,
+        'rank_12_months_ago': 120,
+        'career_high_rank': 45,  # Former top 50 player
         'recent_win_rate_10': 0.4,
         'hard_court_win_rate': 0.48,
         'overall_win_rate': 0.50,
@@ -689,13 +717,14 @@ if __name__ == "__main__":
             player1_data, player2_data, match_context, first_set_data
         )
         
-        print(f"\n✅ Generated {len(features)} features for ranks 101-300 prediction")
+        print(f"\n✅ Generated {len(features)} features for ranks 50-300 prediction")
         
         # Display key features
         key_features = [
             'player1_is_underdog', 'ranking_gap', 'underdog_lost_first_set',
             'player1_is_rising', 'player2_comeback_attempt', 
-            'underdog_nothing_to_lose', 'momentum_with_loser'
+            'underdog_nothing_to_lose', 'momentum_with_loser',
+            'player2_former_top_50'
         ]
         
         print("\n🔍 Key Features:")
@@ -704,7 +733,7 @@ if __name__ == "__main__":
                 print(f"  {feature}: {features[feature]:.3f}")
         
         # Validate data
-        validator = Ranks101to300DataValidator()
+        validator = Ranks50to300DataValidator()
         validation = validator.validate_match_data({
             'player1': player1_data,
             'player2': player2_data,
@@ -717,8 +746,8 @@ if __name__ == "__main__":
             for warning in validation['warnings']:
                 print(f"  • {warning}")
         
-        print(f"\n✅ Ranks 101-300 feature engineering system ready!")
-        print(f"🎯 Optimized for second set underdog predictions in this tier")
+        print(f"\n✅ Ranks 50-300 feature engineering system ready!")
+        print(f"🎯 Optimized for second set underdog predictions in this expanded tier")
         
     except Exception as e:
         print(f"❌ Error in feature engineering: {e}")
