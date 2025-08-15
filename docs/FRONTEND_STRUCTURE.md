@@ -1,5 +1,8 @@
 # Frontend Structure Documentation
 
+> **Status**: Implementation Complete ✅  
+> **Last Updated**: August 2025
+
 ## ✅ Frontend/Backend Separation Complete
 
 The tennis backend application has been successfully separated into clean frontend and backend components.
@@ -16,10 +19,13 @@ tennis_backend.py (1950+ lines)
 
 ### **New Structure:**
 ```
-tennis_backend.py (520 lines - clean backend only)
+src/api/app.py (main Flask application)
 ├── Python backend logic
 ├── API routes
 └── Flask template rendering
+
+main.py (application entry point)
+└── Flask app factory initialization
 
 templates/
 └── dashboard.html (clean HTML template)
@@ -33,11 +39,11 @@ static/
 
 ## **File Details:**
 
-### **Backend: `tennis_backend.py`**
-- ✅ Clean Python-only backend
+### **Backend: `src/api/app.py` and `main.py`**
+- ✅ Clean Flask application factory pattern
 - ✅ Uses `render_template('dashboard.html')`
 - ✅ All API routes preserved
-- ✅ 75% reduction in lines (1950 → 520)
+- ✅ Modular structure with proper separation
 
 ### **Frontend: `templates/dashboard.html`**
 - ✅ Clean HTML template
@@ -69,7 +75,7 @@ static/
 
 Start the server normally:
 ```bash
-python tennis_backend.py
+python main.py
 ```
 
 Access dashboard at: `http://localhost:5001`

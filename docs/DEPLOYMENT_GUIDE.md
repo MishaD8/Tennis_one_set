@@ -1,4 +1,8 @@
-# 🚀 Tennis Prediction System - Production Deployment Guide
+# Tennis Prediction System - Production Deployment Guide
+
+> **Status**: Production Ready ✅  
+> **Supported Platforms**: Linux, Docker, Cloud  
+> **Last Updated**: August 2025
 
 ## Overview
 
@@ -313,7 +317,7 @@ Create `/etc/supervisor/conf.d/tennis-prediction.conf`:
 programs=tennis-app-5000,tennis-app-5001,tennis-app-5002,tennis-app-5003
 
 [program:tennis-app-5000]
-command=/path/to/tennis-prediction-system/venv/bin/gunicorn -w 1 -b 127.0.0.1:5000 --timeout 120 --max-requests 1000 tennis_backend:app
+command=/path/to/tennis-prediction-system/venv/bin/gunicorn -w 1 -b 127.0.0.1:5000 --timeout 120 --max-requests 1000 main:app
 directory=/path/to/tennis-prediction-system
 user=tennis
 autostart=true
@@ -323,7 +327,7 @@ stdout_logfile=/var/log/tennis-prediction/app-5000.log
 environment=ENVIRONMENT="production"
 
 [program:tennis-app-5001]
-command=/path/to/tennis-prediction-system/venv/bin/gunicorn -w 1 -b 127.0.0.1:5001 --timeout 120 --max-requests 1000 tennis_backend:app
+command=/path/to/tennis-prediction-system/venv/bin/gunicorn -w 1 -b 127.0.0.1:5001 --timeout 120 --max-requests 1000 main:app
 directory=/path/to/tennis-prediction-system
 user=tennis
 autostart=true
@@ -333,7 +337,7 @@ stdout_logfile=/var/log/tennis-prediction/app-5001.log
 environment=ENVIRONMENT="production"
 
 [program:tennis-app-5002]
-command=/path/to/tennis-prediction-system/venv/bin/gunicorn -w 1 -b 127.0.0.1:5002 --timeout 120 --max-requests 1000 tennis_backend:app
+command=/path/to/tennis-prediction-system/venv/bin/gunicorn -w 1 -b 127.0.0.1:5002 --timeout 120 --max-requests 1000 main:app
 directory=/path/to/tennis-prediction-system
 user=tennis
 autostart=true
@@ -343,7 +347,7 @@ stdout_logfile=/var/log/tennis-prediction/app-5002.log
 environment=ENVIRONMENT="production"
 
 [program:tennis-app-5003]
-command=/path/to/tennis-prediction-system/venv/bin/gunicorn -w 1 -b 127.0.0.1:5003 --timeout 120 --max-requests 1000 tennis_backend:app
+command=/path/to/tennis-prediction-system/venv/bin/gunicorn -w 1 -b 127.0.0.1:5003 --timeout 120 --max-requests 1000 main:app
 directory=/path/to/tennis-prediction-system
 user=tennis
 autostart=true
@@ -414,7 +418,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:5000/api/health || exit 1
 
 # Start command
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "120", "tennis_backend:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "120", "main:app"]
 ```
 
 ### 2. Docker Compose Configuration

@@ -11,7 +11,7 @@ STEP 1: FILE ADDITIONS
 
 STEP 2: BACKEND MODIFICATIONS
 -----------------------------
-Modify tennis_backend.py with the following changes:
+Modify the main Flask application with the following changes:
 
 A) ADD IMPORTS (around line 40):
 ```python
@@ -65,7 +65,7 @@ Minimum data requirements:
 
 STEP 4: TESTING
 ---------------
-1. Start the server: python tennis_backend.py
+1. Start the server: python main.py
 2. Test endpoint: GET /api/matches
 3. Look for prediction_focus: "SECOND_SET_UNDERDOG_WINS"
 4. Verify key factors mention second set dynamics

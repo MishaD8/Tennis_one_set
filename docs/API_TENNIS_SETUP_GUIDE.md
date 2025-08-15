@@ -2,7 +2,7 @@
 
 ## Overview
 
-Your tennis backend system now includes comprehensive integration with API-Tennis.com, providing access to real-time tennis data including:
+The Tennis One Set system includes comprehensive integration with API-Tennis.com, providing access to real-time tennis data including:
 
 - ✅ Professional tournament schedules (ATP/WTA only)
 - ✅ Live match data and scores
@@ -34,7 +34,7 @@ API_TENNIS_KEY=your_actual_api_key_here
 After adding the API key, restart your tennis backend:
 
 ```bash
-python3 tennis_backend.py
+python main.py
 ```
 
 ## Available Endpoints
