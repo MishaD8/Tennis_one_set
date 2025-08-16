@@ -577,6 +577,11 @@ def register_routes(app: Flask):
         """Main dashboard page"""
         return render_template('dashboard.html')
 
+    @app.route('/betting')
+    def betting_dashboard():
+        """Advanced betting analytics dashboard"""
+        return render_template('betting_dashboard.html')
+
     @app.route('/api/health', methods=['GET'])
     def health_check():
         """Comprehensive health check with security and infrastructure monitoring"""
@@ -1786,6 +1791,646 @@ def register_routes(app: Flask):
                 'success': False,
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
+            }), 500
+
+    # ==================================================
+    # BACKTESTING AND FORWARD TESTING API ENDPOINTS
+    # ==================================================
+    
+    @app.route('/api/testing/toggle-mode', methods=['POST'])
+    @validate_json_request()
+    @handle_betting_errors()
+    def toggle_testing_mode():
+        """Toggle between backtesting and forward testing modes"""
+        try:
+            data = request.get_json()
+            test_mode = data.get('test_mode', 'live')
+            
+            # Validate test mode
+            valid_modes = ['backtest', 'forward_test', 'live']
+            if test_mode not in valid_modes:
+                return jsonify({
+                    'success': False,
+                    'error': f'Invalid test mode. Must be one of: {valid_modes}'
+                }), 400
+            
+            # Store current test mode in session or app context
+            # For now, we'll return the requested mode
+            app.config['CURRENT_TEST_MODE'] = test_mode
+            
+            logger.info(f"🔄 Switched to test mode: {test_mode}")
+            
+            return jsonify({
+                'success': True,
+                'test_mode': test_mode,
+                'message': f'Switched to {test_mode} mode',
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error toggling test mode: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to toggle test mode'
+            }), 500
+    
+    @app.route('/api/testing/current-mode', methods=['GET'])
+    def get_current_testing_mode():
+        """Get current testing mode"""
+        try:
+            current_mode = app.config.get('CURRENT_TEST_MODE', 'live')
+            
+            return jsonify({
+                'success': True,
+                'test_mode': current_mode,
+                'available_modes': ['live', 'backtest', 'forward_test'],
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting current test mode: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get current test mode'
+            }), 500
+    
+    @app.route('/api/backtest/sessions', methods=['GET'])
+    def get_backtest_sessions():
+        """Get all backtesting sessions"""
+        try:
+            from src.data.backtest_data_manager import BacktestDataManager
+            manager = BacktestDataManager()
+            
+            active_only = request.args.get('active_only', 'false').lower() == 'true'
+            sessions = manager.get_backtest_sessions(active_only=active_only)
+            
+            return jsonify({
+                'success': True,
+                'sessions': sessions,
+                'count': len(sessions),
+                'active_only': active_only,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting backtest sessions: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to retrieve backtest sessions'
+            }), 500
+    
+    @app.route('/api/backtest/create-session', methods=['POST'])
+    @validate_json_request()
+    @handle_betting_errors()
+    def create_backtest_session():
+        """Create a new backtesting session"""
+        try:
+            from src.data.backtest_data_manager import BacktestDataManager
+            manager = BacktestDataManager()
+            
+            data = request.get_json()
+            session_name = data.get('session_name', 'Backtest Session')
+            start_date = datetime.fromisoformat(data.get('start_date'))
+            end_date = datetime.fromisoformat(data.get('end_date'))
+            initial_bankroll = data.get('initial_bankroll', 10000.0)
+            max_stake_percentage = data.get('max_stake_percentage', 0.05)
+            filters = data.get('filters', {})
+            
+            session_id = manager.create_backtest_session(
+                session_name=session_name,
+                start_date=start_date,
+                end_date=end_date,
+                initial_bankroll=initial_bankroll,
+                max_stake_percentage=max_stake_percentage,
+                filters=filters
+            )
+            
+            if session_id:
+                return jsonify({
+                    'success': True,
+                    'session_id': session_id,
+                    'message': 'Backtest session created successfully',
+                    'timestamp': datetime.now().isoformat()
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to create backtest session'
+                }), 500
+                
+        except Exception as e:
+            logger.error(f"❌ Error creating backtest session: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to create backtest session'
+            }), 500
+    
+    @app.route('/api/backtest/matches', methods=['GET'])
+    def get_backtest_matches():
+        """Get historical matches for backtesting"""
+        try:
+            from src.data.backtest_data_manager import BacktestDataManager
+            manager = BacktestDataManager()
+            
+            # Parse query parameters
+            start_date = request.args.get('start_date')
+            end_date = request.args.get('end_date')
+            surface = request.args.get('surface')
+            tournament_level = request.args.get('tournament_level')
+            min_quality_score = float(request.args.get('min_quality_score', 7.0))
+            limit = int(request.args.get('limit', 100))
+            
+            # Convert date strings
+            start_date = datetime.fromisoformat(start_date) if start_date else None
+            end_date = datetime.fromisoformat(end_date) if end_date else None
+            
+            # Parse ranking range
+            ranking_range = None
+            if request.args.get('ranking_min') and request.args.get('ranking_max'):
+                ranking_range = (
+                    int(request.args.get('ranking_min')),
+                    int(request.args.get('ranking_max'))
+                )
+            
+            matches = manager.get_backtest_matches(
+                start_date=start_date,
+                end_date=end_date,
+                surface=surface,
+                tournament_level=tournament_level,
+                ranking_range=ranking_range,
+                min_quality_score=min_quality_score,
+                limit=limit
+            )
+            
+            return jsonify({
+                'success': True,
+                'matches': matches,
+                'count': len(matches),
+                'filters_applied': {
+                    'start_date': start_date.isoformat() if start_date else None,
+                    'end_date': end_date.isoformat() if end_date else None,
+                    'surface': surface,
+                    'tournament_level': tournament_level,
+                    'ranking_range': ranking_range,
+                    'min_quality_score': min_quality_score
+                },
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting backtest matches: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to retrieve backtest matches'
+            }), 500
+    
+    @app.route('/api/forward-test/sessions', methods=['GET'])
+    def get_forward_test_sessions():
+        """Get all forward testing sessions"""
+        try:
+            from src.data.forward_test_manager import ForwardTestManager
+            manager = ForwardTestManager()
+            
+            active_only = request.args.get('active_only', 'false').lower() == 'true'
+            sessions = manager.get_forward_test_sessions(active_only=active_only)
+            
+            return jsonify({
+                'success': True,
+                'sessions': sessions,
+                'count': len(sessions),
+                'active_only': active_only,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting forward test sessions: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to retrieve forward test sessions'
+            }), 500
+    
+    @app.route('/api/forward-test/create-session', methods=['POST'])
+    @validate_json_request()
+    @handle_betting_errors()
+    def create_forward_test_session():
+        """Create a new forward testing session"""
+        try:
+            from src.data.forward_test_manager import ForwardTestManager
+            manager = ForwardTestManager()
+            
+            data = request.get_json()
+            session_name = data.get('session_name', 'Forward Test Session')
+            duration_days = data.get('duration_days', 30)
+            initial_bankroll = data.get('initial_bankroll', 10000.0)
+            max_stake_percentage = data.get('max_stake_percentage', 0.05)
+            filters = data.get('filters', {})
+            
+            session_id = manager.create_forward_test_session(
+                session_name=session_name,
+                duration_days=duration_days,
+                initial_bankroll=initial_bankroll,
+                max_stake_percentage=max_stake_percentage,
+                filters=filters
+            )
+            
+            if session_id:
+                return jsonify({
+                    'success': True,
+                    'session_id': session_id,
+                    'message': 'Forward test session created successfully',
+                    'timestamp': datetime.now().isoformat()
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to create forward test session'
+                }), 500
+                
+        except Exception as e:
+            logger.error(f"❌ Error creating forward test session: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to create forward test session'
+            }), 500
+    
+    @app.route('/api/forward-test/live-matches', methods=['GET'])
+    def get_forward_test_live_matches():
+        """Get live matches for forward testing"""
+        try:
+            from src.data.forward_test_manager import ForwardTestManager
+            manager = ForwardTestManager()
+            
+            session_id = request.args.get('session_id')
+            days_ahead = int(request.args.get('days_ahead', 3))
+            ranking_min = int(request.args.get('ranking_min', 10))
+            ranking_max = int(request.args.get('ranking_max', 300))
+            
+            matches = manager.get_live_matches_for_testing(
+                session_id=session_id,
+                days_ahead=days_ahead,
+                ranking_filter=(ranking_min, ranking_max)
+            )
+            
+            return jsonify({
+                'success': True,
+                'matches': matches,
+                'count': len(matches),
+                'parameters': {
+                    'session_id': session_id,
+                    'days_ahead': days_ahead,
+                    'ranking_filter': [ranking_min, ranking_max]
+                },
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting forward test matches: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to retrieve forward test matches'
+            }), 500
+    
+    # ==================================================
+    # BETTING LOGS API ENDPOINTS
+    # ==================================================
+    
+    @app.route('/api/betting/logs', methods=['GET'])
+    def get_betting_logs():
+        """Get betting logs with filtering options"""
+        try:
+            from src.api.betting_tracker_service import BettingTrackerService
+            from src.data.database_models import TestMode, BettingStatus
+            
+            tracker = BettingTrackerService()
+            
+            # Parse query parameters
+            test_mode_str = request.args.get('test_mode')
+            status_str = request.args.get('status')
+            start_date_str = request.args.get('start_date')
+            end_date_str = request.args.get('end_date')
+            limit = int(request.args.get('limit', 100))
+            
+            # Convert parameters
+            test_mode = None
+            if test_mode_str:
+                test_mode = TestMode(test_mode_str)
+            
+            status = None
+            if status_str:
+                status = BettingStatus(status_str)
+            
+            start_date = datetime.fromisoformat(start_date_str) if start_date_str else None
+            end_date = datetime.fromisoformat(end_date_str) if end_date_str else None
+            
+            logs = tracker.get_betting_logs(
+                test_mode=test_mode,
+                status=status,
+                start_date=start_date,
+                end_date=end_date,
+                limit=limit
+            )
+            
+            return jsonify({
+                'success': True,
+                'betting_logs': logs,
+                'count': len(logs),
+                'filters_applied': {
+                    'test_mode': test_mode_str,
+                    'status': status_str,
+                    'start_date': start_date_str,
+                    'end_date': end_date_str,
+                    'limit': limit
+                },
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting betting logs: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to retrieve betting logs'
+            }), 500
+    
+    @app.route('/api/betting/log-decision', methods=['POST'])
+    @validate_json_request()
+    @handle_betting_errors()
+    def log_betting_decision():
+        """Log a new betting decision"""
+        try:
+            from src.api.betting_tracker_service import TennisBettingIntegration
+            from src.data.database_models import TestMode
+            
+            integration = TennisBettingIntegration()
+            data = request.get_json()
+            
+            # Extract match data
+            match_data = data.get('match_data', {})
+            underdog_analysis = data.get('underdog_analysis', {})
+            stake_amount = data.get('stake_amount', 100.0)
+            test_mode_str = data.get('test_mode', 'live')
+            
+            test_mode = TestMode(test_mode_str)
+            
+            bet_id = integration.log_underdog_bet(
+                match_data=match_data,
+                underdog_analysis=underdog_analysis,
+                stake_amount=stake_amount,
+                test_mode=test_mode
+            )
+            
+            if bet_id:
+                return jsonify({
+                    'success': True,
+                    'bet_id': bet_id,
+                    'message': 'Betting decision logged successfully',
+                    'timestamp': datetime.now().isoformat()
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to log betting decision'
+                }), 500
+                
+        except Exception as e:
+            logger.error(f"❌ Error logging betting decision: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to log betting decision'
+            }), 500
+    
+    @app.route('/api/betting/update-outcome', methods=['POST'])
+    @validate_json_request()
+    @handle_betting_errors()
+    def update_betting_outcome():
+        """Update betting outcome when match is completed"""
+        try:
+            from src.api.betting_tracker_service import BettingTrackerService
+            
+            tracker = BettingTrackerService()
+            data = request.get_json()
+            
+            bet_id = data.get('bet_id')
+            match_result = data.get('match_result', {})
+            settlement_notes = data.get('settlement_notes', '')
+            
+            if not bet_id:
+                return jsonify({
+                    'success': False,
+                    'error': 'bet_id is required'
+                }), 400
+            
+            success = tracker.update_betting_outcome(
+                bet_id=bet_id,
+                match_result=match_result,
+                settlement_notes=settlement_notes
+            )
+            
+            if success:
+                return jsonify({
+                    'success': True,
+                    'message': 'Betting outcome updated successfully',
+                    'timestamp': datetime.now().isoformat()
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to update betting outcome'
+                }), 404
+                
+        except Exception as e:
+            logger.error(f"❌ Error updating betting outcome: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to update betting outcome'
+            }), 500
+    
+    @app.route('/api/betting/performance-summary', methods=['GET'])
+    def get_betting_performance_summary():
+        """Get comprehensive betting performance summary"""
+        try:
+            from src.api.betting_tracker_service import BettingTrackerService
+            from src.data.database_models import TestMode
+            
+            tracker = BettingTrackerService()
+            
+            test_mode_str = request.args.get('test_mode')
+            days_back = int(request.args.get('days_back', 30))
+            
+            test_mode = TestMode(test_mode_str) if test_mode_str else None
+            
+            summary = tracker.get_betting_performance_summary(
+                test_mode=test_mode,
+                days_back=days_back
+            )
+            
+            return jsonify({
+                'success': True,
+                'performance_summary': summary,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting betting performance summary: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get performance summary'
+            }), 500
+    
+    @app.route('/api/betting/pending-bets', methods=['GET'])
+    def get_pending_bets():
+        """Get all pending bets awaiting settlement"""
+        try:
+            from src.api.betting_tracker_service import BettingTrackerService
+            from src.data.database_models import TestMode
+            
+            tracker = BettingTrackerService()
+            
+            test_mode_str = request.args.get('test_mode')
+            test_mode = TestMode(test_mode_str) if test_mode_str else None
+            
+            pending_bets = tracker.get_pending_bets(test_mode=test_mode)
+            
+            return jsonify({
+                'success': True,
+                'pending_bets': pending_bets,
+                'count': len(pending_bets),
+                'test_mode': test_mode_str,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting pending bets: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get pending bets'
+            }), 500
+    
+    # ==================================================
+    # PERFORMANCE COMPARISON API ENDPOINTS
+    # ==================================================
+    
+    @app.route('/api/performance/compare', methods=['POST'])
+    @validate_json_request()
+    @handle_betting_errors()
+    def create_performance_comparison():
+        """Create a performance comparison between backtest and forward test sessions"""
+        try:
+            from src.api.performance_comparison_service import PerformanceComparisonService
+            
+            service = PerformanceComparisonService()
+            data = request.get_json()
+            
+            comparison_name = data.get('comparison_name', 'Performance Comparison')
+            backtest_session_id = data.get('backtest_session_id')
+            forward_test_session_id = data.get('forward_test_session_id')
+            
+            if not backtest_session_id or not forward_test_session_id:
+                return jsonify({
+                    'success': False,
+                    'error': 'Both backtest_session_id and forward_test_session_id are required'
+                }), 400
+            
+            comparison_id = service.create_performance_comparison(
+                comparison_name=comparison_name,
+                backtest_session_id=backtest_session_id,
+                forward_test_session_id=forward_test_session_id
+            )
+            
+            if comparison_id:
+                return jsonify({
+                    'success': True,
+                    'comparison_id': comparison_id,
+                    'message': 'Performance comparison created successfully',
+                    'timestamp': datetime.now().isoformat()
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to create performance comparison'
+                }), 500
+                
+        except Exception as e:
+            logger.error(f"❌ Error creating performance comparison: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to create performance comparison'
+            }), 500
+    
+    @app.route('/api/performance/comparisons', methods=['GET'])
+    def get_performance_comparisons():
+        """Get all performance comparisons"""
+        try:
+            from src.api.performance_comparison_service import PerformanceComparisonService
+            
+            service = PerformanceComparisonService()
+            limit = int(request.args.get('limit', 10))
+            
+            comparisons = service.get_performance_comparisons(limit=limit)
+            
+            return jsonify({
+                'success': True,
+                'comparisons': comparisons,
+                'count': len(comparisons),
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting performance comparisons: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get performance comparisons'
+            }), 500
+    
+    @app.route('/api/performance/comparison/<comparison_id>', methods=['GET'])
+    def get_detailed_comparison(comparison_id):
+        """Get detailed performance comparison analysis"""
+        try:
+            from src.api.performance_comparison_service import PerformanceComparisonService
+            
+            service = PerformanceComparisonService()
+            comparison = service.get_detailed_comparison(comparison_id)
+            
+            if 'error' in comparison:
+                return jsonify({
+                    'success': False,
+                    'error': comparison['error']
+                }), 404
+            
+            return jsonify({
+                'success': True,
+                'comparison': comparison,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting detailed comparison: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get detailed comparison'
+            }), 500
+    
+    @app.route('/api/performance/stability-report', methods=['GET'])
+    def get_model_stability_report():
+        """Get comprehensive model stability report"""
+        try:
+            from src.api.performance_comparison_service import PerformanceComparisonService
+            
+            service = PerformanceComparisonService()
+            days_back = int(request.args.get('days_back', 90))
+            
+            report = service.generate_model_stability_report(days_back=days_back)
+            
+            return jsonify({
+                'success': True,
+                'stability_report': report,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting stability report: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get stability report'
             }), 500
 
     logger.info("✅ All routes registered successfully")

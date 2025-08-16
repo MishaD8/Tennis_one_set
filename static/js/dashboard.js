@@ -237,21 +237,60 @@ class TennisDashboard {
     }
 
     handleSuccessfulData(data) {
+        // Filter matches to only show those that meet betting selection criteria
+        const bettingMatches = this.filterBettingSelection(data.matches);
+        
         // Save to cache
         this.cacheData(data);
         
         // Update state
         this.setState({
-            matches: data.matches,
+            matches: bettingMatches,
             loading: false,
             lastUpdate: new Date()
         });
 
         // Render matches
-        this.renderMatches(data.matches);
-        this.updateStats(data.matches);
+        this.renderMatches(bettingMatches);
+        this.updateStats(bettingMatches);
         
-        this.announceToScreenReader(`Found ${data.matches.length} underdog opportunities`);
+        this.announceToScreenReader(`Found ${bettingMatches.length} betting opportunities (filtered from ${data.matches.length} total matches)`);
+    }
+
+    filterBettingSelection(matches) {
+        /**
+         * Filter matches to only include those that meet betting selection criteria
+         * Based on the value-bets API logic: edge > 5% (0.05)
+         */
+        return matches.filter(match => {
+            try {
+                // Get prediction data
+                const prediction = match.prediction || match.underdog_analysis || {};
+                const odds = match.odds || {};
+                
+                // Calculate edge (our probability vs bookmaker probability)
+                const ourProb = prediction.probability || prediction.underdog_probability || 0.5;
+                const player1Odds = odds.player1 || 2.0;
+                const bookmakerProb = 1 / player1Odds;
+                const edge = ourProb - bookmakerProb;
+                
+                // Include if edge > 5% (same as value-bets API)
+                const meetsBettingCriteria = edge > 0.05;
+                
+                // Add betting metadata to the match for display
+                if (meetsBettingCriteria) {
+                    match.betting_edge = edge;
+                    match.betting_recommendation = edge > 0.08 ? 'BET' : 'CONSIDER';
+                    match.kelly_fraction = Math.min(edge * 0.25, 0.05);
+                    match.included_in_betting = true;
+                }
+                
+                return meetsBettingCriteria;
+            } catch (error) {
+                console.warn('Error filtering match for betting selection:', error);
+                return false;
+            }
+        });
     }
 
     async handleNoData(data) {
@@ -308,8 +347,8 @@ class TennisDashboard {
     createSuccessHeader(count) {
         return `
             <div class="success-banner" role="banner">
-                <h2>🎯 UNDERDOG OPPORTUNITIES FOUND</h2>
-                <p>Matches: ${count} • Last updated: ${this.formatTime(new Date())}</p>
+                <h2>💰 BETTING OPPORTUNITIES FOUND</h2>
+                <p>Value Bets: ${count} • Last updated: ${this.formatTime(new Date())}</p>
             </div>
         `;
     }
@@ -334,18 +373,21 @@ class TennisDashboard {
     }
 
     calculateStats(matches) {
-        const excellentCount = matches.filter(m => 
-            m.underdog_analysis?.quality === 'EXCELLENT'
+        // Count strong bets (edge > 8% or betting_recommendation === 'BET')
+        const strongBetCount = matches.filter(m => 
+            m.betting_edge > 0.08 || m.betting_recommendation === 'BET'
         ).length;
 
-        const totalProbability = matches.reduce((sum, match) => 
-            sum + (match.underdog_analysis?.underdog_probability || 0.5), 0
+        // Calculate average edge percentage
+        const totalEdge = matches.reduce((sum, match) => 
+            sum + (match.betting_edge || 0), 0
         );
+        const avgEdge = matches.length > 0 ? totalEdge / matches.length : 0;
 
         return {
             'underdog-count': matches.length,
-            'avg-probability': `${(totalProbability / matches.length * 100).toFixed(1)}%`,
-            'excellent-quality': excellentCount
+            'avg-probability': `${(avgEdge * 100).toFixed(1)}%`,
+            'excellent-quality': strongBetCount
         };
     }
 
@@ -400,37 +442,45 @@ class TennisDashboard {
     }
 
     renderCachedData(cachedData) {
+        // Filter cached matches for betting selection
+        const bettingMatches = this.filterBettingSelection(cachedData.matches);
+        
         const container = document.getElementById('matches-container');
         const header = `
             <div class="cached-banner" role="banner">
-                <h2>📋 CACHED UNDERDOG OPPORTUNITIES</h2>
-                <p>Showing cached data (${Math.round(cachedData.age)} minutes old)</p>
+                <h2>📋 CACHED BETTING OPPORTUNITIES</h2>
+                <p>Showing ${bettingMatches.length} betting opportunities from cached data (${Math.round(cachedData.age)} minutes old)</p>
             </div>
         `;
         
-        const matchCards = cachedData.matches.map(match => {
+        const matchCards = bettingMatches.map(match => {
             const card = new TennisComponents.MatchCard(match);
             return `<div class="cached-card">${card.render()}</div>`;
         }).join('');
 
         container.innerHTML = header + matchCards;
+        this.updateStats(bettingMatches);
     }
 
     renderOfflineData(cachedData) {
+        // Filter cached matches for betting selection
+        const bettingMatches = this.filterBettingSelection(cachedData.matches);
+        
         const container = document.getElementById('matches-container');
         const header = `
             <div class="offline-banner" role="banner">
-                <h2>🔌 OFFLINE - CACHED DATA</h2>
-                <p>Connection error. Showing cached data (${Math.round(cachedData.age)} minutes old)</p>
+                <h2>🔌 OFFLINE - CACHED BETTING DATA</h2>
+                <p>Connection error. Showing ${bettingMatches.length} betting opportunities from cached data (${Math.round(cachedData.age)} minutes old)</p>
             </div>
         `;
         
-        const matchCards = cachedData.matches.map(match => {
+        const matchCards = bettingMatches.map(match => {
             const card = new TennisComponents.MatchCard(match);
             return `<div class="offline-card">${card.render()}</div>`;
         }).join('');
 
         container.innerHTML = header + matchCards;
+        this.updateStats(bettingMatches);
     }
 
     renderEmptyState(isNoRealData) {

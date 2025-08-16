@@ -1,0 +1,447 @@
+/* Betting Simulation Dashboard Styles */
+
+.betting-simulation-dashboard {
+    background: var(--surface-primary);
+    border-radius: var(--radius-xl);
+    padding: var(--space-xl);
+    margin: var(--space-lg) 0;
+    border: 1px solid var(--surface-border);
+}
+
+/* Controls Section */
+.simulation-controls {
+    background: var(--surface-secondary);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-xl);
+    border: 1px solid var(--surface-border);
+}
+
+.simulation-controls h2 {
+    margin-bottom: var(--space-lg);
+    color: var(--text-primary);
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-lg);
+    align-items: end;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.control-group label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.control-group input,
+.control-group select {
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--surface-border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-primary);
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: all var(--transition-normal);
+}
+
+.control-group input:focus,
+.control-group select:focus {
+    outline: none;
+    border-color: #6bcf7f;
+    box-shadow: 0 0 0 2px rgba(107, 207, 127, 0.2);
+}
+
+.control-buttons {
+    display: flex;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+}
+
+.control-buttons .btn {
+    flex: 1;
+    min-width: 120px;
+}
+
+/* Statistics Overview */
+.simulation-stats {
+    background: var(--surface-secondary);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-xl);
+    border: 1px solid var(--surface-border);
+}
+
+.simulation-stats h3 {
+    margin-bottom: var(--space-lg);
+    color: var(--text-primary);
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+.simulation-stats .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--space-lg);
+}
+
+.simulation-stats .stat-card {
+    background: var(--surface-primary);
+    border: 1px solid var(--surface-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    text-align: center;
+    transition: all var(--transition-normal);
+    position: relative;
+    overflow: hidden;
+}
+
+.simulation-stats .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    transition: transform var(--transition-normal);
+    transform: scaleX(0);
+}
+
+.profit-card::before { background: var(--success-gradient); }
+.roi-card::before { background: var(--info-gradient); }
+.winrate-card::before { background: var(--primary-gradient); }
+.sharpe-card::before { background: var(--warning-gradient); }
+.drawdown-card::before { background: var(--danger-gradient); }
+.total-bets-card::before { background: var(--success-gradient); }
+
+.simulation-stats .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.simulation-stats .stat-card:hover::before {
+    transform: scaleX(1);
+}
+
+.simulation-stats .stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: var(--space-sm);
+    font-variant-numeric: tabular-nums;
+}
+
+.simulation-stats .stat-value.profit {
+    color: #6bcf7f;
+}
+
+.simulation-stats .stat-value.loss {
+    color: #ff6b6b;
+}
+
+.simulation-stats .stat-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+/* Charts Section */
+.simulation-charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: var(--space-xl);
+    margin-bottom: var(--space-xl);
+}
+
+.chart-container {
+    background: var(--surface-secondary);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    border: 1px solid var(--surface-border);
+    min-height: 300px;
+}
+
+.chart-container h3 {
+    margin-bottom: var(--space-lg);
+    color: var(--text-primary);
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.chart-container canvas {
+    max-height: 250px;
+}
+
+/* Detailed Analytics */
+.detailed-analytics {
+    background: var(--surface-secondary);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-xl);
+    border: 1px solid var(--surface-border);
+}
+
+.analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--space-lg);
+}
+
+.analytics-card {
+    background: var(--surface-primary);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    border: 1px solid var(--surface-border);
+}
+
+.analytics-card h4 {
+    margin-bottom: var(--space-md);
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.streak-item,
+.drawdown-item,
+.model-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-sm) 0;
+    border-bottom: 1px solid var(--surface-border);
+}
+
+.streak-item:last-child,
+.drawdown-item:last-child,
+.model-stats:last-child {
+    border-bottom: none;
+}
+
+.streak-label,
+.drawdown-label,
+.model-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.streak-value,
+.drawdown-value,
+.model-value {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Recent Bets Table */
+.recent-bets {
+    background: var(--surface-secondary);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    border: 1px solid var(--surface-border);
+}
+
+.recent-bets h3 {
+    margin-bottom: var(--space-lg);
+    color: var(--text-primary);
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+.table-container {
+    overflow-x: auto;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--surface-border);
+}
+
+#bets-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface-primary);
+    font-size: 0.9rem;
+}
+
+#bets-table th {
+    background: var(--surface-secondary);
+    padding: var(--space-md);
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--surface-border);
+    white-space: nowrap;
+}
+
+#bets-table td {
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--surface-border);
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+#bets-table tr:hover {
+    background: var(--surface-secondary);
+}
+
+#bets-table tr.bet-won {
+    border-left: 3px solid #6bcf7f;
+}
+
+#bets-table tr.bet-lost {
+    border-left: 3px solid #ff6b6b;
+}
+
+.match-cell {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.result-cell {
+    font-weight: 600;
+}
+
+.profit-cell.profit {
+    color: #6bcf7f;
+    font-weight: 600;
+}
+
+.profit-cell.loss {
+    color: #ff6b6b;
+    font-weight: 600;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .controls-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .simulation-charts {
+        grid-template-columns: 1fr;
+    }
+    
+    .chart-container {
+        min-width: unset;
+    }
+}
+
+@media (max-width: 768px) {
+    .betting-simulation-dashboard {
+        padding: var(--space-md);
+    }
+    
+    .controls-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .control-buttons {
+        grid-column: 1 / -1;
+    }
+    
+    .control-buttons .btn {
+        min-width: 100px;
+        font-size: 0.9rem;
+    }
+    
+    .simulation-stats .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .analytics-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .table-container {
+        font-size: 0.8rem;
+    }
+    
+    #bets-table th,
+    #bets-table td {
+        padding: var(--space-sm);
+    }
+}
+
+@media (max-width: 480px) {
+    .simulation-stats .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .streak-item,
+    .drawdown-item,
+    .model-stats {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-xs);
+    }
+    
+    .match-cell {
+        max-width: 120px;
+    }
+}
+
+/* Animation for statistics updates */
+@keyframes stat-update {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.stat-value.updating {
+    animation: stat-update 0.3s ease-in-out;
+}
+
+/* Loading states for charts */
+.chart-container.loading::after {
+    content: '📊 Loading chart...';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* Accessibility improvements */
+.control-group input:focus,
+.control-group select:focus {
+    outline: 2px solid #6bcf7f;
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .simulation-stats .stat-card {
+        transition: none;
+    }
+    
+    .stat-value.updating {
+        animation: none;
+    }
+}
+
+/* Print styles */
+@media print {
+    .control-buttons,
+    .chart-container canvas {
+        display: none;
+    }
+    
+    .betting-simulation-dashboard {
+        background: white;
+        color: black;
+    }
+    
+    .analytics-grid {
+        break-inside: avoid;
+    }
+}

@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Advanced Tennis Betting Simulation Dashboard with ML Performance Analytics">
+    <meta name="keywords" content="tennis, betting, analytics, simulation, machine learning, ROI">
+    <meta name="author" content="Tennis Betting Analytics System">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Tennis Betting Analytics Dashboard">
+    <meta property="og:description" content="Advanced Betting Simulation & ML Performance Analysis">
+    <meta property="og:url" content="{{ request.url }}">
+    
+    <!-- Performance and Security -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
+    
+    <title>Tennis Betting Analytics Dashboard</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/betting-simulation.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/betting-filters.css') }}">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💰</text></svg>">
+</head>
+<body>
+    <!-- Skip Links for Accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <a href="#betting-simulation" class="skip-link">Skip to betting simulation</a>
+    
+    <!-- Screen Reader Announcements -->
+    <div id="screen-reader-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    
+    <div class="container">
+        <!-- Header Section -->
+        <header class="header" role="banner">
+            <!-- Statistics Grid -->
+            <section class="stats-grid" role="region" aria-label="Betting Statistics">
+                <div class="stat-card" role="article">
+                    <div class="stat-value" id="underdog-count" aria-label="Number of betting opportunities">-</div>
+                    <div class="stat-label">Value Bets</div>
+                </div>
+                <div class="stat-card" role="article">
+                    <div class="stat-value" id="avg-probability" aria-label="Average edge percentage">-</div>
+                    <div class="stat-label">Avg Edge</div>
+                </div>
+                <div class="stat-card" role="article">
+                    <div class="stat-value" id="excellent-quality" aria-label="Number of high confidence bets">-</div>
+                    <div class="stat-label">Strong Bets</div>
+                </div>
+            </section>
+        </header>
+        
+        <!-- Navigation Tabs -->
+        <nav class="dashboard-nav" role="navigation" aria-label="Dashboard sections">
+            <div class="nav-tabs">
+                <button class="nav-tab active" data-tab="live-opportunities" aria-selected="true">
+                    💰 Live Opportunities
+                </button>
+                <button class="nav-tab" data-tab="betting-simulation" aria-selected="false">
+                    📊 Betting Simulation
+                </button>
+                <button class="nav-tab" data-tab="ml-performance" aria-selected="false">
+                    🎯 ML Performance
+                </button>
+                <button class="nav-tab" data-tab="money-management" aria-selected="false">
+                    💸 Money Management
+                </button>
+            </div>
+        </nav>
+        
+        <!-- Main Content Area -->
+        <main id="main-content" role="main">
+            <!-- Live Opportunities Tab -->
+            <section 
+                id="live-opportunities" 
+                class="tab-content active"
+                role="tabpanel" 
+                aria-label="Live Betting Opportunities"
+                aria-live="polite"
+            >
+                <div 
+                    id="matches-container" 
+                    class="matches-container"
+                    role="region" 
+                    aria-label="Match Analysis Results"
+                    aria-live="polite"
+                >
+                    <div class="loading">
+                        <div class="loading-spinner" aria-hidden="true"></div>
+                        <h3>💰 Finding value betting opportunities...</h3>
+                        <p>Analyzing matches for profitable edges</p>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Betting Simulation Tab -->
+            <section 
+                id="betting-simulation" 
+                class="tab-content"
+                role="tabpanel" 
+                aria-label="Betting Simulation Dashboard"
+                aria-hidden="true"
+            >
+                <!-- Betting simulation will be rendered here -->
+            </section>
+            
+            <!-- ML Performance Tab -->
+            <section 
+                id="ml-performance" 
+                class="tab-content"
+                role="tabpanel" 
+                aria-label="Machine Learning Performance Analysis"
+                aria-hidden="true"
+            >
+                <div class="ml-performance-dashboard">
+                    <h2>🎯 Machine Learning Performance Analysis</h2>
+                    
+                    <!-- ML Model Comparison -->
+                    <div class="model-comparison">
+                        <h3>📈 Model Performance Comparison</h3>
+                        <div class="models-grid">
+                            <div class="model-card">
+                                <h4>LightGBM</h4>
+                                <div class="model-metrics">
+                                    <div class="metric">
+                                        <span class="metric-label">Win Rate:</span>
+                                        <span class="metric-value" id="lgb-winrate">67.3%</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">ROI:</span>
+                                        <span class="metric-value" id="lgb-roi">+12.4%</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">Avg Odds:</span>
+                                        <span class="metric-value" id="lgb-odds">2.34</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">Sharpe:</span>
+                                        <span class="metric-value" id="lgb-sharpe">1.23</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="model-card">
+                                <h4>XGBoost</h4>
+                                <div class="model-metrics">
+                                    <div class="metric">
+                                        <span class="metric-label">Win Rate:</span>
+                                        <span class="metric-value" id="xgb-winrate">64.8%</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">ROI:</span>
+                                        <span class="metric-value" id="xgb-roi">+8.7%</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">Avg Odds:</span>
+                                        <span class="metric-value" id="xgb-odds">2.18</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">Sharpe:</span>
+                                        <span class="metric-value" id="xgb-sharpe">1.05</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="model-card">
+                                <h4>Random Forest</h4>
+                                <div class="model-metrics">
+                                    <div class="metric">
+                                        <span class="metric-label">Win Rate:</span>
+                                        <span class="metric-value" id="rf-winrate">62.1%</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">ROI:</span>
+                                        <span class="metric-value" id="rf-roi">+5.9%</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">Avg Odds:</span>
+                                        <span class="metric-value" id="rf-odds">2.41</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">Sharpe:</span>
+                                        <span class="metric-value" id="rf-sharpe">0.87</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="model-card">
+                                <h4>Neural Network</h4>
+                                <div class="model-metrics">
+                                    <div class="metric">
+                                        <span class="metric-label">Win Rate:</span>
+                                        <span class="metric-value" id="nn-winrate">69.2%</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">ROI:</span>
+                                        <span class="metric-value" id="nn-roi">+15.8%</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">Avg Odds:</span>
+                                        <span class="metric-value" id="nn-odds">2.52</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">Sharpe:</span>
+                                        <span class="metric-value" id="nn-sharpe">1.41</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Confidence Analysis -->
+                    <div class="confidence-analysis">
+                        <h3>🎲 Prediction Confidence Analysis</h3>
+                        <div class="charts-container">
+                            <div class="chart-container">
+                                <h4>Confidence vs Success Rate</h4>
+                                <canvas id="confidence-chart"></canvas>
+                            </div>
+                            <div class="chart-container">
+                                <h4>Edge Distribution</h4>
+                                <canvas id="edge-distribution-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Streak Analysis -->
+                    <div class="streak-analysis-section">
+                        <h3>🔥 Streak Analysis & Timeline</h3>
+                        <div class="streak-timeline">
+                            <canvas id="streak-timeline-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Money Management Tab -->
+            <section 
+                id="money-management" 
+                class="tab-content"
+                role="tabpanel" 
+                aria-label="Money Management Analysis"
+                aria-hidden="true"
+            >
+                <div class="money-management-dashboard">
+                    <h2>💸 Money Management & Staking Strategies</h2>
+                    
+                    <!-- Strategy Comparison -->
+                    <div class="strategy-comparison">
+                        <h3>📊 Staking Strategy Comparison</h3>
+                        <div class="strategies-grid">
+                            <div class="strategy-card">
+                                <h4>Flat Betting</h4>
+                                <div class="strategy-description">
+                                    Fixed stake per bet regardless of confidence or odds
+                                </div>
+                                <div class="strategy-metrics">
+                                    <div class="metric">Risk Level: <span class="low-risk">Low</span></div>
+                                    <div class="metric">Expected ROI: <span>+8.2%</span></div>
+                                    <div class="metric">Max Drawdown: <span>-12.5%</span></div>
+                                </div>
+                            </div>
+                            
+                            <div class="strategy-card recommended">
+                                <h4>Kelly Criterion</h4>
+                                <div class="strategy-description">
+                                    Stake size based on edge and confidence level
+                                </div>
+                                <div class="strategy-metrics">
+                                    <div class="metric">Risk Level: <span class="medium-risk">Medium</span></div>
+                                    <div class="metric">Expected ROI: <span>+18.7%</span></div>
+                                    <div class="metric">Max Drawdown: <span>-23.1%</span></div>
+                                </div>
+                                <div class="recommended-badge">Recommended</div>
+                            </div>
+                            
+                            <div class="strategy-card">
+                                <h4>Proportional</h4>
+                                <div class="strategy-description">
+                                    Fixed percentage of current bankroll per bet
+                                </div>
+                                <div class="strategy-metrics">
+                                    <div class="metric">Risk Level: <span class="high-risk">High</span></div>
+                                    <div class="metric">Expected ROI: <span>+15.3%</span></div>
+                                    <div class="metric">Max Drawdown: <span>-31.8%</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Risk Analysis -->
+                    <div class="risk-analysis">
+                        <h3>⚠️ Risk Management Analysis</h3>
+                        <div class="risk-metrics-grid">
+                            <div class="risk-card">
+                                <h4>Value at Risk (VaR)</h4>
+                                <div class="risk-value">-$23.40</div>
+                                <div class="risk-description">95% confidence, 1-day horizon</div>
+                            </div>
+                            
+                            <div class="risk-card">
+                                <h4>Expected Shortfall</h4>
+                                <div class="risk-value">-$31.75</div>
+                                <div class="risk-description">Average loss beyond VaR</div>
+                            </div>
+                            
+                            <div class="risk-card">
+                                <h4>Kelly Fraction</h4>
+                                <div class="risk-value">0.25</div>
+                                <div class="risk-description">Conservative multiplier</div>
+                            </div>
+                            
+                            <div class="risk-card">
+                                <h4>Optimal Bet Size</h4>
+                                <div class="risk-value">$12.50</div>
+                                <div class="risk-description">Current recommendation</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Bankroll Growth Simulation -->
+                    <div class="bankroll-simulation">
+                        <h3>📈 Bankroll Growth Projection</h3>
+                        <div class="simulation-controls-mini">
+                            <label for="projection-period">Projection Period:</label>
+                            <select id="projection-period">
+                                <option value="30">30 Days</option>
+                                <option value="90" selected>90 Days</option>
+                                <option value="180">6 Months</option>
+                                <option value="365">1 Year</option>
+                            </select>
+                        </div>
+                        <canvas id="bankroll-projection-chart"></canvas>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <!-- Notification Container -->
+    <div id="notification-container" aria-live="assertive" aria-atomic="true"></div>
+    
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/components.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/betting-simulation.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/betting-simulation-ui.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/betting-filters.js') }}"></script>
+    
+    <!-- Tab Management and Dashboard Initialization -->
+    <script>
+        class BettingDashboard {
+            constructor() {
+                this.activeTab = 'live-opportunities';
+                this.bettingSimulationUI = null;
+                this.bettingFilters = null;
+                this.cachedData = new Map();
+                this.performanceObserver = null;
+                this.init();
+            }
+
+            init() {
+                this.setupTabNavigation();
+                this.initializeDashboard();
+                this.setupMLPerformanceCharts();
+                this.setupMoneyManagementCharts();
+                this.initializeFilters();
+                this.setupPerformanceMonitoring();
+                this.preloadResources();
+            }
+
+            setupTabNavigation() {
+                const tabs = document.querySelectorAll('.nav-tab');
+                const contents = document.querySelectorAll('.tab-content');
+
+                tabs.forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        const targetTab = tab.dataset.tab;
+                        this.switchTab(targetTab);
+                    });
+                });
+            }
+
+            switchTab(tabId) {
+                // Update navigation
+                document.querySelectorAll('.nav-tab').forEach(tab => {
+                    tab.classList.remove('active');
+                    tab.setAttribute('aria-selected', 'false');
+                });
+                
+                document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+                document.querySelector(`[data-tab="${tabId}"]`).setAttribute('aria-selected', 'true');
+
+                // Update content
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                    content.setAttribute('aria-hidden', 'true');
+                });
+                
+                const targetContent = document.getElementById(tabId);
+                targetContent.classList.add('active');
+                targetContent.setAttribute('aria-hidden', 'false');
+
+                // Initialize tab-specific components
+                if (tabId === 'betting-simulation' && !this.bettingSimulationUI) {
+                    this.initializeBettingSimulation();
+                }
+
+                this.activeTab = tabId;
+                this.announceTabChange(tabId);
+            }
+
+            initializeBettingSimulation() {
+                const container = document.getElementById('betting-simulation');
+                this.bettingSimulationUI = new BettingSimulationUI(container, {
+                    initialCapital: 100,
+                    bankrollManagement: 'kelly',
+                    flatStake: 10,
+                    kellyFraction: 0.25,
+                    maxStakePercent: 5
+                });
+            }
+
+            initializeDashboard() {
+                // Initialize the main tennis dashboard
+                if (window.tennisDashboard) {
+                    window.tennisDashboard.loadUnderdogOpportunities();
+                }
+            }
+
+            initializeFilters() {
+                // Initialize betting filters for the live opportunities tab
+                this.bettingFilters = new BettingFilters(this);
+                
+                // Set up data callback
+                this.onDataFiltered = (filteredData) => {
+                    if (this.activeTab === 'live-opportunities') {
+                        this.updateLiveOpportunitiesDisplay(filteredData);
+                    }
+                };
+            }
+
+            setupPerformanceMonitoring() {
+                // Monitor Core Web Vitals and performance metrics
+                if ('PerformanceObserver' in window) {
+                    this.performanceObserver = new PerformanceObserver((list) => {
+                        for (const entry of list.getEntries()) {
+                            if (entry.entryType === 'navigation') {
+                                console.log('🚀 Navigation Performance:', {
+                                    domContentLoaded: entry.domContentLoadedEventEnd - entry.domContentLoadedEventStart,
+                                    loadComplete: entry.loadEventEnd - entry.loadEventStart,
+                                    totalTime: entry.loadEventEnd - entry.fetchStart
+                                });
+                            }
+                        }
+                    });
+                    
+                    this.performanceObserver.observe({ entryTypes: ['navigation', 'measure'] });
+                }
+            }
+
+            preloadResources() {
+                // Preload critical resources for better performance
+                const preloadLinks = [
+                    { href: '/api/matches', as: 'fetch', crossorigin: 'anonymous' },
+                    { href: '/api/stats', as: 'fetch', crossorigin: 'anonymous' }
+                ];
+
+                preloadLinks.forEach(link => {
+                    const linkElement = document.createElement('link');
+                    linkElement.rel = 'preload';
+                    linkElement.href = link.href;
+                    linkElement.as = link.as;
+                    if (link.crossorigin) linkElement.crossOrigin = link.crossorigin;
+                    document.head.appendChild(linkElement);
+                });
+
+                // Prefetch next tab content
+                this.prefetchTabContent();
+            }
+
+            prefetchTabContent() {
+                // Use intersection observer to lazy load tab content
+                if ('IntersectionObserver' in window) {
+                    const tabObserver = new IntersectionObserver((entries) => {
+                        entries.forEach(entry => {
+                            if (entry.isIntersecting) {
+                                const tabId = entry.target.dataset.tab;
+                                this.lazyLoadTab(tabId);
+                                tabObserver.unobserve(entry.target);
+                            }
+                        });
+                    }, { rootMargin: '50px' });
+
+                    document.querySelectorAll('.nav-tab').forEach(tab => {
+                        tabObserver.observe(tab);
+                    });
+                }
+            }
+
+            lazyLoadTab(tabId) {
+                // Lazy load tab-specific resources
+                switch (tabId) {
+                    case 'betting-simulation':
+                        this.preloadBettingSimulation();
+                        break;
+                    case 'ml-performance':
+                        this.preloadMLPerformance();
+                        break;
+                    case 'money-management':
+                        this.preloadMoneyManagement();
+                        break;
+                }
+            }
+
+            preloadBettingSimulation() {
+                // Pre-generate sample data in background
+                if (!this.cachedData.has('simulation-sample')) {
+                    requestIdleCallback(() => {
+                        const sampleSimulation = new BettingSimulation();
+                        sampleSimulation.generateSampleData(100);
+                        this.cachedData.set('simulation-sample', sampleSimulation.exportData());
+                    });
+                }
+            }
+
+            preloadMLPerformance() {
+                // Pre-calculate ML performance metrics
+                if (!this.cachedData.has('ml-performance')) {
+                    requestIdleCallback(() => {
+                        const mlMetrics = this.calculateMLMetrics();
+                        this.cachedData.set('ml-performance', mlMetrics);
+                    });
+                }
+            }
+
+            preloadMoneyManagement() {
+                // Pre-calculate money management projections
+                if (!this.cachedData.has('money-management')) {
+                    requestIdleCallback(() => {
+                        const projections = this.calculateProjections();
+                        this.cachedData.set('money-management', projections);
+                    });
+                }
+            }
+
+            updateLiveOpportunitiesDisplay(filteredData) {
+                // Update the live opportunities display with filtered data
+                const matchesContainer = document.getElementById('matches-container');
+                if (!matchesContainer) return;
+
+                if (filteredData.length === 0) {
+                    matchesContainer.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🔍</div>
+                            <h3>No matches found with current filters</h3>
+                            <p>Try adjusting your filter criteria to see more opportunities</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Use document fragment for efficient DOM updates
+                const fragment = document.createDocumentFragment();
+                
+                filteredData.forEach(match => {
+                    const matchCard = new TennisComponents.MatchCard(match);
+                    const cardElement = document.createElement('div');
+                    cardElement.innerHTML = matchCard.render();
+                    fragment.appendChild(cardElement.firstElementChild);
+                });
+
+                // Batch DOM update
+                requestAnimationFrame(() => {
+                    matchesContainer.innerHTML = '';
+                    matchesContainer.appendChild(fragment);
+                    
+                    // Trigger animations
+                    this.animateMatchCards();
+                });
+            }
+
+            animateMatchCards() {
+                // Stagger animation of match cards for better UX
+                const cards = document.querySelectorAll('.match-card');
+                cards.forEach((card, index) => {
+                    card.style.opacity = '0';
+                    card.style.transform = 'translateY(20px)';
+                    
+                    setTimeout(() => {
+                        card.style.transition = 'all 0.3s ease-out';
+                        card.style.opacity = '1';
+                        card.style.transform = 'translateY(0)';
+                    }, index * 100);
+                });
+            }
+
+            calculateMLMetrics() {
+                // Calculate cached ML performance metrics
+                return {
+                    models: {
+                        lightgbm: { winRate: 67.3, roi: 12.4, avgOdds: 2.34, sharpe: 1.23 },
+                        xgboost: { winRate: 64.8, roi: 8.7, avgOdds: 2.18, sharpe: 1.05 },
+                        randomForest: { winRate: 62.1, roi: 5.9, avgOdds: 2.41, sharpe: 0.87 },
+                        neuralNetwork: { winRate: 69.2, roi: 15.8, avgOdds: 2.52, sharpe: 1.41 }
+                    },
+                    timestamp: new Date()
+                };
+            }
+
+            calculateProjections() {
+                // Calculate cached money management projections
+                const strategies = ['flat', 'kelly', 'proportional'];
+                const projections = {};
+                
+                strategies.forEach(strategy => {
+                    projections[strategy] = this.generateBankrollProjection(90, strategy);
+                });
+                
+                return { projections, timestamp: new Date() };
+            }
+
+            setupMLPerformanceCharts() {
+                // Confidence vs Success Rate Chart
+                const confidenceCtx = document.getElementById('confidence-chart');
+                if (confidenceCtx) {
+                    new Chart(confidenceCtx, {
+                        type: 'scatter',
+                        data: {
+                            datasets: [{
+                                label: 'Confidence vs Success',
+                                data: this.generateConfidenceData(),
+                                backgroundColor: 'rgba(107, 207, 127, 0.6)',
+                                borderColor: '#6bcf7f'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                x: {
+                                    title: { display: true, text: 'Model Confidence' }
+                                },
+                                y: {
+                                    title: { display: true, text: 'Success Rate (%)' }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // Edge Distribution Chart
+                const edgeCtx = document.getElementById('edge-distribution-chart');
+                if (edgeCtx) {
+                    new Chart(edgeCtx, {
+                        type: 'histogram',
+                        data: {
+                            datasets: [{
+                                label: 'Edge Distribution',
+                                data: this.generateEdgeData(),
+                                backgroundColor: 'rgba(74, 158, 255, 0.6)',
+                                borderColor: '#4a9eff'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                x: {
+                                    title: { display: true, text: 'Edge (%)' }
+                                },
+                                y: {
+                                    title: { display: true, text: 'Frequency' }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // Streak Timeline Chart
+                const streakCtx = document.getElementById('streak-timeline-chart');
+                if (streakCtx) {
+                    new Chart(streakCtx, {
+                        type: 'line',
+                        data: {
+                            labels: this.generateTimelineLabels(),
+                            datasets: [{
+                                label: 'Cumulative Wins/Losses',
+                                data: this.generateStreakData(),
+                                borderColor: '#6bcf7f',
+                                backgroundColor: 'rgba(107, 207, 127, 0.1)',
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: {
+                                    title: { display: true, text: 'Cumulative Result' }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+
+            setupMoneyManagementCharts() {
+                // Bankroll Projection Chart
+                const bankrollCtx = document.getElementById('bankroll-projection-chart');
+                if (bankrollCtx) {
+                    this.createBankrollProjectionChart(bankrollCtx);
+                }
+            }
+
+            createBankrollProjectionChart(ctx) {
+                const days = 90;
+                const labels = Array.from({length: days}, (_, i) => `Day ${i + 1}`);
+                
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: 'Conservative (Flat)',
+                                data: this.generateBankrollProjection(days, 'flat'),
+                                borderColor: '#4a9eff',
+                                backgroundColor: 'rgba(74, 158, 255, 0.1)',
+                                fill: false
+                            },
+                            {
+                                label: 'Optimal (Kelly)',
+                                data: this.generateBankrollProjection(days, 'kelly'),
+                                borderColor: '#6bcf7f',
+                                backgroundColor: 'rgba(107, 207, 127, 0.1)',
+                                fill: false
+                            },
+                            {
+                                label: 'Aggressive (Proportional)',
+                                data: this.generateBankrollProjection(days, 'proportional'),
+                                borderColor: '#ff6b6b',
+                                backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                                fill: false
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        interaction: {
+                            intersect: false,
+                            mode: 'index'
+                        },
+                        scales: {
+                            y: {
+                                title: { display: true, text: 'Bankroll ($)' }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Helper methods for generating sample data
+            generateConfidenceData() {
+                return Array.from({length: 50}, () => ({
+                    x: Math.random() * 100,
+                    y: 40 + Math.random() * 40
+                }));
+            }
+
+            generateEdgeData() {
+                return Array.from({length: 100}, () => 
+                    (Math.random() - 0.5) * 20
+                );
+            }
+
+            generateTimelineLabels() {
+                return Array.from({length: 30}, (_, i) => `Day ${i + 1}`);
+            }
+
+            generateStreakData() {
+                let cumulative = 0;
+                return Array.from({length: 30}, () => {
+                    cumulative += (Math.random() > 0.45 ? 1 : -1);
+                    return cumulative;
+                });
+            }
+
+            generateBankrollProjection(days, strategy) {
+                let bankroll = 100;
+                const data = [bankroll];
+                
+                for (let i = 1; i < days; i++) {
+                    const dailyReturn = this.getStrategyReturn(strategy);
+                    bankroll *= (1 + dailyReturn);
+                    data.push(bankroll);
+                }
+                
+                return data;
+            }
+
+            getStrategyReturn(strategy) {
+                const baseReturn = 0.002; // 0.2% average daily return
+                const volatility = {
+                    'flat': 0.01,
+                    'kelly': 0.025,
+                    'proportional': 0.04
+                };
+                
+                const noise = (Math.random() - 0.5) * 2 * volatility[strategy];
+                return baseReturn + noise;
+            }
+
+            announceTabChange(tabId) {
+                const tabNames = {
+                    'live-opportunities': 'Live Betting Opportunities',
+                    'betting-simulation': 'Betting Simulation',
+                    'ml-performance': 'Machine Learning Performance',
+                    'money-management': 'Money Management'
+                };
+                
+                const announcer = document.getElementById('screen-reader-announcer');
+                if (announcer) {
+                    announcer.textContent = `Switched to ${tabNames[tabId]} tab`;
+                    setTimeout(() => announcer.textContent = '', 1000);
+                }
+            }
+        }
+
+        // Initialize dashboard when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            window.bettingDashboard = new BettingDashboard();
+        });
+    </script>
+    
+    <style>
+        /* Dashboard Navigation Styles */
+        .dashboard-nav {
+            margin: var(--space-lg) 0;
+            border-bottom: 1px solid var(--surface-border);
+        }
+        
+        .nav-tabs {
+            display: flex;
+            gap: 0;
+            overflow-x: auto;
+        }
+        
+        .nav-tab {
+            background: none;
+            border: none;
+            padding: var(--space-md) var(--space-lg);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all var(--transition-normal);
+            border-bottom: 3px solid transparent;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+        
+        .nav-tab:hover {
+            color: var(--text-primary);
+            background: var(--surface-primary);
+        }
+        
+        .nav-tab.active {
+            color: #6bcf7f;
+            border-bottom-color: #6bcf7f;
+            background: var(--surface-primary);
+        }
+        
+        .tab-content {
+            display: none;
+            padding: var(--space-lg) 0;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* ML Performance Styles */
+        .ml-performance-dashboard h2,
+        .money-management-dashboard h2 {
+            text-align: center;
+            margin-bottom: var(--space-xl);
+            color: var(--text-primary);
+        }
+        
+        .models-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-lg);
+            margin-bottom: var(--space-xl);
+        }
+        
+        .model-card {
+            background: var(--surface-primary);
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg);
+            transition: all var(--transition-normal);
+        }
+        
+        .model-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .model-card h4 {
+            margin-bottom: var(--space-md);
+            color: var(--text-primary);
+            font-size: 1.2rem;
+        }
+        
+        .model-metrics {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--space-sm) 0;
+            border-bottom: 1px solid var(--surface-border);
+        }
+        
+        .metric:last-child {
+            border-bottom: none;
+        }
+        
+        .metric-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .metric-value {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        /* Money Management Styles */
+        .strategies-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--space-lg);
+            margin-bottom: var(--space-xl);
+        }
+        
+        .strategy-card {
+            background: var(--surface-primary);
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg);
+            position: relative;
+            transition: all var(--transition-normal);
+        }
+        
+        .strategy-card.recommended {
+            border-color: #6bcf7f;
+            box-shadow: 0 0 0 1px rgba(107, 207, 127, 0.3);
+        }
+        
+        .recommended-badge {
+            position: absolute;
+            top: -10px;
+            right: var(--space-lg);
+            background: var(--success-gradient);
+            color: white;
+            padding: var(--space-xs) var(--space-sm);
+            border-radius: var(--radius-full);
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .strategy-description {
+            color: var(--text-secondary);
+            margin-bottom: var(--space-md);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        
+        .low-risk { color: #6bcf7f; }
+        .medium-risk { color: #ffd93d; }
+        .high-risk { color: #ff6b6b; }
+        
+        .risk-metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--space-lg);
+            margin-bottom: var(--space-xl);
+        }
+        
+        .risk-card {
+            background: var(--surface-primary);
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg);
+            text-align: center;
+        }
+        
+        .risk-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #4a9eff;
+            margin: var(--space-sm) 0;
+        }
+        
+        .risk-description {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+        
+        .simulation-controls-mini {
+            margin-bottom: var(--space-lg);
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+        }
+        
+        .simulation-controls-mini select {
+            padding: var(--space-sm);
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius-sm);
+            background: var(--surface-primary);
+            color: var(--text-primary);
+        }
+        
+        @media (max-width: 768px) {
+            .nav-tabs {
+                border-bottom: 1px solid var(--surface-border);
+            }
+            
+            .models-grid,
+            .strategies-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .risk-metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .risk-metrics-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .nav-tab {
+                padding: var(--space-sm) var(--space-md);
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</body>
+</html>

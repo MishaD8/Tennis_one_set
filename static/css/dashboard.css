@@ -151,27 +151,7 @@ body {
   z-index: -1;
 }
 
-.underdog-banner {
-  background: var(--success-gradient);
-  padding: var(--space-lg);
-  border-radius: var(--radius-lg);
-  margin-bottom: var(--space-lg);
-  animation: pulse 3s ease-in-out infinite;
-  position: relative;
-  overflow: hidden;
-}
-
-.underdog-banner::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  transform: rotate(45deg);
-  animation: shimmer 3s ease-in-out infinite;
-}
+/* Underdog banner removed as requested */
 
 @keyframes pulse {
   0%, 100% { 
