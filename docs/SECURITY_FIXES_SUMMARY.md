@@ -124,7 +124,7 @@ if any(request.data.startswith(indicator) for indicator in ssl_indicators):
 ## 🛠️ Configuration Updates
 
 ### Nginx Configuration Enhanced
-**File**: `tennis_nginx.conf`
+**File**: `tennis-nginx.conf`
 **Improvements**:
 - Modern SSL/TLS configuration (TLS 1.2+ only)
 - Strong cipher suites for financial applications

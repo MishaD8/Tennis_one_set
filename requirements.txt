@@ -29,6 +29,7 @@ plotly>=5.0.0
 
 # Job scheduling
 schedule>=1.1.0
+apscheduler>=3.10.0
 
 # Database and caching
 psycopg2-binary>=2.9.0
@@ -38,9 +39,11 @@ redis>=4.5.0
 python-dotenv>=0.19.0
 python-daemon>=2.3.0
 psutil>=5.8.0
+websockets>=11.0.0
+celery>=5.3.0
 
 # Monitoring and notifications
-smtplib
+python-telegram-bot>=20.0
 
 # Testing and development
 pytest>=7.0.0

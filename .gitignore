@@ -302,7 +302,7 @@ docker-compose.override.yml
 # СПЕЦИФИЧНЫЕ ДЛЯ ПРОЕКТА
 # ========================================
 # Nginx конфиги с секретами
-tennis_nginx.conf
+tennis-nginx.conf
 
 # Скрипты развертывания с паролями
 deployment_preparation.sh

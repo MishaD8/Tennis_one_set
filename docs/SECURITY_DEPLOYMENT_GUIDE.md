@@ -65,11 +65,11 @@ export ALLOWED_ORIGINS="https://your-domain.com,https://www.your-domain.com"
 
 ### Nginx Configuration
 
-Use the updated `tennis_nginx.conf` with enhanced security:
+Use the updated `tennis-nginx.conf` with enhanced security:
 
 ```bash
 # Install the configuration
-sudo cp tennis_nginx.conf /etc/nginx/sites-available/tennis-backend
+sudo cp tennis-nginx.conf /etc/nginx/sites-available/tennis-backend
 sudo ln -s /etc/nginx/sites-available/tennis-backend /etc/nginx/sites-enabled/
 
 # Update the server_name in the config

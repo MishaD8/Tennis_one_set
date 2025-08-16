@@ -34,10 +34,10 @@ from dataclasses import dataclass
 import pandas as pd
 
 # Import existing modules
-from ..data.historical_data_collector import HistoricalDataCollector, HistoricalDataConfig
-from ..data.database_models import create_tables
-from ..utils.enhanced_cache_manager import EnhancedCacheManager
-from ..utils.error_handler import TennisSystemErrorHandler
+from src.data.historical_data_collector import HistoricalDataCollector, HistoricalDataConfig
+from src.data.database_models import create_tables
+from src.utils.enhanced_cache_manager import EnhancedCacheManager
+from src.utils.error_handler import TennisSystemErrorHandler
 
 logger = logging.getLogger(__name__)
 
@@ -795,8 +795,8 @@ class DataRefresh2025System:
         
         try:
             # Import training modules
-            from ..models.enhanced_ml_training_system import EnhancedMLTrainingSystem
-            from ..models.ml_training_coordinator import MLTrainingCoordinator
+            from src.models.enhanced_ml_training_system import EnhancedMLTrainingSystem
+            from src.models.ml_training_coordinator import MLTrainingCoordinator
             
             # Initialize training system
             training_config = {

@@ -17,7 +17,7 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 import urllib.parse
 
-from config import get_config
+from src.config.config import Config
 
 logger = logging.getLogger(__name__)
 
