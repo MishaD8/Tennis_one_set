@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Monitor Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            margin: 20px;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .health-status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid #333;
+        }
+        .healthy { background: rgba(107, 207, 127, 0.2); border-color: #6bcf7f; }
+        .degraded { background: rgba(255, 193, 7, 0.2); border-color: #ffc107; }
+        .unhealthy { background: rgba(255, 107, 107, 0.2); border-color: #ff6b6b; }
+        .btn {
+            background: #6bcf7f;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        .btn:hover { background: #5ab36e; }
+        .results {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🏥 Health Monitor Standalone Test</h1>
+        
+        <div class="health-status" id="overall-status">
+            <h3>Overall System Health</h3>
+            <div id="overall-result">Testing...</div>
+        </div>
+        
+        <div class="health-status" id="database-status">
+            <h3>💾 Database Health</h3>
+            <div id="database-result">Testing...</div>
+        </div>
+        
+        <div class="health-status" id="ml-status">
+            <h3>🤖 ML Models Health</h3>
+            <div id="ml-result">Testing...</div>
+        </div>
+        
+        <div>
+            <button class="btn" onclick="testAllEndpoints()">🔄 Test All Health Endpoints</button>
+            <button class="btn" onclick="clearResults()">🧹 Clear Results</button>
+        </div>
+        
+        <div class="results" id="test-results"></div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin + '/api';
+        
+        function log(message) {
+            const results = document.getElementById('test-results');
+            const timestamp = new Date().toLocaleTimeString();
+            results.textContent += `[${timestamp}] ${message}\n`;
+        }
+        
+        function clearResults() {
+            document.getElementById('test-results').textContent = '';
+            document.getElementById('overall-result').textContent = 'Testing...';
+            document.getElementById('database-result').textContent = 'Testing...';
+            document.getElementById('ml-result').textContent = 'Testing...';
+        }
+        
+        async function testDatabaseHealth() {
+            try {
+                log('Testing Database Health endpoint...');
+                const response = await fetch(`${API_BASE}/system/database-health`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    cache: 'no-cache'
+                });
+                
+                const data = await response.json();
+                log(`Database response: ${JSON.stringify(data, null, 2)}`);
+                
+                const isHealthy = data.status === 'healthy';
+                const statusDiv = document.getElementById('database-status');
+                const resultDiv = document.getElementById('database-result');
+                
+                statusDiv.className = `health-status ${isHealthy ? 'healthy' : 'unhealthy'}`;
+                resultDiv.innerHTML = `
+                    <strong>Status:</strong> ${data.status}<br>
+                    <strong>Connected:</strong> ${data.database?.connected}<br>
+                    <strong>Database Type:</strong> ${data.database?.type}<br>
+                    <strong>Records:</strong> ${data.database?.stats?.predictions_count} predictions, ${data.database?.stats?.betting_records_count} bets
+                `;
+                
+                log(`✅ Database Health: ${data.status}`);
+                return isHealthy;
+                
+            } catch (error) {
+                log(`❌ Database Health Error: ${error.message}`);
+                document.getElementById('database-status').className = 'health-status unhealthy';
+                document.getElementById('database-result').textContent = `Error: ${error.message}`;
+                return false;
+            }
+        }
+        
+        async function testMLHealth() {
+            try {
+                log('Testing ML Models Health endpoint...');
+                const response = await fetch(`${API_BASE}/system/ml-health`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    cache: 'no-cache'
+                });
+                
+                const data = await response.json();
+                log(`ML response: ${JSON.stringify(data, null, 2)}`);
+                
+                const isHealthy = data.status === 'healthy';
+                const statusDiv = document.getElementById('ml-status');
+                const resultDiv = document.getElementById('ml-result');
+                const mlSystem = data.ml_system || {};
+                
+                statusDiv.className = `health-status ${isHealthy ? 'healthy' : 'unhealthy'}`;
+                resultDiv.innerHTML = `
+                    <strong>Status:</strong> ${data.status}<br>
+                    <strong>Models Count:</strong> ${mlSystem.models_count}<br>
+                    <strong>Real Predictor:</strong> ${mlSystem.real_predictor?.available ? 'Available' : 'Not Available'}<br>
+                    <strong>Prediction Service:</strong> ${mlSystem.prediction_service?.available ? 'Available' : 'Not Available'}<br>
+                    <strong>Prediction Test:</strong> ${mlSystem.prediction_test}
+                `;
+                
+                log(`✅ ML Health: ${data.status}`);
+                return isHealthy;
+                
+            } catch (error) {
+                log(`❌ ML Health Error: ${error.message}`);
+                document.getElementById('ml-status').className = 'health-status unhealthy';
+                document.getElementById('ml-result').textContent = `Error: ${error.message}`;
+                return false;
+            }
+        }
+        
+        async function testOverallHealth() {
+            try {
+                log('Testing Overall Health endpoint...');
+                const response = await fetch(`${API_BASE}/health`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    cache: 'no-cache'
+                });
+                
+                const data = await response.json();
+                log(`Overall response: ${JSON.stringify(data, null, 2)}`);
+                
+                const status = data.status;
+                const statusDiv = document.getElementById('overall-status');
+                const resultDiv = document.getElementById('overall-result');
+                
+                let statusClass = 'healthy';
+                if (status === 'degraded') statusClass = 'degraded';
+                else if (status === 'unhealthy' || status === 'critical') statusClass = 'unhealthy';
+                
+                statusDiv.className = `health-status ${statusClass}`;
+                resultDiv.innerHTML = `
+                    <strong>Status:</strong> ${status}<br>
+                    <strong>Version:</strong> ${data.version}<br>
+                    <strong>Environment:</strong> ${data.infrastructure?.environment}<br>
+                    <strong>Warnings:</strong> ${data.warnings?.length || 0}
+                `;
+                
+                log(`✅ Overall Health: ${status}`);
+                return status !== 'critical' && status !== 'unhealthy';
+                
+            } catch (error) {
+                log(`❌ Overall Health Error: ${error.message}`);
+                document.getElementById('overall-status').className = 'health-status unhealthy';
+                document.getElementById('overall-result').textContent = `Error: ${error.message}`;
+                return false;
+            }
+        }
+        
+        async function testAllEndpoints() {
+            log('='.repeat(50));
+            log('Starting Health Monitor Test...');
+            clearResults();
+            
+            const results = await Promise.allSettled([
+                testDatabaseHealth(),
+                testMLHealth(),
+                testOverallHealth()
+            ]);
+            
+            log('='.repeat(50));
+            log('Health Test Summary:');
+            log(`Database: ${results[0].status === 'fulfilled' && results[0].value ? '✅ HEALTHY' : '❌ UNHEALTHY'}`);
+            log(`ML Models: ${results[1].status === 'fulfilled' && results[1].value ? '✅ HEALTHY' : '❌ UNHEALTHY'}`);
+            log(`Overall: ${results[2].status === 'fulfilled' && results[2].value ? '✅ HEALTHY' : '❌ DEGRADED/UNHEALTHY'}`);
+            
+            const allHealthy = results.every(r => r.status === 'fulfilled' && r.value);
+            log(`\n🎯 CONCLUSION: Dashboard should show ${allHealthy ? '✅ HEALTHY' : '⚠️ ISSUES DETECTED'} status`);
+        }
+        
+        // Auto-run test on page load
+        window.addEventListener('load', () => {
+            setTimeout(testAllEndpoints, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -198,22 +198,149 @@ class TennisDashboard {
 
         this.setState({ loading: true, error: null });
         
-        // Show skeleton loading
-        container.innerHTML = this.createSkeletonLoading();
+        // Show enhanced loading with progress indicator
+        container.innerHTML = this.createEnhancedLoading();
         this.announceToScreenReader('Loading underdog opportunities');
+        
+        // Start loading animation and timeout indicator
+        const loadingStartTime = Date.now();
+        const progressInterval = this.startLoadingProgress();
 
         try {
-            const response = await this.fetchWithTimeout('/matches', 10000);
+            const response = await this.fetchWithTimeout('/matches', 15000);
             const data = await response.json();
 
+            clearInterval(progressInterval);
+            const loadingTime = Date.now() - loadingStartTime;
+            
             if (data.success && data.matches?.length > 0) {
-                this.handleSuccessfulData(data);
+                this.handleSuccessfulData(data, loadingTime);
             } else {
-                await this.handleNoData(data);
+                await this.handleNoData(data, loadingTime);
             }
         } catch (error) {
-            await this.handleLoadError(error);
+            clearInterval(progressInterval);
+            await this.handleLoadError(error, Date.now() - loadingStartTime);
         }
+    }
+
+    createEnhancedLoading() {
+        return `
+            <div class="enhanced-loading" role="status" aria-live="polite" aria-label="Loading betting opportunities">
+                <div class="loading-header">
+                    <div class="loading-spinner" aria-hidden="true"></div>
+                    <h3>💰 Finding value betting opportunities...</h3>
+                </div>
+                
+                <div class="loading-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="loading-progress-fill"></div>
+                    </div>
+                    <div class="progress-text" id="loading-progress-text">Initializing...</div>
+                </div>
+                
+                <div class="loading-steps">
+                    <div class="loading-step active" id="step-api">
+                        <span class="step-icon">🔄</span>
+                        <span class="step-text">Fetching live match data</span>
+                    </div>
+                    <div class="loading-step" id="step-analysis">
+                        <span class="step-icon">🤖</span>
+                        <span class="step-text">Running ML analysis</span>
+                    </div>
+                    <div class="loading-step" id="step-filtering">
+                        <span class="step-icon">🎯</span>
+                        <span class="step-text">Filtering value opportunities</span>
+                    </div>
+                    <div class="loading-step" id="step-complete">
+                        <span class="step-icon">✅</span>
+                        <span class="step-text">Preparing results</span>
+                    </div>
+                </div>
+                
+                <div class="loading-timeout-warning" id="loading-timeout-warning" style="display: none;">
+                    ⏰ This is taking longer than usual. Please wait...
+                </div>
+                
+                <div class="loading-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Loading time:</span>
+                        <span class="stat-value" id="loading-time-counter">0s</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">System status:</span>
+                        <span class="stat-value" id="system-status-indicator">Checking...</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    startLoadingProgress() {
+        let progress = 0;
+        let currentStep = 0;
+        const steps = ['step-api', 'step-analysis', 'step-filtering', 'step-complete'];
+        const stepLabels = [
+            'Fetching live match data...',
+            'Running ML analysis...',
+            'Filtering value opportunities...',
+            'Preparing results...'
+        ];
+        
+        const interval = setInterval(() => {
+            progress += 2;
+            const progressFill = document.getElementById('loading-progress-fill');
+            const progressText = document.getElementById('loading-progress-text');
+            const timeCounter = document.getElementById('loading-time-counter');
+            const timeoutWarning = document.getElementById('loading-timeout-warning');
+            
+            if (progressFill) {
+                progressFill.style.width = `${Math.min(progress, 95)}%`;
+            }
+            
+            if (timeCounter) {
+                const seconds = Math.floor(progress / 10);
+                timeCounter.textContent = `${seconds}s`;
+                
+                // Show timeout warning after 8 seconds
+                if (seconds >= 8 && timeoutWarning) {
+                    timeoutWarning.style.display = 'block';
+                }
+            }
+            
+            // Update current step
+            const newStep = Math.floor(progress / 25);
+            if (newStep !== currentStep && newStep < steps.length) {
+                // Mark previous step as completed
+                if (currentStep > 0) {
+                    const prevStepElement = document.getElementById(steps[currentStep - 1]);
+                    if (prevStepElement) {
+                        prevStepElement.classList.remove('active');
+                        prevStepElement.classList.add('completed');
+                        const icon = prevStepElement.querySelector('.step-icon');
+                        if (icon) icon.textContent = '✅';
+                    }
+                }
+                
+                // Activate current step
+                const currentStepElement = document.getElementById(steps[newStep]);
+                if (currentStepElement) {
+                    currentStepElement.classList.add('active');
+                }
+                
+                if (progressText && stepLabels[newStep]) {
+                    progressText.textContent = stepLabels[newStep];
+                }
+                
+                currentStep = newStep;
+            }
+            
+            if (progress >= 100) {
+                clearInterval(interval);
+            }
+        }, 100);
+        
+        return interval;
     }
 
     async fetchWithTimeout(endpoint, timeout = 5000) {
@@ -236,7 +363,7 @@ class TennisDashboard {
         }
     }
 
-    handleSuccessfulData(data) {
+    handleSuccessfulData(data, loadingTime = 0) {
         // Filter matches to only show those that meet betting selection criteria
         const bettingMatches = this.filterBettingSelection(data.matches);
         
@@ -247,14 +374,53 @@ class TennisDashboard {
         this.setState({
             matches: bettingMatches,
             loading: false,
-            lastUpdate: new Date()
+            lastUpdate: new Date(),
+            lastLoadTime: loadingTime
         });
 
-        // Render matches
-        this.renderMatches(bettingMatches);
+        // Render matches with performance info
+        this.renderMatches(bettingMatches, loadingTime);
         this.updateStats(bettingMatches);
         
-        this.announceToScreenReader(`Found ${bettingMatches.length} betting opportunities (filtered from ${data.matches.length} total matches)`);
+        // Show success notification with performance metrics
+        this.showPerformanceNotification(bettingMatches.length, data.matches.length, loadingTime);
+        
+        this.announceToScreenReader(`Found ${bettingMatches.length} betting opportunities (filtered from ${data.matches.length} total matches) in ${(loadingTime/1000).toFixed(1)} seconds`);
+    }
+
+    showPerformanceNotification(bettingMatches, totalMatches, loadingTime) {
+        const loadTimeSeconds = (loadingTime / 1000).toFixed(1);
+        const filterEfficiency = totalMatches > 0 ? ((bettingMatches / totalMatches) * 100).toFixed(1) : 0;
+        
+        let performanceStatus = 'excellent';
+        let performanceIcon = '🚀';
+        
+        if (loadingTime > 10000) {
+            performanceStatus = 'slow';
+            performanceIcon = '🐌';
+        } else if (loadingTime > 5000) {
+            performanceStatus = 'moderate';
+            performanceIcon = '⏱️';
+        }
+
+        const message = `
+            <div class="performance-summary">
+                <div class="perf-metric">
+                    <span class="perf-icon">${performanceIcon}</span>
+                    <span class="perf-text">Loaded in ${loadTimeSeconds}s</span>
+                </div>
+                <div class="perf-metric">
+                    <span class="perf-icon">🎯</span>
+                    <span class="perf-text">${filterEfficiency}% match quality filter</span>
+                </div>
+                <div class="perf-metric">
+                    <span class="perf-icon">💰</span>
+                    <span class="perf-text">${bettingMatches} value bets from ${totalMatches} matches</span>
+                </div>
+            </div>
+        `;
+
+        this.showNotification('System Performance', message, 'success');
     }
 
     filterBettingSelection(matches) {
@@ -328,11 +494,11 @@ class TennisDashboard {
         `;
     }
 
-    renderMatches(matches) {
+    renderMatches(matches, loadingTime = 0) {
         const container = document.getElementById('matches-container');
         if (!container) return;
 
-        const header = this.createSuccessHeader(matches.length);
+        const header = this.createSuccessHeader(matches.length, loadingTime);
         const matchCards = matches.map(match => {
             const card = new TennisComponents.MatchCard(match);
             return card.render();
@@ -344,11 +510,41 @@ class TennisDashboard {
         this.animateCardsIn(container);
     }
 
-    createSuccessHeader(count) {
+    createSuccessHeader(count, loadingTime = 0) {
+        const loadTimeText = loadingTime > 0 ? ` • Loaded in ${(loadingTime/1000).toFixed(1)}s` : '';
+        const performanceIcon = loadingTime < 3000 ? '🚀' : loadingTime < 6000 ? '⏱️' : '🐌';
+        
         return `
             <div class="success-banner" role="banner">
-                <h2>💰 BETTING OPPORTUNITIES FOUND</h2>
-                <p>Value Bets: ${count} • Last updated: ${this.formatTime(new Date())}</p>
+                <div class="success-header">
+                    <h2>💰 BETTING OPPORTUNITIES FOUND</h2>
+                    <div class="success-metrics">
+                        <div class="success-metric">
+                            <span class="metric-icon">🎯</span>
+                            <span class="metric-text">Value Bets: ${count}</span>
+                        </div>
+                        <div class="success-metric">
+                            <span class="metric-icon">🕒</span>
+                            <span class="metric-text">Updated: ${this.formatTime(new Date())}</span>
+                        </div>
+                        ${loadingTime > 0 ? `
+                        <div class="success-metric">
+                            <span class="metric-icon">${performanceIcon}</span>
+                            <span class="metric-text">Performance: ${(loadingTime/1000).toFixed(1)}s</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+                
+                <div class="data-freshness-indicator">
+                    <div class="freshness-status live">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Live Data</span>
+                    </div>
+                    <div class="next-update-info">
+                        Next update in: <span id="next-update-countdown">10:00</span>
+                    </div>
+                </div>
             </div>
         `;
     }

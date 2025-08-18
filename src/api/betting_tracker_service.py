@@ -263,6 +263,98 @@ class BettingTrackerService:
             logger.error(f"❌ Error retrieving betting logs: {e}")
             return []
     
+    def get_betting_statistics_by_timeframe(self,
+                                           test_mode: TestMode = None,
+                                           timeframe: str = '1_month') -> Dict:
+        """
+        Get comprehensive betting statistics for specific timeframes
+        
+        Args:
+            test_mode: Testing mode filter
+            timeframe: '1_week', '1_month', '1_year', 'all_time'
+        
+        Returns:
+            Dict: Comprehensive statistics including all metrics
+        """
+        try:
+            # Calculate date range based on timeframe with timezone awareness
+            end_date = datetime.now()
+            
+            if timeframe == '1_week':
+                start_date = end_date - timedelta(days=7)
+                days_back = 7
+                period_label = 'Last 7 Days'
+            elif timeframe == '1_month':
+                start_date = end_date - timedelta(days=30)
+                days_back = 30
+                period_label = 'Last 30 Days'
+            elif timeframe == '1_year':
+                start_date = end_date - timedelta(days=365)
+                days_back = 365
+                period_label = 'Last 365 Days'
+            else:  # all_time
+                start_date = None
+                days_back = 999999
+                period_label = 'All Time'
+            
+            # Get betting logs for the timeframe
+            query = self.session.query(BettingLog).filter(
+                BettingLog.betting_status.in_([BettingStatus.WON, BettingStatus.LOST])
+            )
+            
+            if test_mode:
+                query = query.filter(BettingLog.test_mode == test_mode)
+            
+            if start_date:
+                query = query.filter(BettingLog.timestamp >= start_date)
+            
+            logs = query.order_by(BettingLog.timestamp).all()
+            
+            if not logs:
+                return {
+                    'timeframe': timeframe,
+                    'test_mode': test_mode.value if test_mode else 'all',
+                    'message': f'No betting data available for {timeframe}',
+                    'basic_metrics': self._get_empty_metrics(),
+                    'date_range': {
+                        'start_date': start_date.isoformat() if start_date else None,
+                        'end_date': end_date.isoformat(),
+                        'days_included': days_back if days_back != 999999 else 'all_time'
+                    }
+                }
+            
+            # Calculate all statistics
+            statistics = self._calculate_comprehensive_statistics(logs, timeframe)
+            statistics['timeframe'] = timeframe
+            statistics['period_label'] = period_label
+            statistics['test_mode'] = test_mode.value if test_mode else 'all'
+            statistics['date_range'] = {
+                'start_date': start_date.isoformat() if start_date else None,
+                'end_date': end_date.isoformat(),
+                'days_included': days_back if days_back != 999999 else 'all_time',
+                'timezone': 'UTC'
+            }
+            
+            # Add enhanced data quality metrics
+            statistics['data_quality'] = self._calculate_enhanced_data_quality(logs, timeframe)
+            
+            return statistics
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting betting statistics for {timeframe}: {e}")
+            return {
+                'timeframe': timeframe,
+                'period_label': timeframe.replace('_', ' ').title(),
+                'error': str(e),
+                'basic_metrics': self._get_empty_metrics(),
+                'data_quality': {
+                    'sample_size': 0,
+                    'data_completeness': 'error',
+                    'statistical_significance': 'error',
+                    'quality_score': 0
+                }
+            }
+
     def get_betting_performance_summary(self, 
                                       test_mode: TestMode = None,
                                       days_back: int = 30) -> Dict:
@@ -460,6 +552,512 @@ class BettingTrackerService:
         
         return max_drawdown
     
+    def _get_empty_metrics(self) -> Dict:
+        """Return empty metrics structure"""
+        return {
+            'total_bets': 0,
+            'winning_bets': 0,
+            'losing_bets': 0,
+            'win_rate': 0,
+            'total_staked': 0,
+            'total_returned': 0,
+            'net_profit': 0,
+            'roi_percentage': 0
+        }
+    
+    def _calculate_comprehensive_statistics(self, logs: List, timeframe: str) -> Dict:
+        """
+        Calculate comprehensive betting statistics from log records
+        
+        Args:
+            logs: List of BettingLog records
+            timeframe: Timeframe for analysis
+        
+        Returns:
+            Dict: Complete statistics breakdown
+        """
+        try:
+            if not logs:
+                return {
+                    'basic_metrics': self._get_empty_metrics(),
+                    'message': f'No betting data available for {timeframe}'
+                }
+            
+            # Basic metrics
+            total_bets = len(logs)
+            winning_bets = len([log for log in logs if log.betting_status == BettingStatus.WON])
+            losing_bets = total_bets - winning_bets
+            win_rate = (winning_bets / total_bets) * 100 if total_bets > 0 else 0
+            
+            # Financial metrics
+            total_staked = sum(log.stake_amount for log in logs)
+            total_returned = sum(log.payout_amount or 0 for log in logs)
+            net_profit = sum(log.profit_loss for log in logs)
+            roi_percentage = (net_profit / total_staked) * 100 if total_staked > 0 else 0
+            
+            # Profit factor
+            total_wins_amount = sum(log.profit_loss for log in logs if log.profit_loss > 0)
+            total_losses_amount = abs(sum(log.profit_loss for log in logs if log.profit_loss < 0))
+            profit_factor = total_wins_amount / total_losses_amount if total_losses_amount > 0 else 0
+            
+            # Average metrics
+            average_stake = total_staked / total_bets if total_bets > 0 else 0
+            average_odds = sum(log.odds_taken for log in logs) / total_bets if total_bets > 0 else 0
+            average_edge = sum(log.edge_percentage for log in logs) / total_bets if total_bets > 0 else 0
+            
+            # Advanced risk metrics
+            risk_metrics = self._calculate_advanced_risk_metrics(logs)
+            
+            # Streak analysis
+            current_streak = self._calculate_current_streak(logs)
+            longest_winning_streak = self._calculate_longest_streak(logs, 'win')
+            longest_losing_streak = self._calculate_longest_streak(logs, 'loss')
+            
+            # Time-based analysis
+            time_analysis = self._calculate_time_based_metrics(logs, timeframe)
+            
+            # Odds distribution analysis
+            odds_analysis = self._calculate_odds_distribution(logs)
+            
+            # Model performance breakdown
+            model_performance = self._calculate_model_performance(logs)
+            
+            # Rolling performance metrics
+            rolling_metrics = self._calculate_rolling_metrics(logs, timeframe)
+            
+            return {
+                'basic_metrics': {
+                    'total_bets': total_bets,
+                    'winning_bets': winning_bets,
+                    'losing_bets': losing_bets,
+                    'win_rate': round(win_rate, 2),
+                    'pending_bets': 0  # These are settled logs only
+                },
+                'financial_metrics': {
+                    'total_staked': round(total_staked, 2),
+                    'total_returned': round(total_returned, 2),
+                    'net_profit': round(net_profit, 2),
+                    'roi_percentage': round(roi_percentage, 2),
+                    'profit_factor': round(profit_factor, 2)
+                },
+                'average_metrics': {
+                    'average_stake': round(average_stake, 2),
+                    'average_odds': round(average_odds, 2),
+                    'average_edge': round(average_edge, 2),
+                    'average_win': round(total_wins_amount / winning_bets, 2) if winning_bets > 0 else 0,
+                    'average_loss': round(total_losses_amount / losing_bets, 2) if losing_bets > 0 else 0
+                },
+                'risk_metrics': risk_metrics,
+                'streak_analysis': {
+                    'current_streak': current_streak,
+                    'longest_winning_streak': longest_winning_streak,
+                    'longest_losing_streak': longest_losing_streak
+                },
+                'time_analysis': time_analysis,
+                'odds_analysis': odds_analysis,
+                'model_performance': model_performance,
+                'rolling_metrics': rolling_metrics,
+                'data_quality': {
+                    'sample_size': total_bets,
+                    'data_completeness': 'complete' if total_bets >= 20 else 'limited',
+                    'statistical_significance': 'high' if total_bets >= 50 else 'medium' if total_bets >= 20 else 'low'
+                },
+                'last_updated': datetime.utcnow().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error calculating comprehensive statistics: {e}")
+            return {
+                'basic_metrics': self._get_empty_metrics(),
+                'error': str(e)
+            }
+    
+    def _calculate_advanced_risk_metrics(self, logs: List) -> Dict:
+        """Calculate advanced risk metrics including Sharpe ratio, VaR, Sortino ratio"""
+        try:
+            if not logs:
+                return {
+                    'sharpe_ratio': 0,
+                    'sortino_ratio': 0,
+                    'max_drawdown': 0,
+                    'var_95': 0,
+                    'var_99': 0,
+                    'largest_win': 0,
+                    'largest_loss': 0
+                }
+            
+            profits = [log.profit_loss for log in logs]
+            
+            # Basic risk metrics
+            largest_win = max(profits) if profits else 0
+            largest_loss = abs(min(profits)) if profits else 0
+            max_drawdown = self._calculate_max_drawdown(logs)
+            
+            # Sharpe ratio (risk-free rate assumed to be 0)
+            mean_return = sum(profits) / len(profits) if profits else 0
+            variance = sum((p - mean_return) ** 2 for p in profits) / len(profits) if profits else 0
+            std_dev = variance ** 0.5
+            sharpe_ratio = mean_return / std_dev if std_dev > 0 else 0
+            
+            # Sortino ratio (downside deviation)
+            negative_returns = [p for p in profits if p < 0]
+            downside_variance = sum(p ** 2 for p in negative_returns) / len(profits) if negative_returns else 0
+            downside_deviation = downside_variance ** 0.5
+            sortino_ratio = mean_return / downside_deviation if downside_deviation > 0 else 0
+            
+            # Value at Risk (VaR)
+            sorted_profits = sorted(profits)
+            var_95_index = int(0.05 * len(sorted_profits))
+            var_99_index = int(0.01 * len(sorted_profits))
+            var_95 = abs(sorted_profits[var_95_index]) if var_95_index < len(sorted_profits) else 0
+            var_99 = abs(sorted_profits[var_99_index]) if var_99_index < len(sorted_profits) else 0
+            
+            return {
+                'sharpe_ratio': round(sharpe_ratio, 3),
+                'sortino_ratio': round(sortino_ratio, 3),
+                'max_drawdown': round(max_drawdown, 2),
+                'var_95': round(var_95, 2),  # 95% VaR
+                'var_99': round(var_99, 2),  # 99% VaR
+                'largest_win': round(largest_win, 2),
+                'largest_loss': round(largest_loss, 2),
+                'volatility': round(std_dev, 3),
+                'downside_deviation': round(downside_deviation, 3)
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error calculating advanced risk metrics: {e}")
+            return {'error': str(e)}
+    
+    def _calculate_time_based_metrics(self, logs: List, timeframe: str) -> Dict:
+        """Calculate time-based performance metrics"""
+        try:
+            if not logs:
+                return {'profit_by_period': []}
+            
+            from collections import defaultdict
+            period_data = defaultdict(lambda: {
+                'profit': 0,
+                'bets': 0,
+                'wins': 0,
+                'stakes': 0
+            })
+            
+            for log in logs:
+                try:
+                    timestamp = log.timestamp
+                    
+                    if timeframe == '1_week':
+                        # Group by day
+                        period_key = timestamp.strftime('%Y-%m-%d')
+                    elif timeframe == '1_month':
+                        # Group by week
+                        week_start = timestamp - timedelta(days=timestamp.weekday())
+                        period_key = week_start.strftime('%Y-W%W')
+                    elif timeframe == '1_year':
+                        # Group by month
+                        period_key = timestamp.strftime('%Y-%m')
+                    else:
+                        # Group by month for all time
+                        period_key = timestamp.strftime('%Y-%m')
+                    
+                    period_data[period_key]['profit'] += log.profit_loss
+                    period_data[period_key]['bets'] += 1
+                    period_data[period_key]['stakes'] += log.stake_amount
+                    if log.betting_status == BettingStatus.WON:
+                        period_data[period_key]['wins'] += 1
+                        
+                except Exception as e:
+                    logger.warning(f"Error processing log timestamp: {e}")
+                    continue
+            
+            # Convert to list and calculate additional metrics
+            profit_by_period = []
+            for period, data in sorted(period_data.items()):
+                win_rate = (data['wins'] / data['bets']) * 100 if data['bets'] > 0 else 0
+                roi = (data['profit'] / data['stakes']) * 100 if data['stakes'] > 0 else 0
+                
+                profit_by_period.append({
+                    'period': period,
+                    'profit': round(data['profit'], 2),
+                    'bets': data['bets'],
+                    'win_rate': round(win_rate, 1),
+                    'roi': round(roi, 1)
+                })
+            
+            return {
+                'profit_by_period': profit_by_period,
+                'best_period': max(profit_by_period, key=lambda x: x['profit']) if profit_by_period else None,
+                'worst_period': min(profit_by_period, key=lambda x: x['profit']) if profit_by_period else None
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error calculating time-based metrics: {e}")
+            return {'profit_by_period': []}
+    
+    def _calculate_odds_distribution(self, logs: List) -> Dict:
+        """Calculate betting distribution by odds ranges"""
+        try:
+            if not logs:
+                return {'odds_ranges': []}
+            
+            # Define odds ranges
+            ranges = [
+                (1.0, 1.5, 'Heavy Favorites'),
+                (1.5, 2.0, 'Favorites'), 
+                (2.0, 3.0, 'Moderate'),
+                (3.0, 5.0, 'Underdogs'),
+                (5.0, float('inf'), 'Heavy Underdogs')
+            ]
+            
+            range_data = []
+            for min_odds, max_odds, label in ranges:
+                range_logs = [log for log in logs if min_odds <= log.odds_taken < max_odds]
+                
+                if range_logs:
+                    total_bets = len(range_logs)
+                    wins = len([log for log in range_logs if log.betting_status == BettingStatus.WON])
+                    win_rate = (wins / total_bets) * 100
+                    total_profit = sum(log.profit_loss for log in range_logs)
+                    total_stakes = sum(log.stake_amount for log in range_logs)
+                    roi = (total_profit / total_stakes) * 100 if total_stakes > 0 else 0
+                    
+                    range_data.append({
+                        'range': label,
+                        'odds_range': f"{min_odds}-{max_odds if max_odds != float('inf') else '∞'}",
+                        'bets': total_bets,
+                        'win_rate': round(win_rate, 1),
+                        'profit': round(total_profit, 2),
+                        'roi': round(roi, 1)
+                    })
+            
+            return {
+                'odds_ranges': range_data,
+                'most_profitable_range': max(range_data, key=lambda x: x['roi']) if range_data else None
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error calculating odds distribution: {e}")
+            return {'odds_ranges': []}
+    
+    def _calculate_model_performance(self, logs: List) -> Dict:
+        """Calculate performance breakdown by ML model"""
+        try:
+            if not logs:
+                return {}
+            
+            model_stats = {}
+            
+            for log in logs:
+                model = log.model_used or 'Unknown'
+                
+                if model not in model_stats:
+                    model_stats[model] = {
+                        'total_bets': 0,
+                        'winning_bets': 0,
+                        'net_profit': 0,
+                        'total_staked': 0
+                    }
+                
+                model_stats[model]['total_bets'] += 1
+                model_stats[model]['total_staked'] += log.stake_amount
+                model_stats[model]['net_profit'] += log.profit_loss
+                
+                if log.betting_status == BettingStatus.WON:
+                    model_stats[model]['winning_bets'] += 1
+            
+            # Calculate derived metrics
+            for model, stats in model_stats.items():
+                stats['win_rate'] = (stats['winning_bets'] / stats['total_bets']) * 100
+                stats['roi'] = (stats['net_profit'] / stats['total_staked']) * 100 if stats['total_staked'] > 0 else 0
+                # Round values
+                stats['win_rate'] = round(stats['win_rate'], 1)
+                stats['roi'] = round(stats['roi'], 1)
+                stats['net_profit'] = round(stats['net_profit'], 2)
+            
+            return model_stats
+            
+        except Exception as e:
+            logger.error(f"❌ Error calculating model performance: {e}")
+            return {}
+    
+    def _calculate_rolling_metrics(self, logs: List, timeframe: str) -> Dict:
+        """Calculate rolling performance metrics"""
+        try:
+            if len(logs) < 10:  # Need minimum data for rolling metrics
+                return {'rolling_roi': [], 'rolling_win_rate': []}
+            
+            # Sort logs by timestamp
+            sorted_logs = sorted(logs, key=lambda x: x.timestamp)
+            
+            # Calculate window size based on timeframe
+            if timeframe == '1_week':
+                window_size = min(7, len(sorted_logs) // 3)
+            elif timeframe == '1_month':
+                window_size = min(15, len(sorted_logs) // 3)
+            elif timeframe == '1_year':
+                window_size = min(30, len(sorted_logs) // 5)
+            else:
+                window_size = min(50, len(sorted_logs) // 5)
+            
+            rolling_roi = []
+            rolling_win_rate = []
+            
+            for i in range(window_size, len(sorted_logs) + 1):
+                window_logs = sorted_logs[i - window_size:i]
+                
+                # Calculate window metrics
+                total_stakes = sum(log.stake_amount for log in window_logs)
+                total_profit = sum(log.profit_loss for log in window_logs)
+                wins = len([log for log in window_logs if log.betting_status == BettingStatus.WON])
+                
+                roi = (total_profit / total_stakes) * 100 if total_stakes > 0 else 0
+                win_rate = (wins / len(window_logs)) * 100 if window_logs else 0
+                
+                rolling_roi.append({
+                    'period': window_logs[-1].timestamp.strftime('%Y-%m-%d'),
+                    'roi': round(roi, 2)
+                })
+                
+                rolling_win_rate.append({
+                    'period': window_logs[-1].timestamp.strftime('%Y-%m-%d'),
+                    'win_rate': round(win_rate, 1)
+                })
+            
+            return {
+                'rolling_roi': rolling_roi,
+                'rolling_win_rate': rolling_win_rate,
+                'window_size': window_size
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error calculating rolling metrics: {e}")
+            return {'rolling_roi': [], 'rolling_win_rate': []}
+
+    def _calculate_enhanced_data_quality(self, logs: List, timeframe: str) -> Dict:
+        """Calculate enhanced data quality metrics and statistical significance"""
+        try:
+            sample_size = len(logs)
+            
+            # Determine data completeness
+            if sample_size == 0:
+                data_completeness = 'no_data'
+                statistical_significance = 'insufficient'
+                quality_score = 0
+            elif sample_size < 10:
+                data_completeness = 'very_limited'
+                statistical_significance = 'low'
+                quality_score = 1
+            elif sample_size < 30:
+                data_completeness = 'limited'
+                statistical_significance = 'medium'
+                quality_score = 2
+            elif sample_size < 100:
+                data_completeness = 'good'
+                statistical_significance = 'high'
+                quality_score = 3
+            else:
+                data_completeness = 'excellent'
+                statistical_significance = 'very_high'
+                quality_score = 4
+            
+            # Calculate additional quality metrics
+            if sample_size > 0:
+                # Time distribution quality
+                sorted_logs = sorted(logs, key=lambda x: x.timestamp)
+                if len(sorted_logs) > 1:
+                    time_span = (sorted_logs[-1].timestamp - sorted_logs[0].timestamp).days
+                    if timeframe == '1_week' and time_span >= 5:
+                        time_distribution_quality = 'good'
+                    elif timeframe == '1_month' and time_span >= 20:
+                        time_distribution_quality = 'good'
+                    elif timeframe == '1_year' and time_span >= 200:
+                        time_distribution_quality = 'good'
+                    else:
+                        time_distribution_quality = 'concentrated'
+                else:
+                    time_distribution_quality = 'single_point'
+                
+                # Model diversity
+                models_used = set(log.model_used for log in logs if log.model_used)
+                model_diversity = len(models_used)
+                
+                # Stakes consistency
+                stakes = [log.stake_amount for log in logs]
+                if stakes:
+                    stake_std = (sum((s - sum(stakes)/len(stakes))**2 for s in stakes) / len(stakes))**0.5
+                    stake_cv = stake_std / (sum(stakes)/len(stakes)) if sum(stakes) > 0 else 0
+                    stakes_consistency = 'consistent' if stake_cv < 0.5 else 'variable'
+                else:
+                    stakes_consistency = 'unknown'
+                
+                # Calculate confidence intervals for key metrics
+                wins = len([log for log in logs if log.betting_status == BettingStatus.WON])
+                win_rate = wins / sample_size if sample_size > 0 else 0
+                
+                # Binomial confidence interval (Wilson score)
+                if sample_size >= 5:
+                    import math
+                    z = 1.96  # 95% confidence
+                    p = win_rate
+                    n = sample_size
+                    
+                    denominator = 1 + z**2/n
+                    centre_adjusted_probability = (p + z**2/(2*n)) / denominator
+                    adjusted_standard_deviation = math.sqrt((p*(1-p) + z**2/(4*n)) / n) / denominator
+                    
+                    win_rate_ci_lower = centre_adjusted_probability - z * adjusted_standard_deviation
+                    win_rate_ci_upper = centre_adjusted_probability + z * adjusted_standard_deviation
+                    
+                    ci_width = win_rate_ci_upper - win_rate_ci_lower
+                    precision = 'high' if ci_width < 0.2 else 'medium' if ci_width < 0.4 else 'low'
+                else:
+                    win_rate_ci_lower = 0
+                    win_rate_ci_upper = 1
+                    precision = 'very_low'
+            else:
+                time_distribution_quality = 'no_data'
+                model_diversity = 0
+                stakes_consistency = 'no_data'
+                win_rate_ci_lower = 0
+                win_rate_ci_upper = 1
+                precision = 'no_data'
+            
+            # Generate recommendations
+            recommendations = []
+            if sample_size < 30:
+                recommendations.append("Collect more data for reliable statistics")
+            if timeframe != 'all_time' and sample_size == 0:
+                recommendations.append(f"No bets found in {timeframe} period")
+            if sample_size > 0 and model_diversity <= 1:
+                recommendations.append("Consider diversifying ML models for better insights")
+            
+            return {
+                'sample_size': sample_size,
+                'data_completeness': data_completeness,
+                'statistical_significance': statistical_significance,
+                'quality_score': quality_score,
+                'time_distribution_quality': time_distribution_quality,
+                'model_diversity': model_diversity,
+                'stakes_consistency': stakes_consistency,
+                'confidence_intervals': {
+                    'win_rate_lower': round(win_rate_ci_lower * 100, 1),
+                    'win_rate_upper': round(win_rate_ci_upper * 100, 1),
+                    'precision': precision
+                },
+                'recommendations': recommendations,
+                'last_updated': datetime.utcnow().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error calculating data quality: {e}")
+            return {
+                'sample_size': 0,
+                'data_completeness': 'error',
+                'statistical_significance': 'error',
+                'quality_score': 0,
+                'error': str(e)
+            }
+
     def get_pending_bets(self, test_mode: TestMode = None) -> List[Dict]:
         """Get all pending bets awaiting settlement"""
         try:
@@ -543,6 +1141,473 @@ class BettingTrackerService:
         except Exception as e:
             logger.error(f"❌ Error exporting betting logs: {e}")
             return ""
+    
+    def get_chart_data_for_timeframe(self, 
+                                   test_mode: TestMode = None,
+                                   timeframe: str = '1_month',
+                                   chart_type: str = 'profit_timeline') -> Dict:
+        """
+        Generate chart data for betting statistics visualization with enhanced error handling
+        
+        Args:
+            test_mode: Testing mode filter
+            timeframe: Time period for data
+            chart_type: Type of chart (profit_timeline, win_rate_trend, odds_distribution, etc.)
+        
+        Returns:
+            Dict: Chart data in format suitable for frontend visualization
+        """
+        try:
+            # Validate inputs
+            valid_timeframes = ['1_week', '1_month', '1_year', 'all_time']
+            valid_chart_types = [
+                'profit_timeline', 'win_rate_trend', 'odds_distribution',
+                'monthly_performance', 'risk_metrics', 'model_comparison',
+                'data_quality_overview'
+            ]
+            
+            if timeframe not in valid_timeframes:
+                return {
+                    'labels': [], 
+                    'datasets': [], 
+                    'error': f'Invalid timeframe: {timeframe}. Valid options: {valid_timeframes}'
+                }
+            
+            if chart_type not in valid_chart_types:
+                return {
+                    'labels': [], 
+                    'datasets': [], 
+                    'error': f'Invalid chart type: {chart_type}. Valid options: {valid_chart_types}'
+                }
+            
+            # Get statistics data for the timeframe
+            statistics = self.get_betting_statistics_by_timeframe(
+                test_mode=test_mode,
+                timeframe=timeframe
+            )
+            
+            if 'error' in statistics:
+                return {
+                    'labels': [], 
+                    'datasets': [], 
+                    'error': statistics['error'],
+                    'data_quality': statistics.get('data_quality', {})
+                }
+            
+            # Check data quality before generating charts
+            data_quality = statistics.get('data_quality', {})
+            sample_size = data_quality.get('sample_size', 0)
+            
+            if sample_size == 0:
+                return {
+                    'labels': ['No Data'],
+                    'datasets': [{
+                        'label': 'No betting data available',
+                        'data': [0],
+                        'backgroundColor': 'rgba(255, 107, 107, 0.7)',
+                        'borderColor': '#ff6b6b'
+                    }],
+                    'message': f'No betting data available for {timeframe}',
+                    'data_quality': data_quality
+                }
+            
+            # Generate chart data based on type
+            chart_data = None
+            if chart_type == 'profit_timeline':
+                chart_data = self._generate_profit_timeline_chart(statistics)
+            elif chart_type == 'win_rate_trend':
+                chart_data = self._generate_win_rate_chart(statistics)
+            elif chart_type == 'odds_distribution':
+                chart_data = self._generate_odds_distribution_chart(statistics)
+            elif chart_type == 'monthly_performance':
+                chart_data = self._generate_monthly_performance_chart(statistics)
+            elif chart_type == 'risk_metrics':
+                chart_data = self._generate_risk_metrics_chart(statistics)
+            elif chart_type == 'model_comparison':
+                chart_data = self._generate_model_comparison_chart(statistics)
+            elif chart_type == 'data_quality_overview':
+                chart_data = self._generate_data_quality_chart(statistics)
+            
+            # Add metadata to chart data
+            if chart_data:
+                chart_data['data_quality'] = data_quality
+                chart_data['timeframe'] = timeframe
+                chart_data['chart_type'] = chart_type
+                chart_data['sample_size'] = sample_size
+                chart_data['last_updated'] = datetime.utcnow().isoformat()
+            
+            return chart_data or {'labels': [], 'datasets': [], 'error': 'Failed to generate chart data'}
+                
+        except Exception as e:
+            logger.error(f"❌ Error generating chart data for {chart_type}: {e}")
+            return {
+                'labels': [], 
+                'datasets': [], 
+                'error': str(e),
+                'chart_type': chart_type,
+                'timeframe': timeframe
+            }
+    
+    def _generate_profit_timeline_chart(self, statistics: Dict) -> Dict:
+        """Generate profit timeline chart data with enhanced validation"""
+        try:
+            time_analysis = statistics.get('time_analysis', {})
+            profit_by_period = time_analysis.get('profit_by_period', [])
+            
+            if not profit_by_period:
+                return {
+                    'labels': ['No Data'],
+                    'datasets': [{
+                        'label': 'No profit timeline data available',
+                        'data': [0],
+                        'backgroundColor': 'rgba(255, 193, 7, 0.7)',
+                        'borderColor': '#ffc107'
+                    }],
+                    'message': 'Insufficient data for profit timeline analysis'
+                }
+            
+            labels = [item['period'] for item in profit_by_period]
+            cumulative_profit = []
+            running_total = 0
+            
+            for item in profit_by_period:
+                running_total += item['profit']
+                cumulative_profit.append(running_total)
+            
+            return {
+                'labels': labels,
+                'datasets': [
+                    {
+                        'label': 'Cumulative Profit',
+                        'data': cumulative_profit,
+                        'borderColor': '#10B981',
+                        'backgroundColor': 'rgba(16, 185, 129, 0.1)',
+                        'fill': True
+                    },
+                    {
+                        'label': 'Period Profit',
+                        'data': [item['profit'] for item in profit_by_period],
+                        'borderColor': '#3B82F6',
+                        'backgroundColor': 'rgba(59, 130, 246, 0.1)',
+                        'type': 'bar'
+                    }
+                ]
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error generating profit timeline chart: {e}")
+            return {
+                'labels': ['Error'],
+                'datasets': [{
+                    'label': 'Chart generation error',
+                    'data': [0],
+                    'backgroundColor': 'rgba(255, 107, 107, 0.7)',
+                    'borderColor': '#ff6b6b'
+                }],
+                'error': str(e)
+            }
+    
+    def _generate_win_rate_chart(self, statistics: Dict) -> Dict:
+        """Generate win rate trend chart data"""
+        try:
+            rolling_metrics = statistics.get('rolling_metrics', {})
+            rolling_win_rate = rolling_metrics.get('rolling_win_rate', [])
+            
+            if not rolling_win_rate:
+                return {'labels': [], 'datasets': []}
+            
+            labels = [item['period'] for item in rolling_win_rate]
+            win_rates = [item['win_rate'] for item in rolling_win_rate]
+            
+            # Add overall win rate line
+            overall_win_rate = statistics.get('basic_metrics', {}).get('win_rate', 0)
+            overall_line = [overall_win_rate] * len(labels)
+            
+            return {
+                'labels': labels,
+                'datasets': [
+                    {
+                        'label': f'Rolling Win Rate ({rolling_metrics.get("window_size", 10)} bet window)',
+                        'data': win_rates,
+                        'borderColor': '#8B5CF6',
+                        'backgroundColor': 'rgba(139, 92, 246, 0.1)',
+                        'fill': True
+                    },
+                    {
+                        'label': 'Overall Win Rate',
+                        'data': overall_line,
+                        'borderColor': '#EF4444',
+                        'backgroundColor': 'transparent',
+                        'borderDash': [5, 5]
+                    }
+                ]
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error generating win rate chart: {e}")
+            return {'labels': [], 'datasets': []}
+    
+    def _generate_odds_distribution_chart(self, statistics: Dict) -> Dict:
+        """Generate odds distribution chart data"""
+        try:
+            odds_analysis = statistics.get('odds_analysis', {})
+            odds_ranges = odds_analysis.get('odds_ranges', [])
+            
+            if not odds_ranges:
+                return {'labels': [], 'datasets': []}
+            
+            labels = [item['range'] for item in odds_ranges]
+            bets = [item['bets'] for item in odds_ranges]
+            roi_values = [item['roi'] for item in odds_ranges]
+            win_rates = [item['win_rate'] for item in odds_ranges]
+            
+            return {
+                'labels': labels,
+                'datasets': [
+                    {
+                        'label': 'Number of Bets',
+                        'data': bets,
+                        'backgroundColor': 'rgba(59, 130, 246, 0.7)',
+                        'yAxisID': 'y'
+                    },
+                    {
+                        'label': 'ROI (%)',
+                        'data': roi_values,
+                        'backgroundColor': 'rgba(16, 185, 129, 0.7)',
+                        'yAxisID': 'y1',
+                        'type': 'line'
+                    },
+                    {
+                        'label': 'Win Rate (%)',
+                        'data': win_rates,
+                        'backgroundColor': 'rgba(139, 92, 246, 0.7)',
+                        'yAxisID': 'y1',
+                        'type': 'line'
+                    }
+                ]
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error generating odds distribution chart: {e}")
+            return {'labels': [], 'datasets': []}
+    
+    def _generate_monthly_performance_chart(self, statistics: Dict) -> Dict:
+        """Generate monthly performance breakdown chart"""
+        try:
+            time_analysis = statistics.get('time_analysis', {})
+            profit_by_period = time_analysis.get('profit_by_period', [])
+            
+            if not profit_by_period:
+                return {'labels': [], 'datasets': []}
+            
+            labels = [item['period'] for item in profit_by_period]
+            profits = [item['profit'] for item in profit_by_period]
+            roi_values = [item['roi'] for item in profit_by_period]
+            bet_counts = [item['bets'] for item in profit_by_period]
+            
+            return {
+                'labels': labels,
+                'datasets': [
+                    {
+                        'label': 'Profit',
+                        'data': profits,
+                        'backgroundColor': [
+                            'rgba(16, 185, 129, 0.7)' if p >= 0 else 'rgba(239, 68, 68, 0.7)' 
+                            for p in profits
+                        ],
+                        'yAxisID': 'y'
+                    },
+                    {
+                        'label': 'ROI (%)',
+                        'data': roi_values,
+                        'borderColor': '#8B5CF6',
+                        'backgroundColor': 'transparent',
+                        'type': 'line',
+                        'yAxisID': 'y1'
+                    },
+                    {
+                        'label': 'Number of Bets',
+                        'data': bet_counts,
+                        'borderColor': '#F59E0B',
+                        'backgroundColor': 'rgba(245, 158, 11, 0.1)',
+                        'type': 'line',
+                        'yAxisID': 'y2'
+                    }
+                ]
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error generating monthly performance chart: {e}")
+            return {'labels': [], 'datasets': []}
+    
+    def _generate_risk_metrics_chart(self, statistics: Dict) -> Dict:
+        """Generate risk metrics visualization"""
+        try:
+            risk_metrics = statistics.get('risk_metrics', {})
+            
+            if not risk_metrics:
+                return {'labels': [], 'datasets': []}
+            
+            labels = ['Sharpe Ratio', 'Sortino Ratio', 'Max Drawdown', 'VaR 95%', 'VaR 99%']
+            values = [
+                risk_metrics.get('sharpe_ratio', 0),
+                risk_metrics.get('sortino_ratio', 0),
+                -risk_metrics.get('max_drawdown', 0),  # Negative for visualization
+                -risk_metrics.get('var_95', 0),
+                -risk_metrics.get('var_99', 0)
+            ]
+            
+            colors = [
+                'rgba(16, 185, 129, 0.7)' if v >= 0 else 'rgba(239, 68, 68, 0.7)'
+                for v in values
+            ]
+            
+            return {
+                'labels': labels,
+                'datasets': [
+                    {
+                        'label': 'Risk Metrics',
+                        'data': values,
+                        'backgroundColor': colors,
+                        'borderColor': colors,
+                        'borderWidth': 1
+                    }
+                ]
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error generating risk metrics chart: {e}")
+            return {'labels': [], 'datasets': []}
+    
+    def _generate_model_comparison_chart(self, statistics: Dict) -> Dict:
+        """Generate model performance comparison chart"""
+        try:
+            model_performance = statistics.get('model_performance', {})
+            
+            if not model_performance:
+                return {'labels': [], 'datasets': []}
+            
+            models = list(model_performance.keys())
+            win_rates = [model_performance[model]['win_rate'] for model in models]
+            roi_values = [model_performance[model]['roi'] for model in models]
+            total_bets = [model_performance[model]['total_bets'] for model in models]
+            
+            return {
+                'labels': models,
+                'datasets': [
+                    {
+                        'label': 'Win Rate (%)',
+                        'data': win_rates,
+                        'backgroundColor': 'rgba(59, 130, 246, 0.7)',
+                        'yAxisID': 'y'
+                    },
+                    {
+                        'label': 'ROI (%)',
+                        'data': roi_values,
+                        'backgroundColor': 'rgba(16, 185, 129, 0.7)',
+                        'yAxisID': 'y'
+                    },
+                    {
+                        'label': 'Total Bets',
+                        'data': total_bets,
+                        'borderColor': '#8B5CF6',
+                        'backgroundColor': 'transparent',
+                        'type': 'line',
+                        'yAxisID': 'y1'
+                    }
+                ]
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error generating model comparison chart: {e}")
+            return {'labels': [], 'datasets': []}
+
+    def _generate_data_quality_chart(self, statistics: Dict) -> Dict:
+        """Generate data quality overview chart"""
+        try:
+            data_quality = statistics.get('data_quality', {})
+            
+            if not data_quality:
+                return {'labels': [], 'datasets': []}
+            
+            # Quality score breakdown
+            quality_labels = [
+                'Sample Size Score',
+                'Statistical Significance',
+                'Time Distribution',
+                'Model Diversity',
+                'Overall Quality Score'
+            ]
+            
+            # Convert quality metrics to scores (0-100)
+            sample_size = data_quality.get('sample_size', 0)
+            quality_score = data_quality.get('quality_score', 0) * 25  # Convert 0-4 to 0-100
+            model_diversity = min(data_quality.get('model_diversity', 0) * 20, 100)  # Max 5 models
+            
+            # Time distribution score
+            time_quality = data_quality.get('time_distribution_quality', 'no_data')
+            time_score = {
+                'good': 100,
+                'concentrated': 60,
+                'single_point': 20,
+                'no_data': 0
+            }.get(time_quality, 0)
+            
+            # Statistical significance score
+            significance = data_quality.get('statistical_significance', 'insufficient')
+            significance_score = {
+                'very_high': 100,
+                'high': 80,
+                'medium': 60,
+                'low': 40,
+                'insufficient': 20,
+                'error': 0
+            }.get(significance, 0)
+            
+            scores = [
+                min(sample_size * 2, 100),  # Sample size score (50 bets = 100%)
+                significance_score,
+                time_score,
+                model_diversity,
+                quality_score
+            ]
+            
+            # Generate color based on score
+            colors = []
+            for score in scores:
+                if score >= 80:
+                    colors.append('rgba(16, 185, 129, 0.7)')  # Green
+                elif score >= 60:
+                    colors.append('rgba(245, 158, 11, 0.7)')  # Yellow
+                elif score >= 40:
+                    colors.append('rgba(251, 146, 60, 0.7)')  # Orange
+                else:
+                    colors.append('rgba(239, 68, 68, 0.7)')   # Red
+            
+            return {
+                'labels': quality_labels,
+                'datasets': [
+                    {
+                        'label': 'Data Quality Scores',
+                        'data': scores,
+                        'backgroundColor': colors,
+                        'borderColor': colors,
+                        'borderWidth': 1
+                    }
+                ],
+                'options': {
+                    'scales': {
+                        'y': {
+                            'beginAtZero': True,
+                            'max': 100
+                        }
+                    }
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error generating data quality chart: {e}")
+            return {'labels': [], 'datasets': []}
     
     def __del__(self):
         """Cleanup database session"""

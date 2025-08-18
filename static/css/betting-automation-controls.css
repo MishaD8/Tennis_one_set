@@ -1,0 +1,810 @@
+/**
+ * Betting Automation Controls Styles
+ * Professional automation interface with safety controls
+ */
+
+.betting-automation-controls {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 25px;
+    margin: 25px 0;
+}
+
+/* Automation Panel */
+.automation-panel {
+    width: 100%;
+}
+
+.automation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.automation-header h3 {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+/* Master Switch */
+.automation-master-switch {
+    display: flex;
+    align-items: center;
+}
+
+.master-switch-label {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 500;
+}
+
+.master-switch-label input[type="checkbox"] {
+    display: none;
+}
+
+.switch-slider {
+    position: relative;
+    width: 60px;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 15px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.switch-slider::before {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 24px;
+    height: 24px;
+    background: white;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.master-switch-label input[type="checkbox"]:checked + .switch-slider {
+    background: linear-gradient(135deg, #6bcf7f, #4a9eff);
+}
+
+.master-switch-label input[type="checkbox"]:checked + .switch-slider::before {
+    transform: translateX(30px);
+}
+
+.switch-text {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+/* Automation Status */
+.automation-status {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.status-indicator.active .status-icon {
+    color: #6bcf7f;
+    animation: statusPulse 2s infinite;
+}
+
+.status-indicator.inactive .status-icon {
+    color: #ff6b6b;
+}
+
+@keyframes statusPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+.status-icon {
+    font-size: 1.5rem;
+}
+
+.status-text {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.status-label {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 500;
+}
+
+.status-value {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.95);
+    font-weight: 600;
+}
+
+.automation-stats {
+    display: flex;
+    gap: 25px;
+    flex-wrap: wrap;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    min-width: 80px;
+}
+
+.stat-item .stat-label {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+    text-align: center;
+}
+
+.stat-item .stat-value {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: bold;
+    text-align: center;
+}
+
+/* Automation Tabs */
+.automation-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 25px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    padding: 4px;
+    flex-wrap: wrap;
+}
+
+.tab-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    padding: 12px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+    font-weight: 500;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 120px;
+}
+
+.tab-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.tab-btn.active {
+    background: linear-gradient(135deg, #6bcf7f, #4a9eff);
+    color: white;
+    box-shadow: 0 4px 15px rgba(107, 207, 127, 0.3);
+}
+
+/* Tab Content */
+.automation-tab-content {
+    display: none;
+}
+
+.automation-tab-content.active {
+    display: block;
+    animation: tabFadeIn 0.3s ease-in-out;
+}
+
+@keyframes tabFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Configuration Sections */
+.config-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+    margin-bottom: 25px;
+}
+
+.config-section {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.config-section h4 {
+    margin: 0 0 20px 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.config-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.config-item label {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.config-item input,
+.config-item select {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.config-item input:focus,
+.config-item select:focus {
+    outline: none;
+    border-color: #4a9eff;
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+}
+
+.config-item input[type="range"] {
+    padding: 5px 0;
+    accent-color: #6bcf7f;
+    cursor: pointer;
+}
+
+.range-value {
+    color: #6bcf7f;
+    font-weight: bold;
+    font-size: 0.85rem;
+    text-align: center;
+    margin-top: 5px;
+}
+
+/* Filter Options */
+.filter-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.filter-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+    padding: 8px 0;
+}
+
+.filter-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #6bcf7f;
+    cursor: pointer;
+}
+
+/* Configuration Actions */
+.config-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.config-actions button {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.9);
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    min-width: 140px;
+}
+
+.config-actions button:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    transform: translateY(-2px);
+}
+
+.btn-save-config {
+    background: linear-gradient(135deg, #6bcf7f, #4a9eff) !important;
+    border: none !important;
+}
+
+.btn-test-config {
+    background: linear-gradient(135deg, #4a9eff, #6bcf7f) !important;
+    border: none !important;
+}
+
+.btn-reset-config {
+    background: linear-gradient(135deg, #ffa500, #ff8c00) !important;
+    border: none !important;
+}
+
+/* Active Bets */
+.active-bets-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.active-bets-header h4 {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.btn-refresh-bets {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.9);
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.3s ease;
+}
+
+.btn-refresh-bets:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.active-bets-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.no-active-bets {
+    text-align: center;
+    padding: 40px 20px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.no-bets-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.no-bets-text {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.active-bet-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 15px;
+    transition: all 0.3s ease;
+}
+
+.active-bet-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateY(-2px);
+}
+
+.bet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.bet-match {
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 1rem;
+}
+
+.bet-status {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.bet-status.pending {
+    background: rgba(255, 165, 0, 0.2);
+    color: #ffa500;
+}
+
+.bet-status.active {
+    background: rgba(107, 207, 127, 0.2);
+    color: #6bcf7f;
+}
+
+.bet-status.settled {
+    background: rgba(74, 158, 255, 0.2);
+    color: #4a9eff;
+}
+
+.bet-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.bet-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.detail-label {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.detail-value {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 500;
+}
+
+.bet-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.bet-actions button {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.9);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.3s ease;
+}
+
+.bet-actions button:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.btn-close-bet {
+    background: rgba(255, 107, 107, 0.2) !important;
+    border-color: rgba(255, 107, 107, 0.3) !important;
+    color: #ff6b6b !important;
+}
+
+/* Safety Controls */
+.safety-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+.safety-controls h4 {
+    margin: 0 0 20px 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.safety-section {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.safety-section h5 {
+    margin: 0 0 15px 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.safety-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.safety-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.safety-item label {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.safety-item input {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.safety-item input:focus {
+    outline: none;
+    border-color: #ff6b6b;
+    box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.2);
+}
+
+.safety-item input[type="range"] {
+    accent-color: #ff6b6b;
+    cursor: pointer;
+}
+
+.emergency-controls {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.emergency-controls button {
+    padding: 12px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    min-width: 160px;
+    border: none;
+}
+
+.btn-emergency-stop {
+    background: linear-gradient(135deg, #ff4444, #cc0000) !important;
+    color: white !important;
+}
+
+.btn-pause-automation {
+    background: linear-gradient(135deg, #ffa500, #ff8c00) !important;
+    color: white !important;
+}
+
+.btn-close-all-positions {
+    background: linear-gradient(135deg, #ff6b6b, #ff4444) !important;
+    color: white !important;
+}
+
+.emergency-controls button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.safety-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+}
+
+.safety-checkbox:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.safety-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #ff6b6b;
+    cursor: pointer;
+}
+
+/* History Tab */
+.history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.history-header h4 {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.history-filters select {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .automation-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .automation-status {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .automation-stats {
+        width: 100%;
+        justify-content: space-between;
+        gap: 15px;
+    }
+
+    .automation-tabs {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .tab-btn {
+        min-width: auto;
+        width: 100%;
+    }
+
+    .config-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    .config-actions {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .config-actions button {
+        width: 100%;
+        min-width: auto;
+    }
+
+    .bet-details {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .bet-actions {
+        justify-content: center;
+    }
+
+    .emergency-controls {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .emergency-controls button {
+        width: 100%;
+        min-width: auto;
+    }
+
+    .safety-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .betting-automation-controls {
+        padding: 15px;
+        margin: 15px 0;
+    }
+
+    .automation-status {
+        padding: 15px;
+    }
+
+    .config-section {
+        padding: 15px;
+    }
+
+    .safety-section {
+        padding: 15px;
+    }
+
+    .automation-stats {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+
+    .bet-details {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .filter-options {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+}
+
+/* Accessibility */
+.automation-panel:focus-within {
+    outline: 2px solid #4a9eff;
+    outline-offset: 2px;
+}
+
+.config-actions button:focus,
+.bet-actions button:focus,
+.emergency-controls button:focus {
+    outline: 2px solid #4a9eff;
+    outline-offset: 2px;
+}
+
+/* Animation for safety alerts */
+.btn-emergency-stop:hover {
+    animation: emergencyPulse 0.5s ease-in-out;
+}
+
+@keyframes emergencyPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}

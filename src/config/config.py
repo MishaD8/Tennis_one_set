@@ -8,6 +8,13 @@ import os
 import secrets
 from typing import Dict, Any, Optional
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv not available, using system environment variables
+
 class Config:
     """Base configuration class for tennis backend"""
     

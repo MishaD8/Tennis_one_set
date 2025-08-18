@@ -277,6 +277,375 @@ def validate_json_payload(data: Dict, max_keys: int = 20, max_depth: int = 5) ->
     
     return check_depth(data)
 
+def calculate_detailed_betting_statistics(logs: List[Dict], timeframe: str) -> Dict[str, Any]:
+    """Calculate detailed betting statistics from logs"""
+    try:
+        if not logs:
+            return {
+                'message': f'No betting data available for {timeframe}',
+                'basic_metrics': {
+                    'total_bets': 0,
+                    'winning_bets': 0,
+                    'losing_bets': 0,
+                    'win_rate': 0
+                },
+                'financial_metrics': {
+                    'total_staked': 0,
+                    'total_returned': 0,
+                    'net_profit': 0,
+                    'roi_percentage': 0
+                }
+            }
+        
+        # Filter to only settled bets
+        settled_logs = [log for log in logs if log.get('betting_status') in ['won', 'lost']]
+        
+        if not settled_logs:
+            return {
+                'message': f'No settled bets available for {timeframe}',
+                'basic_metrics': {
+                    'total_bets': len(logs),
+                    'pending_bets': len(logs),
+                    'winning_bets': 0,
+                    'losing_bets': 0,
+                    'win_rate': 0
+                }
+            }
+        
+        # Basic metrics
+        total_bets = len(settled_logs)
+        winning_bets = len([log for log in settled_logs if log.get('betting_status') == 'won'])
+        losing_bets = total_bets - winning_bets
+        win_rate = (winning_bets / total_bets) * 100 if total_bets > 0 else 0
+        
+        # Financial metrics
+        total_staked = sum(log.get('stake_amount', 0) for log in settled_logs)
+        total_returned = sum(log.get('payout_amount', 0) for log in settled_logs)
+        net_profit = sum(log.get('profit_loss', 0) for log in settled_logs)
+        roi_percentage = (net_profit / total_staked) * 100 if total_staked > 0 else 0
+        
+        # Average metrics
+        average_stake = total_staked / total_bets if total_bets > 0 else 0
+        average_odds = sum(log.get('odds_taken', 0) for log in settled_logs) / total_bets if total_bets > 0 else 0
+        average_edge = sum(log.get('edge_percentage', 0) for log in settled_logs) / total_bets if total_bets > 0 else 0
+        
+        # Risk metrics
+        largest_win = max((log.get('profit_loss', 0) for log in settled_logs if log.get('profit_loss', 0) > 0), default=0)
+        largest_loss = abs(min((log.get('profit_loss', 0) for log in settled_logs if log.get('profit_loss', 0) < 0), default=0))
+        
+        # Calculate Sharpe ratio (simplified)
+        if settled_logs:
+            profits = [log.get('profit_loss', 0) for log in settled_logs]
+            mean_return = sum(profits) / len(profits)
+            variance = sum((p - mean_return) ** 2 for p in profits) / len(profits)
+            std_dev = variance ** 0.5
+            sharpe_ratio = mean_return / std_dev if std_dev > 0 else 0
+        else:
+            sharpe_ratio = 0
+        
+        # Monthly/weekly breakdown
+        profit_by_period = calculate_profit_by_period(settled_logs, timeframe)
+        
+        return {
+            'basic_metrics': {
+                'total_bets': total_bets,
+                'winning_bets': winning_bets,
+                'losing_bets': losing_bets,
+                'win_rate': round(win_rate, 2),
+                'pending_bets': len(logs) - total_bets
+            },
+            'financial_metrics': {
+                'total_staked': round(total_staked, 2),
+                'total_returned': round(total_returned, 2),
+                'net_profit': round(net_profit, 2),
+                'roi_percentage': round(roi_percentage, 2)
+            },
+            'average_metrics': {
+                'average_stake': round(average_stake, 2),
+                'average_odds': round(average_odds, 2),
+                'average_edge': round(average_edge, 2)
+            },
+            'risk_metrics': {
+                'largest_win': round(largest_win, 2),
+                'largest_loss': round(largest_loss, 2),
+                'sharpe_ratio': round(sharpe_ratio, 3)
+            },
+            'profit_by_period': profit_by_period,
+            'timeframe_analysis': {
+                'period': timeframe,
+                'data_quality': 'complete' if total_bets >= 10 else 'limited',
+                'sample_size': total_bets
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error calculating betting statistics: {e}")
+        return {
+            'error': 'Failed to calculate statistics',
+            'message': str(e)
+        }
+
+def calculate_profit_by_period(logs: List[Dict], timeframe: str) -> List[Dict]:
+    """Calculate profit breakdown by time periods"""
+    try:
+        if not logs:
+            return []
+        
+        # Group by time periods
+        from collections import defaultdict
+        period_profits = defaultdict(float)
+        
+        for log in logs:
+            try:
+                # Parse timestamp
+                timestamp_str = log.get('timestamp', '')
+                if timestamp_str:
+                    timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                    
+                    if timeframe == '1_week':
+                        # Group by day
+                        period_key = timestamp.strftime('%Y-%m-%d')
+                    elif timeframe == '1_month':
+                        # Group by week
+                        week_start = timestamp - timedelta(days=timestamp.weekday())
+                        period_key = week_start.strftime('%Y-W%W')
+                    elif timeframe == '1_year':
+                        # Group by month
+                        period_key = timestamp.strftime('%Y-%m')
+                    else:
+                        # Group by month for all time
+                        period_key = timestamp.strftime('%Y-%m')
+                    
+                    period_profits[period_key] += log.get('profit_loss', 0)
+            except Exception as e:
+                logger.warning(f"Error processing log timestamp: {e}")
+                continue
+        
+        # Convert to list format
+        result = []
+        for period, profit in sorted(period_profits.items()):
+            result.append({
+                'period': period,
+                'profit': round(profit, 2)
+            })
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error calculating profit by period: {e}")
+        return []
+
+def generate_chart_data(logs: List[Dict], chart_type: str, timeframe: str) -> Dict[str, Any]:
+    """Generate chart data for different chart types"""
+    try:
+        if not logs:
+            return {'labels': [], 'datasets': []}
+        
+        if chart_type == 'profit_timeline':
+            return generate_profit_timeline_data(logs)
+        elif chart_type == 'win_rate_trend':
+            return generate_win_rate_trend_data(logs, timeframe)
+        elif chart_type == 'odds_distribution':
+            return generate_odds_distribution_data(logs)
+        elif chart_type == 'monthly_performance':
+            return generate_monthly_performance_data(logs)
+        else:
+            return {'labels': [], 'datasets': []}
+            
+    except Exception as e:
+        logger.error(f"Error generating chart data: {e}")
+        return {'labels': [], 'datasets': []}
+
+def generate_profit_timeline_data(logs: List[Dict]) -> Dict[str, Any]:
+    """Generate cumulative profit timeline data"""
+    try:
+        # Sort by timestamp
+        sorted_logs = sorted(logs, key=lambda x: x.get('timestamp', ''))
+        
+        labels = []
+        cumulative_profit = 0
+        profit_data = []
+        
+        for log in sorted_logs:
+            if log.get('betting_status') in ['won', 'lost']:
+                timestamp_str = log.get('timestamp', '')
+                if timestamp_str:
+                    timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                    labels.append(timestamp.strftime('%Y-%m-%d'))
+                    
+                    cumulative_profit += log.get('profit_loss', 0)
+                    profit_data.append(round(cumulative_profit, 2))
+        
+        return {
+            'labels': labels,
+            'datasets': [{
+                'label': 'Cumulative Profit/Loss',
+                'data': profit_data,
+                'borderColor': 'rgb(107, 207, 127)',
+                'backgroundColor': 'rgba(107, 207, 127, 0.1)',
+                'tension': 0.1
+            }]
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating profit timeline: {e}")
+        return {'labels': [], 'datasets': []}
+
+def generate_win_rate_trend_data(logs: List[Dict], timeframe: str) -> Dict[str, Any]:
+    """Generate win rate trend data"""
+    try:
+        from collections import defaultdict
+        
+        # Group by periods
+        period_stats = defaultdict(lambda: {'wins': 0, 'total': 0})
+        
+        for log in logs:
+            if log.get('betting_status') in ['won', 'lost']:
+                timestamp_str = log.get('timestamp', '')
+                if timestamp_str:
+                    timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                    
+                    if timeframe == '1_week':
+                        period_key = timestamp.strftime('%Y-%m-%d')
+                    elif timeframe == '1_month':
+                        week_start = timestamp - timedelta(days=timestamp.weekday())
+                        period_key = week_start.strftime('%Y-W%W')
+                    else:
+                        period_key = timestamp.strftime('%Y-%m')
+                    
+                    period_stats[period_key]['total'] += 1
+                    if log.get('betting_status') == 'won':
+                        period_stats[period_key]['wins'] += 1
+        
+        # Convert to chart data
+        labels = []
+        win_rates = []
+        
+        for period in sorted(period_stats.keys()):
+            stats = period_stats[period]
+            win_rate = (stats['wins'] / stats['total']) * 100 if stats['total'] > 0 else 0
+            labels.append(period)
+            win_rates.append(round(win_rate, 1))
+        
+        return {
+            'labels': labels,
+            'datasets': [{
+                'label': 'Win Rate %',
+                'data': win_rates,
+                'borderColor': 'rgb(74, 158, 255)',
+                'backgroundColor': 'rgba(74, 158, 255, 0.1)',
+                'tension': 0.1
+            }]
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating win rate trend: {e}")
+        return {'labels': [], 'datasets': []}
+
+def generate_odds_distribution_data(logs: List[Dict]) -> Dict[str, Any]:
+    """Generate odds distribution data"""
+    try:
+        # Define odds ranges
+        odds_ranges = [
+            (1.0, 1.5), (1.5, 2.0), (2.0, 2.5), (2.5, 3.0), 
+            (3.0, 4.0), (4.0, 5.0), (5.0, float('inf'))
+        ]
+        
+        range_counts = [0] * len(odds_ranges)
+        range_labels = [
+            '1.0-1.5', '1.5-2.0', '2.0-2.5', '2.5-3.0',
+            '3.0-4.0', '4.0-5.0', '5.0+'
+        ]
+        
+        for log in logs:
+            odds = log.get('odds_taken', 0)
+            for i, (min_odds, max_odds) in enumerate(odds_ranges):
+                if min_odds <= odds < max_odds:
+                    range_counts[i] += 1
+                    break
+        
+        return {
+            'labels': range_labels,
+            'datasets': [{
+                'label': 'Number of Bets',
+                'data': range_counts,
+                'backgroundColor': [
+                    'rgba(255, 99, 132, 0.8)',
+                    'rgba(54, 162, 235, 0.8)',
+                    'rgba(255, 205, 86, 0.8)',
+                    'rgba(75, 192, 192, 0.8)',
+                    'rgba(153, 102, 255, 0.8)',
+                    'rgba(255, 159, 64, 0.8)',
+                    'rgba(199, 199, 199, 0.8)'
+                ]
+            }]
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating odds distribution: {e}")
+        return {'labels': [], 'datasets': []}
+
+def generate_monthly_performance_data(logs: List[Dict]) -> Dict[str, Any]:
+    """Generate monthly performance comparison"""
+    try:
+        from collections import defaultdict
+        
+        monthly_stats = defaultdict(lambda: {
+            'profit': 0, 'bets': 0, 'wins': 0, 'staked': 0
+        })
+        
+        for log in logs:
+            if log.get('betting_status') in ['won', 'lost']:
+                timestamp_str = log.get('timestamp', '')
+                if timestamp_str:
+                    timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                    month_key = timestamp.strftime('%Y-%m')
+                    
+                    monthly_stats[month_key]['profit'] += log.get('profit_loss', 0)
+                    monthly_stats[month_key]['bets'] += 1
+                    monthly_stats[month_key]['staked'] += log.get('stake_amount', 0)
+                    
+                    if log.get('betting_status') == 'won':
+                        monthly_stats[month_key]['wins'] += 1
+        
+        # Convert to chart data
+        labels = []
+        profit_data = []
+        roi_data = []
+        win_rate_data = []
+        
+        for month in sorted(monthly_stats.keys()):
+            stats = monthly_stats[month]
+            roi = (stats['profit'] / stats['staked']) * 100 if stats['staked'] > 0 else 0
+            win_rate = (stats['wins'] / stats['bets']) * 100 if stats['bets'] > 0 else 0
+            
+            labels.append(month)
+            profit_data.append(round(stats['profit'], 2))
+            roi_data.append(round(roi, 1))
+            win_rate_data.append(round(win_rate, 1))
+        
+        return {
+            'labels': labels,
+            'datasets': [
+                {
+                    'label': 'Monthly Profit',
+                    'data': profit_data,
+                    'backgroundColor': 'rgba(107, 207, 127, 0.8)',
+                    'yAxisID': 'y'
+                },
+                {
+                    'label': 'ROI %',
+                    'data': roi_data,
+                    'backgroundColor': 'rgba(74, 158, 255, 0.8)',
+                    'yAxisID': 'y1'
+                }
+            ]
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating monthly performance: {e}")
+        return {'labels': [], 'datasets': []}
+
 def check_redis_health() -> Dict[str, Any]:
     """Check Redis connection health for monitoring"""
     redis_health = {
@@ -577,6 +946,11 @@ def register_routes(app: Flask):
         """Main dashboard page"""
         return render_template('dashboard.html')
 
+    @app.route('/test-health')
+    def test_health_monitor():
+        """Test page for health monitor debugging"""
+        return render_template('test_health_monitor_standalone.html')
+
     @app.route('/betting')
     def betting_dashboard():
         """Advanced betting analytics dashboard"""
@@ -632,6 +1006,119 @@ def register_routes(app: Flask):
             'warnings': warnings,
             'version': '5.0-modular'
         })
+
+    @app.route('/api/health-check', methods=['GET'])
+    def health_check_endpoint():
+        """Simple health check endpoint for load balancers"""
+        return jsonify({
+            'status': 'ok',
+            'timestamp': datetime.now().isoformat(),
+            'service': 'tennis-betting-api'
+        })
+
+    @app.route('/api/system/database-health', methods=['GET'])
+    def database_health_check():
+        """Database connectivity health check"""
+        try:
+            from src.data.database_service import DatabaseService
+            db_service = DatabaseService()
+            
+            # Test database connection
+            connection_ok = db_service.test_connection()
+            
+            if connection_ok:
+                # Get database statistics
+                stats = db_service.get_database_stats()
+                return jsonify({
+                    'status': 'healthy',
+                    'timestamp': datetime.now().isoformat(),
+                    'database': {
+                        'connected': True,
+                        'type': 'SQLite',
+                        'stats': stats
+                    }
+                })
+            else:
+                return jsonify({
+                    'status': 'unhealthy',
+                    'timestamp': datetime.now().isoformat(),
+                    'database': {
+                        'connected': False,
+                        'error': 'Connection failed'
+                    }
+                }), 503
+                
+        except Exception as e:
+            logger.error(f"Database health check failed: {e}")
+            return jsonify({
+                'status': 'unhealthy',
+                'timestamp': datetime.now().isoformat(),
+                'database': {
+                    'connected': False,
+                    'error': str(e)
+                }
+            }), 503
+
+    @app.route('/api/system/ml-health', methods=['GET'])
+    def ml_health_check():
+        """ML models and prediction system health check"""
+        try:
+            ml_status = {
+                'real_predictor': {
+                    'available': REAL_PREDICTOR_AVAILABLE,
+                    'loaded': real_predictor is not None
+                },
+                'prediction_service': {
+                    'available': PREDICTION_SERVICE_AVAILABLE,
+                    'loaded': prediction_service is not None
+                },
+                'models_path_exists': os.path.exists('./tennis_models/'),
+                'model_files': []
+            }
+            
+            # Check for model files
+            if os.path.exists('./tennis_models/'):
+                model_files = [f for f in os.listdir('./tennis_models/') if f.endswith(('.pkl', '.h5', '.json'))]
+                ml_status['model_files'] = model_files
+                ml_status['models_count'] = len([f for f in model_files if f.endswith('.pkl')])
+            
+            # Test prediction capability
+            ml_status['prediction_test'] = 'skipped'
+            if real_predictor:
+                try:
+                    # Simple test to see if predictor can be called
+                    test_data = {
+                        'player1': 'test player 1',
+                        'player2': 'test player 2',
+                        'surface': 'Hard',
+                        'tournament': 'Test'
+                    }
+                    # Don't actually run prediction, just check if service is responsive
+                    ml_status['prediction_test'] = 'available'
+                except Exception as e:
+                    ml_status['prediction_test'] = f'error: {str(e)}'
+            
+            overall_healthy = (
+                ml_status['real_predictor']['available'] or ml_status['prediction_service']['available']
+            ) and ml_status['models_path_exists']
+            
+            status_code = 200 if overall_healthy else 503
+            
+            return jsonify({
+                'status': 'healthy' if overall_healthy else 'unhealthy',
+                'timestamp': datetime.now().isoformat(),
+                'ml_system': ml_status
+            }), status_code
+            
+        except Exception as e:
+            logger.error(f"ML health check failed: {e}")
+            return jsonify({
+                'status': 'unhealthy',
+                'timestamp': datetime.now().isoformat(),
+                'ml_system': {
+                    'error': str(e)
+                }
+            }), 503
 
     @app.route('/api/stats', methods=['GET'])
     def get_stats():
@@ -2431,6 +2918,281 @@ def register_routes(app: Flask):
             return jsonify({
                 'success': False,
                 'error': 'Failed to get stability report'
+            }), 500
+
+    # ==================================================
+    # BETTING STATISTICS API ENDPOINTS
+    # ==================================================
+    
+    @app.route('/api/betting/statistics', methods=['GET'])
+    def get_betting_statistics():
+        """Get comprehensive betting statistics for different timeframes"""
+        try:
+            from src.api.betting_tracker_service import BettingTrackerService
+            from src.data.database_models import TestMode
+            
+            tracker = BettingTrackerService()
+            
+            # Parse query parameters
+            timeframe = request.args.get('timeframe', '1_month')  # 1_week, 1_month, 1_year, all_time
+            test_mode_str = request.args.get('test_mode', 'live')
+            
+            # Convert test mode
+            try:
+                test_mode = TestMode(test_mode_str) if test_mode_str != 'all' else None
+            except ValueError:
+                test_mode = TestMode.LIVE
+            
+            # Get comprehensive statistics using the enhanced method
+            statistics = tracker.get_betting_statistics_by_timeframe(
+                test_mode=test_mode,
+                timeframe=timeframe
+            )
+            
+            return jsonify({
+                'success': True,
+                'timeframe': timeframe,
+                'test_mode': test_mode_str,
+                'statistics': statistics,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting betting statistics: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get betting statistics',
+                'details': str(e)
+            }), 500
+    
+    @app.route('/api/betting/charts-data', methods=['GET'])
+    def get_betting_charts_data():
+        """Get chart data for betting statistics visualization"""
+        try:
+            from src.api.betting_tracker_service import BettingTrackerService
+            from src.data.database_models import TestMode
+            
+            tracker = BettingTrackerService()
+            
+            # Parse parameters
+            timeframe = request.args.get('timeframe', '1_month')
+            test_mode_str = request.args.get('test_mode', 'live')
+            chart_type = request.args.get('chart_type', 'profit_timeline')
+            
+            try:
+                test_mode = TestMode(test_mode_str) if test_mode_str != 'all' else None
+            except ValueError:
+                test_mode = TestMode.LIVE
+            
+            # Generate chart data using the enhanced method
+            chart_data = tracker.get_chart_data_for_timeframe(
+                test_mode=test_mode,
+                timeframe=timeframe,
+                chart_type=chart_type
+            )
+            
+            return jsonify({
+                'success': True,
+                'chart_type': chart_type,
+                'timeframe': timeframe,
+                'test_mode': test_mode_str,
+                'data': chart_data,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting chart data: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get chart data',
+                'details': str(e)
+            }), 500
+    
+    @app.route('/api/betting/timeframe-comparison', methods=['GET'])
+    def get_timeframe_comparison():
+        """Get betting statistics comparison across multiple timeframes"""
+        try:
+            from src.api.betting_tracker_service import BettingTrackerService
+            from src.data.database_models import TestMode
+            
+            tracker = BettingTrackerService()
+            
+            # Parse parameters
+            test_mode_str = request.args.get('test_mode', 'live')
+            
+            try:
+                test_mode = TestMode(test_mode_str) if test_mode_str != 'all' else None
+            except ValueError:
+                test_mode = TestMode.LIVE
+            
+            # Get statistics for all timeframes
+            timeframes = ['1_week', '1_month', '1_year', 'all_time']
+            comparison_data = {}
+            
+            for timeframe in timeframes:
+                try:
+                    stats = tracker.get_betting_statistics_by_timeframe(
+                        test_mode=test_mode,
+                        timeframe=timeframe
+                    )
+                    comparison_data[timeframe] = stats
+                except Exception as e:
+                    logger.warning(f"Error getting {timeframe} statistics: {e}")
+                    comparison_data[timeframe] = {
+                        'error': str(e),
+                        'basic_metrics': {
+                            'total_bets': 0,
+                            'win_rate': 0,
+                            'net_profit': 0,
+                            'roi_percentage': 0
+                        }
+                    }
+            
+            # Create enhanced summary comparison
+            summary_comparison = {}
+            quality_overview = {}
+            
+            for timeframe in timeframes:
+                data = comparison_data[timeframe]
+                if 'basic_metrics' in data:
+                    # Financial and performance metrics
+                    summary_comparison[timeframe] = {
+                        'total_bets': data['basic_metrics'].get('total_bets', 0),
+                        'win_rate': data['basic_metrics'].get('win_rate', 0),
+                        'net_profit': data.get('financial_metrics', {}).get('net_profit', 0),
+                        'roi_percentage': data.get('financial_metrics', {}).get('roi_percentage', 0),
+                        'sharpe_ratio': data.get('risk_metrics', {}).get('sharpe_ratio', 0),
+                        'max_drawdown': data.get('risk_metrics', {}).get('max_drawdown', 0),
+                        'profit_factor': data.get('financial_metrics', {}).get('profit_factor', 0),
+                        'period_label': data.get('period_label', timeframe.replace('_', ' ').title())
+                    }
+                    
+                    # Data quality metrics
+                    data_quality = data.get('data_quality', {})
+                    quality_overview[timeframe] = {
+                        'sample_size': data_quality.get('sample_size', 0),
+                        'quality_score': data_quality.get('quality_score', 0),
+                        'statistical_significance': data_quality.get('statistical_significance', 'unknown'),
+                        'data_completeness': data_quality.get('data_completeness', 'unknown'),
+                        'recommendations': data_quality.get('recommendations', [])
+                    }
+                else:
+                    # Handle error cases
+                    summary_comparison[timeframe] = {
+                        'total_bets': 0,
+                        'win_rate': 0,
+                        'net_profit': 0,
+                        'roi_percentage': 0,
+                        'sharpe_ratio': 0,
+                        'max_drawdown': 0,
+                        'profit_factor': 0,
+                        'period_label': timeframe.replace('_', ' ').title(),
+                        'error': data.get('error', 'Unknown error')
+                    }
+                    
+                    quality_overview[timeframe] = {
+                        'sample_size': 0,
+                        'quality_score': 0,
+                        'statistical_significance': 'error',
+                        'data_completeness': 'error',
+                        'recommendations': ['Unable to load data for this timeframe']
+                    }
+            
+            # Generate cross-timeframe insights
+            insights = []
+            
+            # Performance trend analysis
+            timeframe_order = ['1_week', '1_month', '1_year', 'all_time']
+            roi_values = [summary_comparison[tf].get('roi_percentage', 0) for tf in timeframe_order if tf in summary_comparison]
+            
+            if len(roi_values) >= 2:
+                if roi_values[0] > roi_values[1]:
+                    insights.append("Recent performance (1 week) is stronger than monthly average")
+                elif roi_values[1] > roi_values[2] if len(roi_values) > 2 else 0:
+                    insights.append("Recent monthly performance is better than yearly average")
+            
+            # Sample size adequacy
+            for timeframe in timeframes:
+                quality = quality_overview.get(timeframe, {})
+                sample_size = quality.get('sample_size', 0)
+                if sample_size > 0 and sample_size < 30:
+                    insights.append(f"{timeframe.replace('_', ' ').title()}: Limited data ({sample_size} bets) - exercise caution")
+            
+            # Best performing timeframe
+            valid_timeframes = [tf for tf in timeframes if summary_comparison[tf].get('total_bets', 0) >= 10]
+            if valid_timeframes:
+                best_timeframe = max(valid_timeframes, 
+                                   key=lambda tf: summary_comparison[tf].get('roi_percentage', -999))
+                best_roi = summary_comparison[best_timeframe].get('roi_percentage', 0)
+                insights.append(f"Best performing period: {best_timeframe.replace('_', ' ').title()} (ROI: {best_roi:.1f}%)")
+            
+            return jsonify({
+                'success': True,
+                'test_mode': test_mode_str,
+                'comparison_data': comparison_data,
+                'summary_comparison': summary_comparison,
+                'quality_overview': quality_overview,
+                'insights': insights,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting timeframe comparison: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get timeframe comparison',
+                'details': str(e)
+            }), 500
+    
+    @app.route('/api/betting/advanced-metrics', methods=['GET'])
+    def get_advanced_betting_metrics():
+        """Get advanced betting metrics including risk analysis and model performance"""
+        try:
+            from src.api.betting_tracker_service import BettingTrackerService
+            from src.data.database_models import TestMode
+            
+            tracker = BettingTrackerService()
+            
+            # Parse parameters
+            timeframe = request.args.get('timeframe', '1_month')
+            test_mode_str = request.args.get('test_mode', 'live')
+            
+            try:
+                test_mode = TestMode(test_mode_str) if test_mode_str != 'all' else None
+            except ValueError:
+                test_mode = TestMode.LIVE
+            
+            # Get comprehensive statistics
+            statistics = tracker.get_betting_statistics_by_timeframe(
+                test_mode=test_mode,
+                timeframe=timeframe
+            )
+            
+            # Extract advanced metrics
+            advanced_metrics = {
+                'risk_analysis': statistics.get('risk_metrics', {}),
+                'streak_analysis': statistics.get('streak_analysis', {}),
+                'odds_analysis': statistics.get('odds_analysis', {}),
+                'model_performance': statistics.get('model_performance', {}),
+                'rolling_metrics': statistics.get('rolling_metrics', {}),
+                'time_analysis': statistics.get('time_analysis', {}),
+                'data_quality': statistics.get('data_quality', {})
+            }
+            
+            return jsonify({
+                'success': True,
+                'timeframe': timeframe,
+                'test_mode': test_mode_str,
+                'advanced_metrics': advanced_metrics,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting advanced metrics: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get advanced metrics',
+                'details': str(e)
             }), 500
 
     logger.info("✅ All routes registered successfully")
