@@ -3,7 +3,7 @@
 🎾 TENNIS UNDERDOG SECOND SET ML PIPELINE
 
 Advanced ML system for predicting second set wins by underdog tennis players 
-ranked 50-300 in ATP/WTA best-of-3 matches.
+ranked 10-300 in ATP/WTA best-of-3 matches.
 
 Key Features:
 - Comprehensive tennis-specific feature engineering
@@ -85,7 +85,7 @@ class TennisUnderdogDataExtractor:
         
     def extract_training_data(self, max_samples: int = None) -> pd.DataFrame:
         """
-        Extract tennis match data focusing on underdog players (rank 50-300)
+        Extract tennis match data focusing on underdog players (rank 10-300)
         in best-of-3 matches
         """
         logger.info("🔍 Extracting tennis training data...")
@@ -131,12 +131,12 @@ class TennisUnderdogDataExtractor:
             -- Focus on best-of-3 matches (exclude Grand Slam men's matches)
             total_sets >= 2 AND total_sets <= 3
             -- Include matches with underdog players in target range
-            AND ((player_rank BETWEEN 50 AND 300) OR (opponent_rank BETWEEN 50 AND 300))
+            AND ((player_rank BETWEEN 10 AND 300) OR (opponent_rank BETWEEN 10 AND 300))
             -- Ensure we have ranking data
             AND player_rank IS NOT NULL 
             AND opponent_rank IS NOT NULL
             -- Exclude matches where both players are outside our focus range
-            AND NOT (player_rank < 50 AND opponent_rank < 50)
+            AND NOT (player_rank < 10 AND opponent_rank < 10)
             AND NOT (player_rank > 300 AND opponent_rank > 300)
         ORDER BY match_date DESC
         """

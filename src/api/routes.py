@@ -884,6 +884,23 @@ def get_live_matches_with_underdog_focus() -> Dict:
             'error': str(e)
         }
 
+# Helper functions for health check
+def _check_api_tennis_status() -> bool:
+    """Check if API Tennis integration is working"""
+    try:
+        from src.data.api_tennis_data_collector import get_api_tennis_data_collector
+        collector = get_api_tennis_data_collector()
+        return collector.is_available()
+    except Exception:
+        return False
+
+def _check_odds_integrator_status() -> bool:
+    """Check if odds integrator is working"""
+    try:
+        return odds_integrator is not None
+    except Exception:
+        return False
+
 # Route definitions
 def register_routes(app: Flask):
     """Register all tennis backend routes"""
@@ -984,12 +1001,13 @@ def register_routes(app: Flask):
             'components': {
                 'real_predictor': real_predictor is not None,
                 'prediction_service': prediction_service is not None,
-                'odds_integrator': odds_integrator is not None,
+                'odds_integrator': _check_odds_integrator_status(),
                 'api_economy': API_ECONOMY_AVAILABLE,
                 'enhanced_collector': enhanced_collector is not None,
                 'universal_collector': universal_collector is not None,
                 'tennisexplorer_integrated': enhanced_collector is not None,
-                'rapidapi_integrated': enhanced_collector is not None
+                'rapidapi_integrated': enhanced_collector is not None,
+                'api_tennis_integrated': _check_api_tennis_status()
             },
             'infrastructure': {
                 'redis': redis_health,
