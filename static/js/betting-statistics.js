@@ -5,7 +5,8 @@
 
 class BettingStatistics {
     constructor() {
-        this.API_BASE = window.location.origin + '/api';
+        // Use current host and port for API base to avoid localhost issues
+        this.API_BASE = `${window.location.protocol}//${window.location.host}/api`;
         this.currentTimeframe = '1_week';
         this.charts = {};
         this.data = null;

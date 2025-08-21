@@ -1,48 +1,53 @@
 #!/usr/bin/env python3
 """
-Tennis One Set - Main Application Entry Point
-Main entry point for the restructured tennis betting and ML prediction system
-Integrates both Flask web dashboard AND automated tennis prediction service
+🤖 AUTOMATED TENNIS PREDICTION SERVICE
+
+This service runs continuously to monitor tennis matches, generate underdog predictions,
+and send Telegram notifications when strong opportunities are found.
+
+Key Features:
+- Monitors cached tennis data for new ATP/WTA singles matches
+- Applies ML models to identify underdog opportunities (ranks 10-300)
+- Sends Telegram notifications for predictions above 55% confidence
+- Runs every 30 minutes to catch new matches
+- Comprehensive logging and error handling
+
+Author: Claude Code (Anthropic)
+Date: 2025-08-21
 """
 
-import os
 import sys
+import os
 import time
 import json
 import logging
+import requests
 import joblib
 import numpy as np
-import threading
-import signal
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 
-# Add src directory to Python path for imports
+# Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from src.api.app import create_app, create_production_app
-
-# Configure logging for the integrated system
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('tennis_integrated_system.log'),
+        logging.FileHandler('automated_tennis_predictions.log'),
         logging.StreamHandler()
     ]
 )
 logger = logging.getLogger(__name__)
 
 class AutomatedTennisPredictionService:
-    """Integrated automated service for tennis underdog prediction and notification"""
+    """Automated service for tennis underdog prediction and notification"""
     
     def __init__(self):
         self.models_dir = 'tennis_models'
         self.cache_dir = 'cache/api_tennis'
         self.processed_matches = set()  # Track processed matches to avoid duplicates
-        self.sent_notifications = set()  # Track sent notifications to avoid duplicates
-        self.is_running = False
-        self.thread = None
         
         # Load ML models
         self.models = {}
@@ -56,17 +61,14 @@ class AutomatedTennisPredictionService:
         # Player rankings (expanded for 10-300 range)
         self.player_rankings = self._load_player_rankings()
         
-        # Statistics - integrated with main system
+        # Statistics
         self.stats = {
             'service_start': datetime.now(),
             'total_checks': 0,
             'matches_processed': 0,
             'predictions_made': 0,
             'notifications_sent': 0,
-            'errors': 0,
-            'last_check': None,
-            'next_check': None,
-            'duplicate_notifications_prevented': 0
+            'errors': 0
         }
     
     def _load_ml_models(self):
@@ -99,7 +101,7 @@ class AutomatedTennisPredictionService:
             if not self.models:
                 logger.error("❌ No ML models loaded!")
             else:
-                logger.info(f"📊 {len(self.models)} ML models ready for integration")
+                logger.info(f"📊 {len(self.models)} ML models ready")
                 
         except Exception as e:
             logger.error(f"❌ Error loading ML models: {e}")
@@ -111,7 +113,7 @@ class AutomatedTennisPredictionService:
             self.telegram_system = get_telegram_system()
             
             if self.telegram_system.config.enabled:
-                logger.info("✅ Telegram notification system initialized (integrated)")
+                logger.info("✅ Telegram notification system initialized")
             else:
                 logger.warning("⚠️ Telegram notifications disabled")
                 
@@ -120,6 +122,7 @@ class AutomatedTennisPredictionService:
     
     def _load_player_rankings(self) -> Dict[str, int]:
         """Load player rankings for underdog analysis"""
+        # Comprehensive rankings for ATP/WTA players (ranks 10-300 focus)
         rankings = {
             # ATP Top players
             "jannik sinner": 1, "carlos alcaraz": 2, "alexander zverev": 3,
@@ -153,67 +156,38 @@ class AutomatedTennisPredictionService:
         
         return rankings
     
-    def start_background_service(self):
-        """Start the background prediction service in a separate thread"""
-        if self.is_running:
-            logger.warning("⚠️ Background service already running")
-            return
-        
-        self.is_running = True
-        self.thread = threading.Thread(target=self._run_continuous_monitoring, daemon=True)
-        self.thread.start()
-        logger.info("🚀 Background tennis prediction service started")
-    
-    def stop_background_service(self):
-        """Stop the background prediction service"""
-        self.is_running = False
-        if self.thread:
-            logger.info("🛑 Stopping background tennis prediction service...")
-            # Give it a moment to finish current cycle
-            self.thread.join(timeout=5)
-        logger.info("✅ Background tennis prediction service stopped")
-    
-    def _run_continuous_monitoring(self):
+    def run_continuous_monitoring(self):
         """Run continuous monitoring for new matches"""
-        logger.info("🤖 INTEGRATED TENNIS PREDICTION SERVICE STARTED")
+        logger.info("🤖 AUTOMATED TENNIS PREDICTION SERVICE STARTED")
         logger.info("=" * 60)
         logger.info(f"🔄 Monitoring every 30 minutes for underdog opportunities")
         logger.info(f"🎯 Target: ATP/WTA singles, ranks 10-300")
         logger.info(f"📱 Telegram: {'Enabled' if self.telegram_system and self.telegram_system.config.enabled else 'Disabled'}")
         logger.info("=" * 60)
         
-        while self.is_running:
+        while True:
             try:
-                self.stats['last_check'] = datetime.now()
                 self._run_prediction_cycle()
                 self.stats['total_checks'] += 1
-                self.stats['next_check'] = datetime.now() + timedelta(minutes=30)
                 
                 # Log stats every 10 cycles
                 if self.stats['total_checks'] % 10 == 0:
                     self._log_statistics()
                 
-                # Wait 30 minutes before next check (with early exit if stopped)
+                # Wait 30 minutes before next check
                 logger.info(f"⏰ Next check in 30 minutes...")
-                for _ in range(1800):  # 30 minutes in seconds
-                    if not self.is_running:
-                        break
-                    time.sleep(1)
+                time.sleep(1800)  # 30 minutes
                 
+            except KeyboardInterrupt:
+                logger.info("🛑 Service stopped by user")
+                break
             except Exception as e:
                 logger.error(f"❌ Error in monitoring cycle: {e}")
                 self.stats['errors'] += 1
-                # Wait 5 minutes before retry
-                for _ in range(300):
-                    if not self.is_running:
-                        break
-                    time.sleep(1)
+                time.sleep(300)  # 5 minutes before retry
     
     def _run_prediction_cycle(self):
         """Run one prediction cycle"""
-        if not self.is_running:
-            return
-            
         logger.info(f"🔄 Running prediction cycle at {datetime.now().strftime('%H:%M:%S')}")
         
         # Get current matches from cache
@@ -229,9 +203,6 @@ class AutomatedTennisPredictionService:
         notifications_sent = 0
         
         for match in matches:
-            if not self.is_running:
-                break
-                
             try:
                 # Check if already processed
                 match_id = self._get_match_id(match)
@@ -264,21 +235,6 @@ class AutomatedTennisPredictionService:
             logger.info(f"✅ Cycle complete: {predictions_made} predictions, {notifications_sent} notifications sent")
         else:
             logger.info(f"📊 Cycle complete: No new predictions generated")
-    
-    def get_service_status(self) -> Dict[str, Any]:
-        """Get current service status for web dashboard integration"""
-        uptime = datetime.now() - self.stats['service_start']
-        
-        return {
-            'running': self.is_running,
-            'uptime': str(uptime),
-            'uptime_seconds': uptime.total_seconds(),
-            'stats': self.stats.copy(),
-            'models_loaded': len(self.models),
-            'telegram_enabled': self.telegram_system.config.enabled if self.telegram_system else False,
-            'processed_matches_count': len(self.processed_matches),
-            'success_rate': (self.stats['predictions_made'] / max(1, self.stats['matches_processed'])) * 100
-        }
     
     def _get_current_matches(self) -> List[Dict]:
         """Get current matches from cache"""
@@ -354,7 +310,7 @@ class AutomatedTennisPredictionService:
             player2 = match.get('event_second_player', '')
             tournament = match.get('tournament_name', 'ATP Tournament')
             
-            logger.debug(f"🎯 Analyzing: {player1} vs {player2}")
+            logger.info(f"🎯 Analyzing: {player1} vs {player2}")
             
             # Get player rankings
             player1_rank = self._get_player_ranking(player1)
@@ -362,6 +318,7 @@ class AutomatedTennisPredictionService:
             
             # Check if this is a valid underdog scenario (ranks 10-300)
             if not self._is_valid_underdog_scenario(player1_rank, player2_rank):
+                logger.debug(f"⚠️ Not valid underdog scenario: ranks {player1_rank} vs {player2_rank}")
                 return None
             
             # Determine underdog
@@ -410,7 +367,7 @@ class AutomatedTennisPredictionService:
                 'strategic_insights': self._generate_insights(underdog_probability, underdog_rank, favorite_rank),
                 'prediction_metadata': {
                     'prediction_time': datetime.now().isoformat(),
-                    'service_type': 'integrated_automated_ml_prediction',
+                    'service_type': 'automated_ml_prediction',
                     'models_used': list(self.models.keys()) if self.models else ['fallback']
                 }
             }
@@ -585,81 +542,24 @@ class AutomatedTennisPredictionService:
         return self.telegram_system.should_notify(prediction)
     
     def _send_notification(self, prediction: Dict) -> bool:
-        """Send Telegram notification with duplicate prevention"""
+        """Send Telegram notification"""
         try:
-            if not self.telegram_system:
-                return False
-            
-            # Create unique notification ID to prevent duplicates
-            match_context = prediction.get('match_context', {})
-            notification_id = f"{match_context.get('player1', '')}_{match_context.get('player2', '')}_{prediction.get('confidence', '')}"
-            
-            # Check if we already sent this notification
-            if notification_id in self.sent_notifications:
-                logger.debug(f"🔄 Duplicate notification prevented: {match_context.get('underdog_name', 'Unknown')}")
-                self.stats['duplicate_notifications_prevented'] += 1
-                return False
-            
-            # Send the notification
-            sent = self.telegram_system.send_notification_sync(prediction)
-            if sent:
-                # Mark as sent to prevent duplicates
-                self.sent_notifications.add(notification_id)
-                
-                logger.info(f"📤 Notification sent: {match_context.get('underdog_name', 'Unknown')} underdog opportunity")
-                
-                # Log this prediction to the main system for integration
-                self._log_prediction_to_system(prediction)
-                
-                # Clean up old notification IDs (keep last 100)
-                if len(self.sent_notifications) > 100:
-                    oldest_ids = list(self.sent_notifications)[:50]
-                    for old_id in oldest_ids:
-                        self.sent_notifications.discard(old_id)
-                
-            return sent
-            
+            if self.telegram_system:
+                sent = self.telegram_system.send_notification_sync(prediction)
+                if sent:
+                    match_context = prediction.get('match_context', {})
+                    logger.info(f"📤 Notification sent: {match_context.get('underdog_name', 'Unknown')} underdog opportunity")
+                return sent
+            return False
         except Exception as e:
             logger.error(f"❌ Notification failed: {e}")
             return False
-    
-    def _log_prediction_to_system(self, prediction: Dict):
-        """Log prediction to the main system for statistics integration"""
-        try:
-            # Try to integrate with existing betting tracker
-            from src.api.betting_tracker_service import BettingTrackerService
-            from src.data.database_models import TestMode
-            
-            betting_tracker = BettingTrackerService()
-            
-            # Create a prediction log entry
-            match_context = prediction.get('match_context', {})
-            prediction_log = {
-                'timestamp': datetime.now().isoformat(),
-                'prediction_type': 'automated_underdog_detection',
-                'player1': match_context.get('player1', 'Unknown'),
-                'player2': match_context.get('player2', 'Unknown'),
-                'underdog_player': match_context.get('underdog_name', 'Unknown'),
-                'probability': prediction.get('underdog_second_set_probability', 0.0),
-                'confidence': prediction.get('confidence', 'Unknown'),
-                'tournament': match_context.get('tournament', 'Unknown'),
-                'ranking_gap': abs(match_context.get('player1_rank', 150) - match_context.get('player2_rank', 150)),
-                'service_type': 'integrated_automated_prediction',
-                'notification_sent': True
-            }
-            
-            # This integrates prediction tracking with the main system
-            logger.info(f"📊 Logged prediction to integrated system: {match_context.get('underdog_name', 'Unknown')}")
-            
-        except Exception as e:
-            logger.debug(f"Could not integrate with betting tracker: {e}")
-            # Continue without integration - not critical for core functionality
     
     def _log_statistics(self):
         """Log service statistics"""
         uptime = datetime.now() - self.stats['service_start']
         
-        logger.info("📊 INTEGRATED SERVICE STATISTICS")
+        logger.info("📊 SERVICE STATISTICS")
         logger.info(f"   Uptime: {uptime}")
         logger.info(f"   Total checks: {self.stats['total_checks']}")
         logger.info(f"   Matches processed: {self.stats['matches_processed']}")
@@ -676,198 +576,23 @@ class AutomatedTennisPredictionService:
         if self.stats['predictions_made'] > 0:
             notification_rate = self.stats['notifications_sent'] / self.stats['predictions_made']
             logger.info(f"   Notification rate: {notification_rate:.1%}")
-
-
-# Global instance for the integrated system
-prediction_service = None
-shutdown_event = threading.Event()
-
-def signal_handler(signum, frame):
-    """Handle shutdown signals gracefully"""
-    global prediction_service, shutdown_event
-    logger.info(f"🛑 Received signal {signum}, shutting down gracefully...")
     
-    shutdown_event.set()
-    
-    if prediction_service:
-        prediction_service.stop_background_service()
-    
-    logger.info("✅ Graceful shutdown completed")
-    sys.exit(0)
+    def run_single_check(self):
+        """Run a single prediction check (for testing)"""
+        logger.info("🧪 Running single prediction check...")
+        self._run_prediction_cycle()
+        self._log_statistics()
 
 def main():
-    """Main application entry point - runs both Flask app and prediction service"""
-    global prediction_service
+    """Main service entry point"""
+    service = AutomatedTennisPredictionService()
     
-    # Register signal handlers for graceful shutdown
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    
-    # Initialize the integrated prediction service
-    logger.info("🚀 Initializing integrated tennis prediction system...")
-    prediction_service = AutomatedTennisPredictionService()
-    
-    # Start background prediction service
-    prediction_service.start_background_service()
-    
-    # Determine if running in production
-    if os.getenv('FLASK_ENV') == 'production':
-        app = create_production_app()
+    if len(sys.argv) > 1 and sys.argv[1] == '--test':
+        # Run single check for testing
+        service.run_single_check()
     else:
-        app = create_app()
-    
-    # Add prediction service status endpoint to Flask app
-    @app.route('/api/prediction_service/status', methods=['GET'])
-    def prediction_service_status():
-        """Get status of the integrated prediction service"""
-        if prediction_service:
-            return {
-                'success': True,
-                'status': prediction_service.get_service_status()
-            }
-        else:
-            return {
-                'success': False,
-                'error': 'Prediction service not initialized'
-            }, 500
-    
-    @app.route('/api/prediction_service/stats', methods=['GET'])
-    def prediction_service_stats():
-        """Get detailed stats of the prediction service"""
-        if prediction_service:
-            return {
-                'success': True,
-                'stats': prediction_service.stats,
-                'processed_matches': len(prediction_service.processed_matches),
-                'models_loaded': list(prediction_service.models.keys()),
-                'telegram_enabled': prediction_service.telegram_system.config.enabled if prediction_service.telegram_system else False
-            }
-        else:
-            return {
-                'success': False,
-                'error': 'Prediction service not initialized'
-            }, 500
-    
-    @app.route('/api/integrated_system/dashboard', methods=['GET'])
-    def integrated_system_dashboard():
-        """Get integrated dashboard data combining web app stats and prediction service"""
-        try:
-            dashboard_data = {
-                'success': True,
-                'system_status': {
-                    'flask_app_running': True,
-                    'prediction_service_running': prediction_service.is_running if prediction_service else False,
-                    'uptime': str(datetime.now() - (prediction_service.stats['service_start'] if prediction_service else datetime.now())),
-                },
-                'prediction_service': prediction_service.get_service_status() if prediction_service else None,
-                'ml_models': {
-                    'loaded_models': list(prediction_service.models.keys()) if prediction_service else [],
-                    'model_count': len(prediction_service.models) if prediction_service else 0,
-                    'metadata_available': bool(prediction_service.metadata) if prediction_service else False
-                },
-                'telegram_status': {
-                    'enabled': prediction_service.telegram_system.config.enabled if prediction_service and prediction_service.telegram_system else False,
-                    'notifications_sent': prediction_service.stats.get('notifications_sent', 0) if prediction_service else 0,
-                    'last_notification': None  # Could add timestamp tracking
-                }
-            }
-            
-            # Try to get betting statistics if available
-            try:
-                from src.api.betting_tracker_service import BettingTrackerService
-                betting_tracker = BettingTrackerService()
-                betting_stats = betting_tracker.get_betting_statistics_by_timeframe(timeframe='1_week')
-                dashboard_data['betting_statistics'] = betting_stats
-            except Exception as e:
-                logger.debug(f"Betting statistics not available: {e}")
-                dashboard_data['betting_statistics'] = None
-            
-            return dashboard_data
-            
-        except Exception as e:
-            logger.error(f"❌ Error getting integrated dashboard data: {e}")
-            return {
-                'success': False,
-                'error': 'Failed to get dashboard data',
-                'details': str(e)
-            }, 500
-    
-    @app.route('/api/prediction_service/force_check', methods=['POST'])
-    def force_prediction_check():
-        """Force an immediate prediction check cycle (for testing)"""
-        if not prediction_service:
-            return {
-                'success': False,
-                'error': 'Prediction service not initialized'
-            }, 500
-        
-        try:
-            # Run a single check cycle
-            initial_stats = prediction_service.stats.copy()
-            prediction_service._run_prediction_cycle()
-            
-            return {
-                'success': True,
-                'message': 'Forced prediction check completed',
-                'stats_before': initial_stats,
-                'stats_after': prediction_service.stats.copy(),
-                'changes': {
-                    'matches_processed': prediction_service.stats['matches_processed'] - initial_stats['matches_processed'],
-                    'predictions_made': prediction_service.stats['predictions_made'] - initial_stats['predictions_made'],
-                    'notifications_sent': prediction_service.stats['notifications_sent'] - initial_stats['notifications_sent']
-                }
-            }
-        except Exception as e:
-            logger.error(f"❌ Error during forced prediction check: {e}")
-            return {
-                'success': False,
-                'error': 'Failed to run prediction check',
-                'details': str(e)
-            }, 500
-    
-    print("🎾 TENNIS ONE SET - INTEGRATED SYSTEM")
-    print("=" * 60)
-    print(f"🌐 Dashboard: http://0.0.0.0:5001")
-    print(f"📡 API: http://0.0.0.0:5001/api/*")
-    print(f"🤖 Prediction Service: RUNNING IN BACKGROUND")
-    print(f"📊 Service Status: http://0.0.0.0:5001/api/prediction_service/status")
-    print("=" * 60)
-    
-    try:
-        # Enhanced server configuration for security
-        ssl_context = None
-        
-        if os.getenv('FLASK_ENV') == 'production':
-            # In production, SSL should be handled by reverse proxy (nginx)
-            # But we can still configure SSL context if certificates are available
-            from src.config.config import get_config
-            config = get_config()
-            cert_file = getattr(config, 'SSL_CERT_PATH', None)
-            key_file = getattr(config, 'SSL_KEY_PATH', None)
-            
-            if cert_file and key_file and os.path.exists(cert_file) and os.path.exists(key_file):
-                ssl_context = (cert_file, key_file)
-                print(f"✅ SSL certificates found, enabling HTTPS")
-            else:
-                print("⚠️ Production mode: SSL should be handled by reverse proxy (nginx)")
-        
-        app.run(
-            host='0.0.0.0',
-            port=5001,
-            debug=False,
-            threaded=True,
-            ssl_context=ssl_context,
-            # Additional security configurations
-            use_reloader=False,  # Disable reloader in production
-            use_debugger=False   # Ensure debugger is disabled
-        )
-    except Exception as e:
-        print(f"❌ Failed to start server: {e}")
-        logger.error(f"Server startup failed: {e}", exc_info=True)
-    finally:
-        # Ensure cleanup on exit
-        if prediction_service:
-            prediction_service.stop_background_service()
+        # Run continuous monitoring
+        service.run_continuous_monitoring()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

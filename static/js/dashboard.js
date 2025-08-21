@@ -5,7 +5,8 @@
 
 class TennisDashboard {
     constructor() {
-        this.API_BASE = window.location.origin + '/api';
+        // Use current host and port for API base to avoid localhost issues
+        this.API_BASE = `${window.location.protocol}//${window.location.host}/api`;
         this.SUBSCRIBER_MODE = window.SUBSCRIBER_MODE || false;
         this.state = {
             matches: [],

@@ -5,7 +5,8 @@
 
 class NotificationManager {
     constructor() {
-        this.API_BASE = window.location.origin + '/api';
+        // Use current host and port for API base to avoid localhost issues
+        this.API_BASE = `${window.location.protocol}//${window.location.host}/api`;
         this.notifications = new Map();
         this.notificationQueue = [];
         this.settings = {
