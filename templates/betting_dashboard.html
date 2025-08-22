@@ -416,6 +416,11 @@
                 if (tabId === 'betting-simulation' && !this.bettingSimulationUI) {
                     this.initializeBettingSimulation();
                 }
+                
+                // Load real ML performance data when ML Performance tab is activated
+                if (tabId === 'ml-performance') {
+                    this.loadRealMLPerformance();
+                }
 
                 this.activeTab = tabId;
                 this.announceTabChange(tabId);
@@ -539,10 +544,148 @@
                 // Pre-calculate ML performance metrics
                 if (!this.cachedData.has('ml-performance')) {
                     requestIdleCallback(() => {
-                        const mlMetrics = this.calculateMLMetrics();
-                        this.cachedData.set('ml-performance', mlMetrics);
+                        this.loadRealMLPerformance();
                     });
                 }
+            }
+            
+            async loadRealMLPerformance() {
+                try {
+                    const response = await fetch('/api/betting/ml-performance?days=30');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.cachedData.set('ml-performance', data.ml_performance);
+                        this.updateMLPerformanceDisplay(data.ml_performance);
+                    } else {
+                        // Fall back to calculated metrics
+                        const mlMetrics = this.calculateMLMetrics();
+                        this.cachedData.set('ml-performance', mlMetrics);
+                    }
+                } catch (error) {
+                    console.error('Error loading real ML performance:', error);
+                    // Fall back to calculated metrics
+                    const mlMetrics = this.calculateMLMetrics();
+                    this.cachedData.set('ml-performance', mlMetrics);
+                }
+            }
+            
+            updateMLPerformanceDisplay(mlPerformance) {
+                // Update overview metrics
+                const overview = mlPerformance.overview || {};
+                this.updateMLMetricElement('total-predictions', overview.total_predictions || 0);
+                this.updateMLMetricElement('settled-predictions', overview.settled_predictions || 0);
+                this.updateMLMetricElement('win-rate', `${overview.win_rate || 0}%`);
+                this.updateMLMetricElement('roi', `${overview.roi || 0}%`);
+                this.updateMLMetricElement('net-profit', `$${overview.net_profit || 0}`);
+                this.updateMLMetricElement('avg-odds', overview.avg_odds || 0);
+                
+                // Update model performance
+                const modelPerformance = mlPerformance.model_performance || {};
+                Object.entries(modelPerformance).forEach(([modelName, performance]) => {
+                    const modelKey = modelName.toLowerCase().replace(/[^a-z]/g, '');
+                    this.updateMLMetricElement(`${modelKey}-winrate`, `${performance.win_rate || 0}%`);
+                    this.updateMLMetricElement(`${modelKey}-roi`, `${performance.roi || 0}%`);
+                    this.updateMLMetricElement(`${modelKey}-profit`, `$${performance.profit || 0}`);
+                });
+                
+                // Update confidence breakdown
+                this.updateConfidenceBreakdown(mlPerformance.confidence_breakdown || {});
+                
+                // Update bankroll info
+                const bankrollInfo = mlPerformance.bankroll_info || {};
+                this.updateMLMetricElement('current-bankroll', `$${bankrollInfo.current_bankroll || 0}`);
+                this.updateMLMetricElement('total-staked', `$${bankrollInfo.total_staked || 0}`);
+                this.updateMLMetricElement('total-returned', `$${bankrollInfo.total_returned || 0}`);
+            }
+            
+            updateMLMetricElement(id, value) {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = value;
+                }
+            }
+            
+            updateConfidenceBreakdown(confidenceBreakdown) {
+                // Add confidence breakdown section if it doesn't exist
+                const mlDashboard = document.querySelector('.ml-performance-dashboard');
+                if (!mlDashboard) return;
+                
+                let confidenceSection = document.getElementById('confidence-breakdown-section');
+                if (!confidenceSection) {
+                    confidenceSection = document.createElement('div');
+                    confidenceSection.id = 'confidence-breakdown-section';
+                    confidenceSection.className = 'confidence-breakdown';
+                    confidenceSection.innerHTML = `
+                        <h3>🎲 Confidence Level Performance</h3>
+                        <div class="confidence-grid">
+                            <div class="confidence-card" id="high-confidence">
+                                <h4>High Confidence</h4>
+                                <div class="confidence-metrics">
+                                    <div class="metric">
+                                        <span class="metric-label">Bets:</span>
+                                        <span class="metric-value" id="high-bets">0</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">Win Rate:</span>
+                                        <span class="metric-value" id="high-winrate">0%</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">Avg Edge:</span>
+                                        <span class="metric-value" id="high-edge">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="confidence-card" id="medium-confidence">
+                                <h4>Medium Confidence</h4>
+                                <div class="confidence-metrics">
+                                    <div class="metric">
+                                        <span class="metric-label">Bets:</span>
+                                        <span class="metric-value" id="medium-bets">0</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">Win Rate:</span>
+                                        <span class="metric-value" id="medium-winrate">0%</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">Avg Edge:</span>
+                                        <span class="metric-value" id="medium-edge">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="confidence-card" id="low-confidence">
+                                <h4>Low Confidence</h4>
+                                <div class="confidence-metrics">
+                                    <div class="metric">
+                                        <span class="metric-label">Bets:</span>
+                                        <span class="metric-value" id="low-bets">0</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">Win Rate:</span>
+                                        <span class="metric-value" id="low-winrate">0%</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">Avg Edge:</span>
+                                        <span class="metric-value" id="low-edge">0%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Insert after model comparison
+                    const modelComparison = mlDashboard.querySelector('.model-comparison');
+                    if (modelComparison) {
+                        modelComparison.insertAdjacentElement('afterend', confidenceSection);
+                    }
+                }
+                
+                // Update confidence breakdown values
+                Object.entries(confidenceBreakdown).forEach(([confidence, data]) => {
+                    this.updateMLMetricElement(`${confidence}-bets`, data.total_bets || 0);
+                    this.updateMLMetricElement(`${confidence}-winrate`, `${data.win_rate || 0}%`);
+                    this.updateMLMetricElement(`${confidence}-edge`, `${data.avg_edge || 0}%`);
+                });
             }
 
             preloadMoneyManagement() {
@@ -1018,6 +1161,42 @@
         .risk-description {
             color: var(--text-muted);
             font-size: 0.85rem;
+        }
+        
+        /* Confidence Breakdown Styles */
+        .confidence-breakdown {
+            margin-bottom: var(--space-xl);
+        }
+        
+        .confidence-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-lg);
+        }
+        
+        .confidence-card {
+            background: var(--surface-primary);
+            border: 1px solid var(--surface-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg);
+            transition: all var(--transition-normal);
+        }
+        
+        .confidence-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .confidence-card h4 {
+            margin-bottom: var(--space-md);
+            color: var(--text-primary);
+            font-size: 1.1rem;
+        }
+        
+        .confidence-metrics {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
         }
         
         .simulation-controls-mini {

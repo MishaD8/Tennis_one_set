@@ -18,6 +18,9 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 
 # Add src directory to Python path for imports
+# Import dynamic rankings API
+sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+from api.dynamic_rankings_api import dynamic_rankings
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.api.app import create_app, create_production_app
@@ -119,8 +122,37 @@ class AutomatedTennisPredictionService:
             logger.error(f"❌ Failed to initialize Telegram: {e}")
     
     def _load_player_rankings(self) -> Dict[str, int]:
-        """Load player rankings for underdog analysis"""
-        rankings = {
+        """Load player rankings using dynamic API with fallback"""
+        try:
+            logger.info("📊 Loading player rankings using dynamic API...")
+            
+            # Get live rankings from both tours
+            atp_rankings = dynamic_rankings.get_live_rankings('atp')
+            wta_rankings = dynamic_rankings.get_live_rankings('wta')
+            
+            # Combine rankings with rank as integer
+            combined_rankings = {}
+            
+            for player, data in atp_rankings.items():
+                combined_rankings[player] = data.get('rank', 150)
+            
+            for player, data in wta_rankings.items():
+                combined_rankings[player] = data.get('rank', 150)
+            
+            logger.info(f"✅ Loaded {len(combined_rankings)} player rankings from dynamic API")
+            
+            # If we got valid data, return it
+            if combined_rankings:
+                return combined_rankings
+            else:
+                logger.warning("⚠️ No rankings data from dynamic API, using fallback")
+                
+        except Exception as e:
+            logger.error(f"❌ Error loading dynamic rankings: {e}")
+            logger.warning("⚠️ Using fallback rankings")
+        
+        # Fallback rankings (minimal set for critical matches)
+        fallback_rankings = {
             # ATP Top players
             "jannik sinner": 1, "carlos alcaraz": 2, "alexander zverev": 3,
             "daniil medvedev": 4, "novak djokovic": 5, "andrey rublev": 6,
@@ -138,10 +170,17 @@ class AutomatedTennisPredictionService:
             "marco trungelliti": 180, "hugo grenier": 150, "martin landaluce": 195,
             "adolfo martin": 220, "pablo llamas ruiz": 250,
             
-            # WTA Players
+            # WTA Players - CORRECTED RANKINGS based on TODO.md
             "aryna sabalenka": 1, "iga swiatek": 2, "coco gauff": 3,
             "jessica pegula": 4, "elena rybakina": 5, "qinwen zheng": 6,
             "jasmine paolini": 7, "emma navarro": 8, "daria kasatkina": 9,
+            
+            # CORRECTED RANKINGS for players mentioned in TODO.md
+            "linda noskova": 23, "l. noskova": 23, "noskova": 23,
+            "ekaterina alexandrova": 14, "e. alexandrova": 14, "alexandrova": 14,
+            "ajla tomljanovic": 84, "a. tomljanovic": 84, "tomljanovic": 84,
+            
+            # Other WTA players
             "renata zarazua": 80, "amanda anisimova": 35, "katie boulter": 28,
             "emma raducanu": 25, "caroline dolehide": 85, "carson branstine": 125,
             "tianah andrianjafitrimo": 180, "julia fett": 140,
@@ -151,7 +190,8 @@ class AutomatedTennisPredictionService:
             "marc-andrea huesler": 110, "ann li": 95, "iryna jovic": 150
         }
         
-        return rankings
+        logger.info(f"📋 Using fallback rankings ({len(fallback_rankings)} players)")
+        return fallback_rankings
     
     def start_background_service(self):
         """Start the background prediction service in a separate thread"""
@@ -423,9 +463,20 @@ class AutomatedTennisPredictionService:
             return None
     
     def _get_player_ranking(self, player_name: str) -> int:
-        """Get player ranking with fuzzy matching"""
+        """Get player ranking with dynamic API and fuzzy matching"""
         name_lower = player_name.lower().strip()
         
+        try:
+            # First try dynamic rankings API
+            ranking_data = dynamic_rankings.get_player_ranking(name_lower)
+            if ranking_data and ranking_data.get('rank', 999) != 999:
+                api_rank = ranking_data.get('rank')
+                logger.debug(f"🎯 Dynamic API ranking for {player_name}: #{api_rank}")
+                return api_rank
+        except Exception as e:
+            logger.warning(f"⚠️ Dynamic API failed for {player_name}: {e}")
+        
+        # Fallback to loaded rankings
         # Direct match
         if name_lower in self.player_rankings:
             return self.player_rankings[name_lower]
@@ -434,10 +485,12 @@ class AutomatedTennisPredictionService:
         for known_player, rank in self.player_rankings.items():
             # Check if any part of the name matches
             if any(part in known_player for part in name_lower.split()) or \
-               any(part in name_lower for part in known_player.split()):
+               any(part in name_player for part in known_player.split() for name_player in [name_lower]):
+                logger.debug(f"🔍 Fuzzy match for {player_name}: {known_player} -> #{rank}")
                 return rank
         
         # Default to middle of target range
+        logger.warning(f"⚠️ No ranking found for {player_name}, using default: 150")
         return 150
     
     def _is_valid_underdog_scenario(self, player1_rank: int, player2_rank: int) -> bool:

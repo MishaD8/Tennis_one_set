@@ -3213,4 +3213,308 @@ def register_routes(app: Flask):
                 'details': str(e)
             }), 500
 
-    logger.info("✅ All routes registered successfully")
+    # ========================================
+    # PREDICTION-BETTING INTEGRATION ENDPOINTS
+    # ========================================
+    
+    @app.route('/api/betting/telegram-predictions', methods=['GET'])
+    def get_telegram_prediction_statistics():
+        """Get betting statistics from Telegram predictions"""
+        try:
+            from src.api.prediction_betting_integration import get_betting_dashboard_stats
+            
+            # Parse parameters
+            days = int(request.args.get('days', 30))
+            days = max(1, min(365, days))  # Clamp between 1 and 365 days
+            
+            # Get statistics
+            stats = get_betting_dashboard_stats(days)
+            
+            return jsonify({
+                'success': True,
+                'statistics': stats,
+                'source': 'telegram_predictions',
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting telegram prediction statistics: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get telegram prediction statistics',
+                'details': str(e)
+            }), 500
+    
+    @app.route('/api/betting/ml-performance', methods=['GET'])
+    def get_ml_performance_from_predictions():
+        """Get ML performance metrics from actual prediction records"""
+        try:
+            from src.api.prediction_betting_integration import get_prediction_betting_integrator
+            
+            # Parse parameters
+            days = int(request.args.get('days', 30))
+            days = max(1, min(365, days))  # Clamp between 1 and 365 days
+            
+            integrator = get_prediction_betting_integrator()
+            stats = integrator.get_betting_statistics(days)
+            
+            # Format for ML performance display
+            ml_performance = {
+                'overview': {
+                    'total_predictions': stats['total_bets'],
+                    'settled_predictions': stats['settled_bets'],
+                    'win_rate': stats['win_rate'],
+                    'roi': stats['roi'],
+                    'net_profit': stats['net_profit'],
+                    'avg_odds': stats['avg_odds']
+                },
+                'confidence_breakdown': stats['confidence_breakdown'],
+                'model_performance': stats['model_performance'],
+                'bankroll_info': {
+                    'current_bankroll': stats['current_bankroll'],
+                    'total_staked': stats['total_staked'],
+                    'total_returned': stats['total_returned']
+                },
+                'period_info': {
+                    'days': days,
+                    'last_updated': stats['last_updated']
+                }
+            }
+            
+            return jsonify({
+                'success': True,
+                'ml_performance': ml_performance,
+                'source': 'live_predictions',
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting ML performance from predictions: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get ML performance data',
+                'details': str(e)
+            }), 500
+    
+    @app.route('/api/betting/prediction-records', methods=['GET'])
+    def get_prediction_betting_records():
+        """Get detailed prediction betting records"""
+        try:
+            from src.api.prediction_betting_integration import get_prediction_betting_integrator
+            from src.data.database_models import BettingLog, BettingStatus
+            from datetime import datetime, timedelta
+            
+            integrator = get_prediction_betting_integrator()
+            session = integrator.db_manager.get_session()
+            
+            # Parse parameters
+            days = int(request.args.get('days', 30))
+            limit = int(request.args.get('limit', 50))
+            status_filter = request.args.get('status', 'all')
+            
+            # Calculate date range
+            end_date = datetime.utcnow()
+            start_date = end_date - timedelta(days=days)
+            
+            # Build query
+            query = session.query(BettingLog).filter(
+                BettingLog.timestamp >= start_date,
+                BettingLog.timestamp <= end_date
+            )
+            
+            # Apply status filter
+            if status_filter != 'all':
+                try:
+                    status_enum = BettingStatus(status_filter)
+                    query = query.filter(BettingLog.betting_status == status_enum)
+                except ValueError:
+                    pass  # Ignore invalid status
+            
+            # Order and limit
+            records = query.order_by(BettingLog.timestamp.desc()).limit(limit).all()
+            
+            # Format records
+            formatted_records = []
+            for record in records:
+                formatted_record = {
+                    'bet_id': record.bet_id,
+                    'timestamp': record.timestamp.isoformat(),
+                    'match': {
+                        'player1': record.player1,
+                        'player2': record.player2,
+                        'tournament': record.tournament,
+                        'match_date': record.match_date.isoformat() if record.match_date else None
+                    },
+                    'prediction': {
+                        'predicted_winner': record.predicted_winner,
+                        'our_probability': record.our_probability,
+                        'confidence_level': record.confidence_level,
+                        'model_used': record.model_used
+                    },
+                    'betting': {
+                        'odds_taken': record.odds_taken,
+                        'stake_amount': record.stake_amount,
+                        'edge_percentage': record.edge_percentage,
+                        'risk_level': record.risk_level
+                    },
+                    'outcome': {
+                        'status': record.betting_status.value if record.betting_status else 'unknown',
+                        'actual_winner': record.actual_winner,
+                        'profit_loss': record.profit_loss,
+                        'roi_percentage': record.roi_percentage,
+                        'prediction_correct': record.prediction_correct
+                    }
+                }
+                formatted_records.append(formatted_record)
+            
+            session.close()
+            
+            return jsonify({
+                'success': True,
+                'records': formatted_records,
+                'total_records': len(formatted_records),
+                'filters_applied': {
+                    'days': days,
+                    'status': status_filter,
+                    'limit': limit
+                },
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting prediction betting records: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get prediction betting records',
+                'details': str(e)
+            }), 500
+
+    @app.route('/api/betting/alerts', methods=['GET'])
+    @app.limiter.limit("60 per hour")
+    def get_betting_alerts():
+        """Get active betting alerts and system notifications"""
+        try:
+            # Check for system alerts
+            alerts = []
+            
+            # Check bankroll status
+            from src.api.prediction_betting_integration import PredictionBettingIntegrator, PredictionBettingConfig
+            config = PredictionBettingConfig()
+            integrator = PredictionBettingIntegrator(config)
+            
+            stats = integrator.get_betting_statistics(days=1)
+            
+            # Low bankroll alert
+            if stats.get('current_bankroll', 0) < config.initial_bankroll * 0.3:
+                alerts.append({
+                    'type': 'warning',
+                    'category': 'bankroll',
+                    'message': f"Bankroll low: ${stats.get('current_bankroll', 0):.2f}",
+                    'timestamp': datetime.now().isoformat(),
+                    'severity': 'medium'
+                })
+            
+            # High loss rate alert
+            if stats.get('win_rate', 100) < 40:
+                alerts.append({
+                    'type': 'warning',
+                    'category': 'performance',
+                    'message': f"Low win rate: {stats.get('win_rate', 0):.1f}%",
+                    'timestamp': datetime.now().isoformat(),
+                    'severity': 'high'
+                })
+            
+            # Negative ROI alert
+            if stats.get('roi', 0) < -10:
+                alerts.append({
+                    'type': 'warning',
+                    'category': 'performance',
+                    'message': f"Negative ROI: {stats.get('roi', 0):.1f}%",
+                    'timestamp': datetime.now().isoformat(),
+                    'severity': 'high'
+                })
+            
+            # System health alerts
+            if not os.path.exists('data/tennis_predictions.db'):
+                alerts.append({
+                    'type': 'error',
+                    'category': 'system',
+                    'message': "Database connection issue detected",
+                    'timestamp': datetime.now().isoformat(),
+                    'severity': 'critical'
+                })
+            
+            return jsonify({
+                'success': True,
+                'alerts': alerts,
+                'alert_count': len(alerts),
+                'system_status': 'healthy' if len(alerts) == 0 else 'warning' if any(a['severity'] in ['medium', 'high'] for a in alerts) else 'critical',
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting betting alerts: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get betting alerts',
+                'details': str(e)
+            }), 500
+
+    @app.route('/api/betting/dashboard-stats', methods=['GET'])
+    @app.limiter.limit("100 per hour")
+    def get_betting_dashboard_stats():
+        """Get comprehensive dashboard statistics for betting system"""
+        try:
+            from src.api.prediction_betting_integration import PredictionBettingIntegrator, PredictionBettingConfig
+            config = PredictionBettingConfig()
+            integrator = PredictionBettingIntegrator(config)
+            
+            # Get comprehensive statistics
+            stats = integrator.get_betting_statistics(days=30)
+            
+            # Calculate additional dashboard metrics
+            dashboard_stats = {
+                'summary': {
+                    'current_bankroll': stats.get('current_bankroll', 0),
+                    'total_staked': stats.get('total_staked', 0),
+                    'net_profit': stats.get('net_profit', 0),
+                    'roi_percentage': stats.get('roi', 0),
+                    'win_rate': stats.get('win_rate', 0),
+                    'total_bets': stats.get('total_bets', 0),
+                    'settled_bets': stats.get('settled_bets', 0),
+                    'pending_bets': stats.get('pending_bets', 0)
+                },
+                'performance': {
+                    'confidence_breakdown': stats.get('confidence_breakdown', {}),
+                    'model_performance': stats.get('model_performance', {}),
+                    'avg_odds': stats.get('avg_odds', 0),
+                    'avg_stake': stats.get('avg_stake', 0)
+                },
+                'alerts': {
+                    'low_bankroll': stats.get('current_bankroll', 0) < config.initial_bankroll * 0.3,
+                    'poor_performance': stats.get('win_rate', 100) < 40,
+                    'negative_roi': stats.get('roi', 0) < -10
+                },
+                'recent_activity': {
+                    'last_bet_date': stats.get('last_bet_date'),
+                    'bets_today': stats.get('bets_today', 0),
+                    'profit_today': stats.get('profit_today', 0)
+                }
+            }
+            
+            return jsonify({
+                'success': True,
+                'dashboard_stats': dashboard_stats,
+                'period': '30 days',
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting dashboard stats: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get dashboard statistics',
+                'details': str(e)
+            }), 500
+
+    logger.info("✅ All routes registered successfully (including prediction-betting integration)")

@@ -13,12 +13,20 @@ Author: Claude Code (Anthropic)
 
 import logging
 import os
+import sys
 import asyncio
 import aiohttp
 from datetime import datetime, timedelta
 from typing import Dict, List, Any
 from dataclasses import dataclass
 from dotenv import load_dotenv
+
+# Import dynamic rankings API
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from api.dynamic_rankings_api import dynamic_rankings
+
+# Import prediction-betting integration will be done lazily to avoid circular imports
+process_telegram_prediction_as_bet = None
 
 logger = logging.getLogger(__name__)
 
@@ -236,6 +244,9 @@ class TelegramNotificationSystem:
             if success_count > 0:
                 self._record_notification(prediction_result, success_count)
                 
+                # NEW: Create betting record for this prediction
+                self._create_betting_record_for_prediction(prediction_result)
+                
                 self.telegram_logger.info(
                     f"📤 Sent underdog notification to {success_count}/{len(self.config.chat_ids)} chats: "
                     f"{prediction_result.get('match_context', {}).get('player1', 'Unknown')} vs "
@@ -251,8 +262,50 @@ class TelegramNotificationSystem:
             logger.error(f"❌ Error sending underdog notification: {e}")
             return False
     
+    def _get_live_player_ranking(self, player_name: str) -> int:
+        """Get live player ranking with fallback to avoid incorrect rankings"""
+        try:
+            # Clean and standardize player name
+            clean_name = player_name.lower().strip()
+            
+            # Try dynamic rankings API first
+            ranking_data = dynamic_rankings.get_player_ranking(clean_name)
+            
+            if ranking_data and ranking_data.get('rank', 999) != 999:
+                live_rank = ranking_data.get('rank')
+                logger.debug(f"🎯 Live ranking for {player_name}: #{live_rank}")
+                return live_rank
+            else:
+                logger.warning(f"⚠️ No live ranking found for {player_name}, using fallback")
+                
+                # Fallback rankings with CORRECTED values from TODO.md
+                corrected_fallback = {
+                    # CORRECTED WTA rankings based on TODO.md
+                    "linda noskova": 23, "l. noskova": 23, "noskova": 23,
+                    "ekaterina alexandrova": 14, "e. alexandrova": 14, "alexandrova": 14,
+                    "ajla tomljanovic": 84, "a. tomljanovic": 84, "tomljanovic": 84,
+                    
+                    # Common player name variations
+                    "l.noskova": 23, "e.alexandrova": 14, "a.tomljanovic": 84,
+                }
+                
+                # Check corrected fallback first
+                if clean_name in corrected_fallback:
+                    fallback_rank = corrected_fallback[clean_name]
+                    logger.info(f"✅ Using corrected fallback ranking for {player_name}: #{fallback_rank}")
+                    return fallback_rank
+                
+                # Default fallback
+                default_rank = 150
+                logger.warning(f"⚠️ Using default ranking for {player_name}: #{default_rank}")
+                return default_rank
+                
+        except Exception as e:
+            logger.error(f"❌ Error getting live ranking for {player_name}: {e}")
+            return 150  # Safe default
+    
     def _format_underdog_message(self, prediction_result: Dict) -> str:
-        """Format the underdog prediction message for Telegram"""
+        """Format the underdog prediction message for Telegram with live rankings"""
         
         match_context = prediction_result.get('match_context', {})
         underdog_prob = prediction_result.get('underdog_second_set_probability', 0)
@@ -262,8 +315,13 @@ class TelegramNotificationSystem:
         # Determine which player is the underdog
         player1 = match_context.get('player1', 'Player 1')
         player2 = match_context.get('player2', 'Player 2')
-        player1_rank = match_context.get('player1_rank', 'N/A')
-        player2_rank = match_context.get('player2_rank', 'N/A')
+        
+        # Get live rankings instead of using potentially incorrect cached values
+        player1_rank = self._get_live_player_ranking(player1)
+        player2_rank = self._get_live_player_ranking(player2)
+        
+        # Also log the ranking source for transparency
+        logger.info(f"📊 Live rankings: {player1} = #{player1_rank}, {player2} = #{player2_rank}")
         
         if underdog_player == 'player1':
             underdog_name = player1
@@ -366,6 +424,33 @@ class TelegramNotificationSystem:
             if n.get('timestamp', datetime.now()) > cutoff_time
         ]
     
+    def _create_betting_record_for_prediction(self, prediction_result: Dict):
+        """Create a betting record for this prediction notification"""
+        try:
+            # Lazy import to avoid circular imports
+            global process_telegram_prediction_as_bet
+            if process_telegram_prediction_as_bet is None:
+                try:
+                    from api.prediction_betting_integration import process_telegram_prediction_as_bet
+                except ImportError:
+                    self.telegram_logger.warning("⚠️ Betting integration not available, skipping betting record creation")
+                    return
+                
+            # Create betting record asynchronously
+            bet_id = process_telegram_prediction_as_bet(prediction_result)
+            
+            if bet_id:
+                self.telegram_logger.info(f"✅ Created betting record {bet_id} for notification")
+                
+                # Add betting record ID to notification history for tracking
+                if self.notification_history:
+                    self.notification_history[-1]['betting_record_id'] = bet_id
+            else:
+                self.telegram_logger.warning("⚠️ Failed to create betting record for notification")
+                
+        except Exception as e:
+            self.telegram_logger.error(f"❌ Error creating betting record for prediction: {e}")
+    
     def send_notification_sync(self, prediction_result: Dict) -> bool:
         """Synchronous wrapper for sending notifications"""
         try:
@@ -437,6 +522,42 @@ class TelegramNotificationSystem:
                 max(1, len(recent_notifications))
             ) if recent_notifications else 0
         }
+    
+    async def _send_emergency_alert(self, alert_message: str) -> bool:
+        """Send emergency alert for critical issues (bypasses rate limiting)"""
+        try:
+            logger.warning("🚨 SENDING EMERGENCY ALERT - bypassing rate limits")
+            
+            success_count = 0
+            for chat_id in self.config.chat_ids:
+                try:
+                    # Send emergency alert without rate limiting
+                    url = f"https://api.telegram.org/bot{self.config.bot_token}/sendMessage"
+                    
+                    payload = {
+                        'chat_id': chat_id,
+                        'text': alert_message,
+                        'parse_mode': 'HTML',
+                        'disable_web_page_preview': True
+                    }
+                    
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(url, json=payload, timeout=10) as response:
+                            if response.status == 200:
+                                success_count += 1
+                                logger.info(f"✅ Emergency alert sent to chat {chat_id}")
+                            else:
+                                logger.error(f"❌ Failed to send emergency alert to chat {chat_id}: {response.status}")
+                                
+                except Exception as e:
+                    logger.error(f"❌ Error sending emergency alert to {chat_id}: {e}")
+            
+            logger.warning(f"🚨 Emergency alert sent to {success_count}/{len(self.config.chat_ids)} chats")
+            return success_count > 0
+            
+        except Exception as e:
+            logger.error(f"❌ Critical error sending emergency alert: {e}")
+            return False
 
 
 # Global instance for easy access

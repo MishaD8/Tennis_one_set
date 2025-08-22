@@ -31,7 +31,7 @@ class Config:
     
     # Rate Limiting Configuration
     RATELIMIT_STORAGE_URL = os.getenv('REDIS_URL', '').strip() or None
-    RATELIMIT_DEFAULT = ["100 per day", "20 per hour", "5 per minute"]
+    RATELIMIT_DEFAULT = ["1000 per day", "200 per hour", "30 per minute"]
     RATELIMIT_STRATEGY = "fixed-window"
     RATELIMIT_HEADERS_ENABLED = True
     RATELIMIT_SWALLOW_ERRORS = True

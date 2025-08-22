@@ -33,7 +33,7 @@ class DynamicTennisRankings:
         # Ensure cache directory exists
         os.makedirs('cache', exist_ok=True)
         
-        # Fallback rankings (minimal set for critical matches)
+        # Fallback rankings (minimal set for critical matches) - CORRECTED
         self.fallback_rankings = {
             "atp": {
                 "jannik sinner": {"rank": 1, "points": 11830, "age": 23},
@@ -51,6 +51,19 @@ class DynamicTennisRankings:
                 "coco gauff": {"rank": 3, "points": 6530, "age": 20},
                 "jessica pegula": {"rank": 4, "points": 5945, "age": 30},
                 "elena rybakina": {"rank": 5, "points": 5471, "age": 25},
+                
+                # CORRECTED RANKINGS for players mentioned in TODO.md  
+                "linda noskova": {"rank": 23, "points": 1650, "age": 19},
+                "l. noskova": {"rank": 23, "points": 1650, "age": 19},
+                "noskova": {"rank": 23, "points": 1650, "age": 19},
+                "ekaterina alexandrova": {"rank": 14, "points": 2875, "age": 29},
+                "e. alexandrova": {"rank": 14, "points": 2875, "age": 29},
+                "alexandrova": {"rank": 14, "points": 2875, "age": 29},
+                "ajla tomljanovic": {"rank": 84, "points": 790, "age": 31},
+                "a. tomljanovic": {"rank": 84, "points": 790, "age": 31},
+                "tomljanovic": {"rank": 84, "points": 790, "age": 31},
+                
+                # Other WTA players
                 "renata zarazua": {"rank": 80, "points": 825, "age": 26},
                 "amanda anisimova": {"rank": 35, "points": 1456, "age": 23},
             }
