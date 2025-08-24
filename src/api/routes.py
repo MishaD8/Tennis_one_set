@@ -973,6 +973,11 @@ def register_routes(app: Flask):
         """Advanced betting analytics dashboard"""
         return render_template('betting_dashboard.html')
 
+    @app.route('/comprehensive-betting-stats')
+    def comprehensive_betting_statistics():
+        """Comprehensive betting statistics dashboard with all backend data"""
+        return render_template('comprehensive_betting_dashboard.html')
+
     @app.route('/api/health', methods=['GET'])
     def health_check():
         """Comprehensive health check with security and infrastructure monitoring"""
@@ -3517,4 +3522,288 @@ def register_routes(app: Flask):
                 'details': str(e)
             }), 500
 
-    logger.info("✅ All routes registered successfully (including prediction-betting integration)")
+    # ==================================================
+    # COMPREHENSIVE MATCH STATISTICS ENDPOINTS
+    # ==================================================
+    
+    @app.route('/api/comprehensive-statistics', methods=['GET'])
+    @app.limiter.limit("30 per minute")
+    def get_comprehensive_statistics():
+        """Get comprehensive match statistics for dashboard display"""
+        try:
+            from src.api.comprehensive_statistics_service import ComprehensiveStatisticsService
+            
+            # Parse parameters
+            days_back = int(request.args.get('days', 30))
+            days_back = max(1, min(365, days_back))  # Clamp between 1 and 365 days
+            
+            tournament = request.args.get('tournament')
+            surface = request.args.get('surface')
+            
+            # Get comprehensive statistics
+            stats_service = ComprehensiveStatisticsService()
+            statistics = stats_service.get_comprehensive_match_statistics(
+                days_back=days_back,
+                tournament=tournament,
+                surface=surface
+            )
+            
+            return jsonify({
+                'success': True,
+                'statistics': statistics,
+                'parameters': {
+                    'days_back': days_back,
+                    'tournament': tournament,
+                    'surface': surface
+                },
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting comprehensive statistics: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get comprehensive statistics',
+                'details': str(e)
+            }), 500
+    
+    @app.route('/api/match-statistics', methods=['GET'])
+    @app.limiter.limit("60 per minute")
+    def get_match_statistics_list():
+        """Get list of all match statistics with optional filtering"""
+        try:
+            from src.api.comprehensive_statistics_service import ComprehensiveStatisticsService
+            
+            # Parse parameters
+            days_back = int(request.args.get('days', 30))
+            days_back = max(1, min(365, days_back))
+            
+            tournament = request.args.get('tournament')
+            surface = request.args.get('surface')
+            page = int(request.args.get('page', 1))
+            per_page = min(int(request.args.get('per_page', 50)), 100)  # Max 100 per page
+            
+            # Get statistics
+            stats_service = ComprehensiveStatisticsService()
+            statistics = stats_service.get_comprehensive_match_statistics(
+                days_back=days_back,
+                tournament=tournament,
+                surface=surface
+            )
+            
+            if 'error' in statistics:
+                return jsonify({
+                    'success': False,
+                    'error': statistics['error']
+                }), 500
+            
+            # Implement pagination for matches
+            matches = statistics.get('matches', [])
+            total_matches = len(matches)
+            start_idx = (page - 1) * per_page
+            end_idx = start_idx + per_page
+            paginated_matches = matches[start_idx:end_idx]
+            
+            return jsonify({
+                'success': True,
+                'matches': paginated_matches,
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total_matches': total_matches,
+                    'total_pages': (total_matches + per_page - 1) // per_page
+                },
+                'summary': statistics.get('summary', {}),
+                'filters': {
+                    'days_back': days_back,
+                    'tournament': tournament,
+                    'surface': surface
+                },
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting match statistics list: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get match statistics',
+                'details': str(e)
+            }), 500
+    
+    @app.route('/api/player-statistics', methods=['GET'])
+    @app.limiter.limit("60 per minute")
+    def get_player_statistics():
+        """Get player statistics (all players or specific player)"""
+        try:
+            from src.api.comprehensive_statistics_service import ComprehensiveStatisticsService
+            
+            player_name = request.args.get('player')
+            stats_service = ComprehensiveStatisticsService()
+            
+            if player_name:
+                # Get detailed statistics for specific player
+                player_stats = stats_service.get_player_detailed_statistics(player_name)
+                
+                if 'error' in player_stats:
+                    return jsonify({
+                        'success': False,
+                        'error': player_stats['error']
+                    }), 404
+                
+                return jsonify({
+                    'success': True,
+                    'player': player_stats,
+                    'timestamp': datetime.now().isoformat()
+                })
+            else:
+                # Get top player statistics
+                limit = min(int(request.args.get('limit', 50)), 100)  # Max 100 players
+                statistics = stats_service.get_comprehensive_match_statistics(days_back=365)  # Get full year data
+                
+                if 'error' in statistics:
+                    return jsonify({
+                        'success': False,
+                        'error': statistics['error']
+                    }), 500
+                
+                player_stats = statistics.get('player_stats', [])[:limit]
+                
+                return jsonify({
+                    'success': True,
+                    'players': player_stats,
+                    'total_players': len(player_stats),
+                    'limit': limit,
+                    'timestamp': datetime.now().isoformat()
+                })
+                
+        except Exception as e:
+            logger.error(f"❌ Error getting player statistics: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get player statistics',
+                'details': str(e)
+            }), 500
+    
+    @app.route('/api/betting-ratio-analysis', methods=['GET'])
+    @app.limiter.limit("30 per minute")
+    def get_betting_ratio_analysis():
+        """Get detailed betting ratio analysis"""
+        try:
+            from src.api.comprehensive_statistics_service import ComprehensiveStatisticsService
+            
+            # Parse parameters
+            days_back = int(request.args.get('days', 30))
+            days_back = max(1, min(365, days_back))
+            
+            # Get comprehensive statistics
+            stats_service = ComprehensiveStatisticsService()
+            statistics = stats_service.get_comprehensive_match_statistics(days_back=days_back)
+            
+            if 'error' in statistics:
+                return jsonify({
+                    'success': False,
+                    'error': statistics['error']
+                }), 500
+            
+            betting_analysis = statistics.get('betting_analysis', {})
+            
+            return jsonify({
+                'success': True,
+                'betting_analysis': betting_analysis,
+                'period': f'Last {days_back} days',
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting betting ratio analysis: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get betting ratio analysis',
+                'details': str(e)
+            }), 500
+    
+    @app.route('/api/clear-statistics', methods=['POST'])
+    @app.limiter.limit("5 per minute")
+    def clear_match_statistics():
+        """Clear all match statistics data (admin endpoint)"""
+        try:
+            from src.api.comprehensive_statistics_service import ComprehensiveStatisticsService
+            
+            # Add basic authentication check (you might want to add proper admin auth)
+            admin_key = request.headers.get('X-Admin-Key')
+            if admin_key != os.getenv('ADMIN_KEY', 'tennis_admin_2025'):
+                return jsonify({
+                    'success': False,
+                    'error': 'Unauthorized'
+                }), 401
+            
+            stats_service = ComprehensiveStatisticsService()
+            cleared = stats_service.clear_existing_statistics()
+            
+            return jsonify({
+                'success': True,
+                'cleared': cleared,
+                'message': 'All match statistics have been cleared',
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error clearing statistics: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to clear statistics',
+                'details': str(e)
+            }), 500
+    
+    @app.route('/api/record-match', methods=['POST'])
+    @app.limiter.limit("60 per minute")
+    def record_match_statistics():
+        """Record new match statistics"""
+        try:
+            from src.api.comprehensive_statistics_service import ComprehensiveStatisticsService
+            
+            # Get match data from request
+            if not request.is_json:
+                return jsonify({
+                    'success': False,
+                    'error': 'Request must be JSON'
+                }), 400
+            
+            match_data = request.get_json()
+            
+            # Validate required fields
+            required_fields = ['player1_name', 'player2_name', 'tournament', 'match_date']
+            missing_fields = [field for field in required_fields if not match_data.get(field)]
+            
+            if missing_fields:
+                return jsonify({
+                    'success': False,
+                    'error': f'Missing required fields: {", ".join(missing_fields)}'
+                }), 400
+            
+            # Record match statistics
+            stats_service = ComprehensiveStatisticsService()
+            match_id = stats_service.record_match_statistics(match_data)
+            
+            if not match_id:
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to record match statistics'
+                }), 500
+            
+            return jsonify({
+                'success': True,
+                'match_id': match_id,
+                'message': 'Match statistics recorded successfully',
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error recording match statistics: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to record match statistics',
+                'details': str(e)
+            }), 500
+
+    logger.info("✅ All routes registered successfully (including comprehensive statistics)")

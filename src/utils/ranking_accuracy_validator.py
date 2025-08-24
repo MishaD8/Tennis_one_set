@@ -6,6 +6,13 @@ Validates ranking data accuracy against known current rankings and implements re
 
 import os
 import sys
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv not available, using system environment variables
 import json
 import logging
 import requests
@@ -169,12 +176,28 @@ class RankingAccuracyValidator:
                     if expected_data["tour"] == "wta":
                         standings = enhanced_client.get_standings_corrected("WTA")
                         
-                        # Search for player in standings
+                        # Search for player in standings with flexible matching
                         api_rank = None
                         for standing in standings:
-                            if standing.get('player', {}).get('name', '').lower() == player_name:
-                                api_rank = standing.get('rank', 999)
+                            player_name_in_standings = standing.get('player', '').lower()
+                            
+                            # Try exact match first
+                            if player_name_in_standings == player_name:
+                                api_rank = int(standing.get('place', 999))
                                 break
+                            
+                            # Try partial matching - if all parts of search name are in the standing name
+                            search_parts = player_name.split()
+                            if all(part in player_name_in_standings for part in search_parts):
+                                api_rank = int(standing.get('place', 999))
+                                break
+                                
+                            # Try last name matching for abbreviated names like "l. noskova"
+                            if '.' in player_name:
+                                last_name = player_name.split()[-1]  # Get last part after dot
+                                if last_name in player_name_in_standings:
+                                    api_rank = int(standing.get('place', 999))
+                                    break
                         
                         if api_rank is None:
                             api_rank = 999  # Not found

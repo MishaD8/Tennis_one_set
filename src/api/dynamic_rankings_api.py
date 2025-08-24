@@ -6,6 +6,13 @@ Replaces hardcoded rankings with live API-driven data
 
 import os
 import logging
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv not available, using system environment variables
 import requests
 import json
 import time
@@ -13,6 +20,19 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from functools import lru_cache
 import threading
+
+# Import API Tennis client for live standings
+try:
+    from .enhanced_ranking_integration import EnhancedRankingClient
+    from .api_tennis_integration import APITennisClient
+except ImportError:
+    try:
+        from enhanced_ranking_integration import EnhancedRankingClient
+        from api_tennis_integration import APITennisClient
+    except ImportError:
+        # Fallback if imports fail
+        EnhancedRankingClient = None
+        APITennisClient = None
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +49,32 @@ class DynamicTennisRankings:
         # API configuration
         self.rapidapi_key = os.getenv('RAPIDAPI_KEY', '')
         self.tennis_api_key = os.getenv('TENNIS_API_KEY', '')
+        
+        # Initialize API Tennis client for live standings
+        self.api_tennis_client = None
+        if EnhancedRankingClient:
+            try:
+                self.api_tennis_client = EnhancedRankingClient()
+                
+                # Validate API key is working
+                if self.api_tennis_client.api_key:
+                    logger.info("API Tennis client initialized for live standings")
+                    # Test connection with a lightweight request
+                    try:
+                        # Quick test to see if API is responsive
+                        test_standings = self.api_tennis_client.get_standings_corrected('ATP')
+                        if test_standings:
+                            logger.info(f"API Tennis connection validated ({len(test_standings)} ATP players)")
+                        else:
+                            logger.warning("API Tennis connection test returned no data")
+                    except Exception as test_e:
+                        logger.warning(f"API Tennis connection test failed: {test_e}")
+                else:
+                    logger.warning("API Tennis client initialized but no API key configured")
+                    self.api_tennis_client = None
+            except Exception as e:
+                logger.error(f"Failed to initialize API Tennis client: {e}")
+                self.api_tennis_client = None
         
         # Ensure cache directory exists
         os.makedirs('cache', exist_ok=True)
@@ -62,6 +108,12 @@ class DynamicTennisRankings:
                 "ajla tomljanovic": {"rank": 84, "points": 790, "age": 31},
                 "a. tomljanovic": {"rank": 84, "points": 790, "age": 31},
                 "tomljanovic": {"rank": 84, "points": 790, "age": 31},
+                
+                # Fixed ranking for M. Bouzkova (was showing #100, actual rank #53)
+                "marie bouzkova": {"rank": 53, "points": 1146, "age": 26},
+                "m. bouzkova": {"rank": 53, "points": 1146, "age": 26},
+                "bouzkova": {"rank": 53, "points": 1146, "age": 26},
+                "m.bouzkova": {"rank": 53, "points": 1146, "age": 26},
                 
                 # Other WTA players
                 "renata zarazua": {"rank": 80, "points": 825, "age": 26},
@@ -207,6 +259,82 @@ class DynamicTennisRankings:
             logger.error(f"Failed to fetch {tour.upper()} rankings from Tennis API: {e}")
             return None
     
+    def _fetch_rankings_from_api_tennis(self, tour: str) -> Optional[Dict]:
+        """Fetch rankings from API Tennis standings data"""
+        if not self.api_tennis_client:
+            logger.warning("API Tennis client not available")
+            return None
+        
+        try:
+            # Convert tour name to event_type format
+            event_type = tour.upper()
+            
+            logger.info(f"Fetching {event_type} standings from API Tennis...")
+            standings = self.api_tennis_client.get_standings_corrected(event_type)
+            
+            if not standings:
+                logger.warning(f"No standings data returned for {event_type}")
+                return None
+            
+            rankings = {}
+            
+            # Parse standings data into rankings format
+            for player in standings:
+                player_name = player.get('player', '').strip().lower()
+                player_key = player.get('player_key')
+                place = player.get('place')
+                points = player.get('points', '0')
+                country = player.get('country', '')
+                
+                if player_name and place:
+                    try:
+                        rank = int(place)
+                        points_int = int(points) if points.isdigit() else 0
+                        
+                        # Estimate age based on typical tennis career patterns (fallback)
+                        estimated_age = 25  # Default age
+                        
+                        rankings[player_name] = {
+                            'rank': rank,
+                            'points': points_int,
+                            'age': estimated_age,
+                            'country': country,
+                            'player_key': player_key
+                        }
+                        
+                        # Also add common name variations
+                        name_parts = player_name.split()
+                        if len(name_parts) >= 2:
+                            # Add "FirstName LastName" format
+                            first_last = f"{name_parts[0]} {name_parts[-1]}"
+                            rankings[first_last] = rankings[player_name].copy()
+                            
+                            # Add "F. LastName" format
+                            first_initial = f"{name_parts[0][0]}. {name_parts[-1]}"
+                            rankings[first_initial] = rankings[player_name].copy()
+                            
+                            # Add "F.LastName" format (no space)
+                            first_initial_nospace = f"{name_parts[0][0]}.{name_parts[-1]}"
+                            rankings[first_initial_nospace] = rankings[player_name].copy()
+                            
+                            # Add just last name
+                            rankings[name_parts[-1]] = rankings[player_name].copy()
+                        
+                    except (ValueError, TypeError) as e:
+                        logger.warning(f"Error parsing ranking data for {player_name}: {e}")
+                        continue
+            
+            if rankings:
+                logger.info(f"Successfully parsed {len(rankings)} {event_type} players from API Tennis standings")
+                return rankings
+            else:
+                logger.warning(f"No valid {event_type} rankings parsed from API Tennis")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Failed to fetch {tour.upper()} rankings from API Tennis: {e}")
+            return None
+    
     def get_live_rankings(self, tour: str, force_refresh: bool = False) -> Dict[str, Any]:
         """Get live rankings with caching and fallback"""
         with self.lock:
@@ -220,20 +348,42 @@ class DynamicTennisRankings:
             
             logger.info(f"Fetching fresh {tour.upper()} rankings from APIs...")
             
-            # Try RapidAPI first
-            rankings = self._fetch_rankings_from_rapidapi(tour_lower)
+            # Try API Tennis first (most reliable for current data)
+            rankings = self._fetch_rankings_from_api_tennis(tour_lower)
             
-            # Try alternative API if RapidAPI fails
+            # Try RapidAPI if API Tennis fails
+            if not rankings:
+                rankings = self._fetch_rankings_from_rapidapi(tour_lower)
+            
+            # Try alternative API if both fail
             if not rankings:
                 rankings = self._fetch_rankings_from_tennis_api(tour_lower)
             
-            # If both APIs fail, use fallback
+            # If all APIs fail, use fallback
             if not rankings:
-                logger.warning(f"All APIs failed for {tour.upper()} rankings, using fallback data")
-                rankings = self.fallback_rankings.get(tour_lower, {})
+                logger.warning(f"All live APIs failed for {tour.upper()} rankings")
+                
+                # Try to use expired cache as last resort
+                cache_file = self.cache_file_atp if tour_lower == 'atp' else self.cache_file_wta
+                if os.path.exists(cache_file):
+                    try:
+                        with open(cache_file, 'r') as f:
+                            cached_data = json.load(f)
+                        expired_rankings = cached_data.get('rankings', {})
+                        if expired_rankings:
+                            logger.info(f"Using expired cache for {tour.upper()} rankings ({len(expired_rankings)} players)")
+                            rankings = expired_rankings
+                    except Exception as e:
+                        logger.error(f"Failed to load expired cache: {e}")
+                
+                # If still no rankings, use fallback
+                if not rankings:
+                    logger.warning(f"Using hardcoded fallback data for {tour.upper()} rankings")
+                    rankings = self.fallback_rankings.get(tour_lower, {})
             else:
                 # Save successful API fetch to cache
                 self._save_cached_rankings(tour_lower, rankings)
+                logger.info(f"Successfully cached {len(rankings)} {tour.upper()} rankings")
             
             return rankings
     
@@ -241,27 +391,56 @@ class DynamicTennisRankings:
         """Get specific player ranking with automatic tour detection"""
         player_lower = player_name.lower().strip()
         
+        logger.debug(f"Looking up ranking for player: '{player_name}' (cleaned: '{player_lower}')")
+        
         # If tour is specified, search only that tour
         if tour:
             rankings = self.get_live_rankings(tour)
             if player_lower in rankings:
-                return {"tour": tour.lower(), **rankings[player_lower]}
+                result = {"tour": tour.lower(), **rankings[player_lower]}
+                logger.info(f"Found {player_name} in {tour} rankings: #{result['rank']}")
+                return result
         
-        # Search both tours
+        # Search both tours with detailed logging
         for tour_name in ['atp', 'wta']:
             rankings = self.get_live_rankings(tour_name)
+            logger.debug(f"Searching {tour_name.upper()} rankings ({len(rankings)} players)")
+            
             if player_lower in rankings:
-                return {"tour": tour_name, **rankings[player_lower]}
+                result = {"tour": tour_name, **rankings[player_lower]}
+                logger.info(f"Found {player_name} in {tour_name.upper()} rankings: #{result['rank']}")
+                return result
         
-        # Partial name matching
+        # Enhanced partial name matching
+        logger.debug(f"Exact match failed, trying partial matching for '{player_name}'")
         for tour_name in ['atp', 'wta']:
             rankings = self.get_live_rankings(tour_name)
+            
+            # Check for partial matches
+            player_parts = player_lower.split()
             for known_player, data in rankings.items():
-                if any(part in known_player for part in player_lower.split()):
-                    return {"tour": tour_name, **data}
+                known_parts = known_player.split()
+                
+                # Match if all parts of the search name are found in the known player name
+                if all(part in known_player for part in player_parts):
+                    result = {"tour": tour_name, **data}
+                    logger.info(f"Partial match: '{player_name}' -> '{known_player}' in {tour_name.upper()}: #{result['rank']}")
+                    return result
+                
+                # Match by last name if both have multiple parts
+                if len(player_parts) > 1 and len(known_parts) > 1:
+                    if player_parts[-1] == known_parts[-1]:  # Same last name
+                        result = {"tour": tour_name, **data}
+                        logger.info(f"Last name match: '{player_name}' -> '{known_player}' in {tour_name.upper()}: #{result['rank']}")
+                        return result
+        
+        # Log ranking sources for debugging
+        logger.warning(f"Player '{player_name}' not found in any rankings")
+        logger.debug(f"ATP rankings count: {len(self.get_live_rankings('atp'))}")
+        logger.debug(f"WTA rankings count: {len(self.get_live_rankings('wta'))}")
         
         # Return default if not found
-        logger.warning(f"Player '{player_name}' not found in rankings, using default")
+        logger.warning(f"Using default ranking #{100} for '{player_name}'")
         return {"tour": "unknown", "rank": 100, "points": 500, "age": 25}
     
     @lru_cache(maxsize=200)  # Cache recent player lookups
@@ -276,6 +455,9 @@ class DynamicTennisRankings:
         results = {}
         for tour in ['atp', 'wta']:
             try:
+                # Clear cache first
+                self._clear_cache(tour)
+                
                 rankings = self.get_live_rankings(tour, force_refresh=True)
                 results[tour] = {
                     'success': True,
@@ -288,7 +470,40 @@ class DynamicTennisRankings:
                     'error': str(e)
                 }
         
+        # Also clear the LRU cache for player lookups
+        self.get_player_data_cached.cache_clear()
+        logger.info("Cleared player lookup cache")
+        
         return results
+    
+    def _clear_cache(self, tour: str):
+        """Clear cached rankings for a specific tour"""
+        cache_file = self.cache_file_atp if tour.lower() == 'atp' else self.cache_file_wta
+        
+        try:
+            if os.path.exists(cache_file):
+                os.remove(cache_file)
+                logger.info(f"Cleared cache file for {tour.upper()}")
+        except Exception as e:
+            logger.warning(f"Failed to clear cache for {tour.upper()}: {e}")
+    
+    def schedule_ranking_refresh(self, interval_hours: int = 6):
+        """Schedule automatic ranking refresh every N hours"""
+        import threading
+        import time
+        
+        def refresh_worker():
+            while True:
+                try:
+                    time.sleep(interval_hours * 3600)  # Convert hours to seconds
+                    logger.info(f"Scheduled ranking refresh (every {interval_hours}h)")
+                    self.refresh_all_rankings()
+                except Exception as e:
+                    logger.error(f"Scheduled refresh failed: {e}")
+        
+        refresh_thread = threading.Thread(target=refresh_worker, daemon=True)
+        refresh_thread.start()
+        logger.info(f"Scheduled automatic ranking refresh every {interval_hours} hours")
     
     def get_ranking_stats(self) -> Dict[str, Any]:
         """Get statistics about current rankings cache"""

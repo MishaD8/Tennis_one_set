@@ -285,6 +285,10 @@ class TelegramNotificationSystem:
                     "ekaterina alexandrova": 14, "e. alexandrova": 14, "alexandrova": 14,
                     "ajla tomljanovic": 84, "a. tomljanovic": 84, "tomljanovic": 84,
                     
+                    # Fixed ranking for M. Bouzkova (was showing #100, actual rank #53)
+                    "marie bouzkova": 53, "m. bouzkova": 53, "bouzkova": 53,
+                    "m.bouzkova": 53,
+                    
                     # Common player name variations
                     "l.noskova": 23, "e.alexandrova": 14, "a.tomljanovic": 84,
                 }

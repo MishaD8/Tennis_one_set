@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Comprehensive Tennis Betting Statistics Dashboard with Real-time Analytics">
+    <meta name="keywords" content="tennis, betting, statistics, analytics, dashboard, machine learning">
+    <meta name="author" content="Tennis Betting Analytics System">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Comprehensive Betting Statistics Dashboard">
+    <meta property="og:description" content="Advanced Tennis Betting Analytics with Real-time Match Data">
+    <meta property="og:url" content="{{ request.url }}">
+    
+    <!-- Performance and Security -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
+    
+    <title>Comprehensive Betting Statistics Dashboard</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/comprehensive-betting-dashboard.css') }}">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎾</text></svg>">
+</head>
+<body>
+    <!-- Skip Links for Accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <a href="#comprehensive-betting-dashboard" class="skip-link">Skip to betting dashboard</a>
+    
+    <!-- Screen Reader Announcements -->
+    <div id="screen-reader-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    
+    <!-- Navigation Header -->
+    <header class="main-header" role="banner">
+        <nav class="main-nav" role="navigation" aria-label="Main navigation">
+            <div class="nav-brand">
+                <h1>🎾 Tennis Betting Analytics</h1>
+            </div>
+            <div class="nav-links">
+                <a href="/" class="nav-link">
+                    🏠 Dashboard
+                </a>
+                <a href="/betting" class="nav-link">
+                    💰 Betting Sim
+                </a>
+                <a href="#" class="nav-link active">
+                    📊 Statistics
+                </a>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content Area -->
+    <main id="main-content" role="main">
+        <!-- Comprehensive Betting Dashboard Container -->
+        <div id="comprehensive-betting-dashboard" 
+             role="region" 
+             aria-label="Comprehensive Betting Statistics Dashboard"
+             aria-live="polite">
+            
+            <!-- Loading State (Initial) -->
+            <div class="loading-container" role="status" aria-live="polite">
+                <div class="loading-spinner" aria-hidden="true"></div>
+                <h2>🚀 Initializing Comprehensive Dashboard...</h2>
+                <p>Loading betting statistics, match data, and performance analytics...</p>
+            </div>
+            
+        </div>
+    </main>
+
+    <!-- Notification Container -->
+    <div id="notification-container" aria-live="assertive" aria-atomic="true"></div>
+    
+    <!-- Footer -->
+    <footer class="main-footer" role="contentinfo">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>🎾 Tennis Betting Analytics</h3>
+                <p>Advanced statistical analysis for professional tennis betting</p>
+            </div>
+            <div class="footer-section">
+                <h4>Features</h4>
+                <ul>
+                    <li>Real-time match statistics</li>
+                    <li>Player performance analytics</li>
+                    <li>Betting ratio analysis</li>
+                    <li>Predictive insights</li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Data Sources</h4>
+                <ul>
+                    <li>ATP/WTA official data</li>
+                    <li>Live betting markets</li>
+                    <li>Historical match results</li>
+                    <li>Player rankings</li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2024 Tennis Betting Analytics. Advanced ML-powered insights.</p>
+        </div>
+    </footer>
+    
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/components.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/comprehensive-betting-dashboard.js') }}"></script>
+    
+    <!-- Error Handling -->
+    <script>
+        // Global error handler for dashboard
+        window.addEventListener('error', (event) => {
+            console.error('Dashboard Error:', event.error);
+            
+            const dashboardContainer = document.getElementById('comprehensive-betting-dashboard');
+            if (dashboardContainer && event.error) {
+                dashboardContainer.innerHTML = `
+                    <div class="error-container">
+                        <div class="error-icon">⚠️</div>
+                        <h2>Dashboard Error</h2>
+                        <p>An error occurred while loading the dashboard. Please refresh the page to try again.</p>
+                        <button onclick="location.reload()" class="btn btn-primary">
+                            🔄 Refresh Page
+                        </button>
+                    </div>
+                `;
+            }
+        });
+
+        // Performance monitoring
+        window.addEventListener('load', () => {
+            if ('performance' in window) {
+                const loadTime = performance.now();
+                console.log(`📊 Dashboard loaded in ${loadTime.toFixed(2)}ms`);
+                
+                // Report Core Web Vitals if available
+                if ('PerformanceObserver' in window) {
+                    try {
+                        const observer = new PerformanceObserver((list) => {
+                            for (const entry of list.getEntries()) {
+                                console.log(`🚀 ${entry.name}:`, entry.value);
+                            }
+                        });
+                        observer.observe({ entryTypes: ['measure'] });
+                    } catch (error) {
+                        console.warn('Performance monitoring not available:', error);
+                    }
+                }
+            }
+        });
+
+        // Accessibility announcements
+        function announceToScreenReader(message) {
+            const announcer = document.getElementById('screen-reader-announcer');
+            if (announcer) {
+                announcer.textContent = message;
+                setTimeout(() => announcer.textContent = '', 1000);
+            }
+        }
+
+        // Auto-refresh data every 5 minutes
+        setInterval(() => {
+            if (window.comprehensiveDashboard && !window.comprehensiveDashboard.isLoading) {
+                console.log('🔄 Auto-refreshing dashboard data...');
+                window.comprehensiveDashboard.loadAllData().then(() => {
+                    window.comprehensiveDashboard.updateDashboard();
+                    announceToScreenReader('Dashboard data refreshed automatically');
+                });
+            }
+        }, 5 * 60 * 1000); // 5 minutes
+    </script>
+    
+    <style>
+        /* Header and Navigation Styles */
+        .main-header {
+            background: var(--surface-primary);
+            border-bottom: 1px solid var(--surface-border);
+            padding: var(--space-md) 0;
+            margin-bottom: var(--space-xl);
+        }
+        
+        .main-nav {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 var(--space-lg);
+        }
+        
+        .nav-brand h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: var(--space-lg);
+            align-items: center;
+        }
+        
+        .nav-link {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-weight: 600;
+            padding: var(--space-sm) var(--space-md);
+            border-radius: var(--radius-md);
+            transition: all var(--transition-normal);
+        }
+        
+        .nav-link:hover {
+            color: var(--text-primary);
+            background: var(--surface-bg);
+        }
+        
+        .nav-link.active {
+            color: #6bcf7f;
+            background: rgba(107, 207, 127, 0.1);
+        }
+        
+        /* Footer Styles */
+        .main-footer {
+            background: var(--surface-primary);
+            border-top: 1px solid var(--surface-border);
+            margin-top: var(--space-xl);
+            padding: var(--space-xl) 0 var(--space-lg);
+        }
+        
+        .footer-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-xl);
+            padding: 0 var(--space-lg);
+        }
+        
+        .footer-section h3,
+        .footer-section h4 {
+            color: var(--text-primary);
+            margin-bottom: var(--space-md);
+        }
+        
+        .footer-section p,
+        .footer-section ul {
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+        
+        .footer-section ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .footer-section li {
+            margin-bottom: var(--space-xs);
+        }
+        
+        .footer-bottom {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: var(--space-lg);
+            border-top: 1px solid var(--surface-border);
+            text-align: center;
+            color: var(--text-muted);
+        }
+        
+        /* Skip links for accessibility */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 6px;
+            background: #6bcf7f;
+            color: white;
+            padding: 8px;
+            text-decoration: none;
+            border-radius: 4px;
+            z-index: 1000;
+        }
+        
+        .skip-link:focus {
+            top: 6px;
+        }
+        
+        /* Screen reader only content */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .main-nav {
+                flex-direction: column;
+                gap: var(--space-md);
+                text-align: center;
+            }
+            
+            .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .footer-content {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+        }
+    </style>
+</body>
+</html>

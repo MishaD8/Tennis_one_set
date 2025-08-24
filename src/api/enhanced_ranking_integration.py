@@ -7,6 +7,13 @@ according to the API-Tennis.com documentation
 
 import os
 import sys
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv not available, using system environment variables
 import json
 import logging
 from datetime import datetime, timedelta

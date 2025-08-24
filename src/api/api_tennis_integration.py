@@ -6,6 +6,13 @@ Production-ready integration with comprehensive error handling, rate limiting, a
 
 import os
 import logging
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv not available, using system environment variables
 import requests
 import json
 import time
