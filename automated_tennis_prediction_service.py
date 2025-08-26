@@ -124,7 +124,7 @@ class AutomatedTennisPredictionService:
         """Load player rankings for underdog analysis"""
         # Comprehensive rankings for ATP/WTA players (ranks 10-300 focus)
         rankings = {
-            # ATP Top players
+            # ATP Top players  
             "jannik sinner": 1, "carlos alcaraz": 2, "alexander zverev": 3,
             "daniil medvedev": 4, "novak djokovic": 5, "andrey rublev": 6,
             "casper ruud": 7, "holger rune": 8, "grigor dimitrov": 9,
@@ -133,25 +133,34 @@ class AutomatedTennisPredictionService:
             "lorenzo musetti": 16, "sebastian baez": 17, "frances tiafoe": 18,
             "felix auger-aliassime": 19, "arthur fils": 20,
             
-            # ATP Extended rankings (key for underdog analysis)
+            # ATP Extended rankings (updated based on recent matches)
             "flavio cobolli": 32, "brandon nakashima": 45, "matteo berrettini": 35,
-            "cameron norrie": 40, "sebastian korda": 25, "francisco cerundolo": 30,
+            "cameron norrie": 40, "sebastian korda": 25, "francisco cerundolo": 19,  # Fixed from 30
             "alejandro tabilo": 28, "fabio fognini": 85, "bu yunchaokete": 85,
             "arthur cazaux": 75, "jordan clarke": 120, "cristian garin": 110,
             "marco trungelliti": 180, "hugo grenier": 150, "martin landaluce": 195,
             "adolfo martin": 220, "pablo llamas ruiz": 250,
+            "matteo arnaldi": 64, "m. arnaldi": 64,  # Fixed Arnaldi ranking
+            "gael monfils": 45, "g. monfils": 45, "roman safiullin": 62, "r. safiullin": 62,
+            "giovanni mpetshi perricard": 95, "g. mpetshi perricard": 95,
+            "alexandre muller": 240, "a. muller": 240,  # Fixed Muller ranking
             
-            # WTA Players
+            # WTA Players (updated rankings)
             "aryna sabalenka": 1, "iga swiatek": 2, "coco gauff": 3,
             "jessica pegula": 4, "elena rybakina": 5, "qinwen zheng": 6,
             "jasmine paolini": 7, "emma navarro": 8, "daria kasatkina": 9,
-            "renata zarazua": 80, "amanda anisimova": 35, "katie boulter": 28,
-            "emma raducanu": 25, "caroline dolehide": 85, "carson branstine": 125,
-            "tianah andrianjafitrimo": 180, "julia fett": 140,
+            "ekaterina alexandrova": 14, "e. alexandrova": 14,  # Fixed from fallback
+            "anastasija sevastova": 251, "a. sevastova": 251,  # Fixed Sevastova ranking
+            "amanda anisimova": 35, "a. anisimova": 35, "kimberly birrell": 95, "k. birrell": 95,
+            "katie boulter": 28, "k. boulter": 28, "marta kostyuk": 45, "m. kostyuk": 45,
+            "caroline dolehide": 85, "c. dolehide": 85, "wang xinyu": 55, "xin. wang": 55,
+            "laura siegemund": 125, "l. siegemund": 125, "diana shnaider": 25, "d. shnaider": 25,
+            "emma raducanu": 25, "carson branstine": 125,
             
             # Additional players from current tournaments
             "n. mejia": 200, "a. ganesan": 250, "nicolas basilashvili": 85,
-            "marc-andrea huesler": 110, "ann li": 95, "iryna jovic": 150
+            "marc-andrea huesler": 110, "ann li": 95, "iryna jovic": 150,
+            "billy harris": 120, "b. harris": 120, "f. cerundolo": 19, "f.cerundolo": 19
         }
         
         return rankings
@@ -277,9 +286,11 @@ class AutomatedTennisPredictionService:
             if not any(tour in event_type for tour in ['atp', 'wta']):
                 return False
             
-            # Check if match is upcoming or in progress
+            # Check if match is upcoming or in progress (not finished)
             final_result = match.get('event_final_result', '')
-            if final_result != '0 - 0':
+            # Match is finished if it has a score like "3-1", "2-0", etc.
+            # Pending matches typically show "-" or empty string
+            if final_result and final_result not in ['-', '', '0 - 0']:
                 return False
             
             # Check if we have valid player names
@@ -525,9 +536,11 @@ class AutomatedTennisPredictionService:
             insights.append("Moderate underdog value - competitive second set expected")
         
         if rank_gap > 100:
-            insights.append(f"Large ranking gap ({rank_gap}) creates upset potential")
+            insights.append(f"Ranking Gap: {rank_gap} positions")
+        elif rank_gap > 50:
+            insights.append(f"Ranking Gap: {rank_gap} positions")
         elif rank_gap < 20:
-            insights.append("Close rankings suggest competitive match")
+            insights.append(f"Ranking Gap: {rank_gap} positions")
         
         if underdog_rank <= 50:
             insights.append("Quality underdog - established professional player")

@@ -166,7 +166,7 @@ class UnderdogAnalyzer:
         if pressure_factor > 0:
             key_factors.append(f"Tournament pressure factor (+{pressure_factor:.2%})")
         if rank_gap > 50:
-            key_factors.append("Significant ranking gap - upset potential")
+            key_factors.append(f"Ranking Gap: {rank_gap} positions")
             
         return {
             'underdog_probability': round(final_probability, 3),
@@ -973,10 +973,6 @@ def register_routes(app: Flask):
         """Advanced betting analytics dashboard"""
         return render_template('betting_dashboard.html')
 
-    @app.route('/comprehensive-betting-stats')
-    def comprehensive_betting_statistics():
-        """Comprehensive betting statistics dashboard with all backend data"""
-        return render_template('comprehensive_betting_dashboard.html')
 
     @app.route('/api/health', methods=['GET'])
     def health_check():
@@ -3806,4 +3802,14 @@ def register_routes(app: Flask):
                 'details': str(e)
             }), 500
 
-    logger.info("✅ All routes registered successfully (including comprehensive statistics)")
+    # Register betting dashboard routes
+    try:
+        from src.api.betting_dashboard_api import register_betting_dashboard_routes
+        register_betting_dashboard_routes(app)
+        logger.info("✅ Betting dashboard routes registered")
+    except ImportError as e:
+        logger.warning(f"⚠️ Betting dashboard routes not available: {e}")
+    except Exception as e:
+        logger.error(f"❌ Error registering betting dashboard routes: {e}")
+
+    logger.info("✅ All routes registered successfully (including comprehensive statistics and betting dashboard)")

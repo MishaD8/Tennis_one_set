@@ -1086,10 +1086,12 @@ class ComprehensiveBettingDashboard {
 // Global initialization
 window.ComprehensiveBettingDashboard = ComprehensiveBettingDashboard;
 
-// Auto-initialize when DOM is ready
+// Auto-initialize when DOM is ready only if not in tab system
 document.addEventListener('DOMContentLoaded', () => {
     const dashboardContainer = document.getElementById('comprehensive-betting-dashboard');
-    if (dashboardContainer) {
+    // Only auto-initialize if we're on the standalone comprehensive dashboard page
+    // (not when it's integrated into the main dashboard as a tab)
+    if (dashboardContainer && !document.querySelector('.dashboard-nav')) {
         window.comprehensiveDashboard = new ComprehensiveBettingDashboard();
     }
 });

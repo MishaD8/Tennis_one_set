@@ -45,7 +45,7 @@ def create_sample_predictions():
             },
             'strategic_insights': [
                 'Strong underdog opportunity detected',
-                'Ranking gap creates significant upset potential',
+                'Ranking Gap: 120 positions',
                 'Player recent form suggests competitive match'
             ],
             'prediction_metadata': {

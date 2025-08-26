@@ -200,7 +200,7 @@ def simulate_underdog_prediction():
         },
         'strategic_insights': [
             '🔥 Strong underdog opportunity - high second set win probability',
-            '📊 Large ranking gap (140 positions) creates significant upset potential',
+            'Ranking Gap: 140 positions',
             '⚡ Hard court surface favors aggressive baseline play'
         ],
         'prediction_metadata': {

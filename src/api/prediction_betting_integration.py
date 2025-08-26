@@ -33,6 +33,7 @@ sys.path.append(project_root)
 from src.data.database_models import (
     DatabaseManager, BettingLog, Prediction, TestMode, BettingStatus
 )
+from src.api.comprehensive_statistics_service import ComprehensiveStatisticsService
 
 # Telegram integration (imported separately to avoid circular imports)
 
@@ -56,6 +57,7 @@ class PredictionBettingIntegrator:
     def __init__(self, config: PredictionBettingConfig = None):
         self.config = config or PredictionBettingConfig()
         self.db_manager = DatabaseManager()
+        self.stats_service = ComprehensiveStatisticsService(self.db_manager)
         self.current_bankroll = self.config.initial_bankroll
         self._setup_logging()
         self._initialize_database()
@@ -213,6 +215,12 @@ class PredictionBettingIntegrator:
             prediction_id = prediction.id
             session.close()
             
+            # Also save to comprehensive statistics system
+            try:
+                self._save_to_comprehensive_statistics(prediction_result, prediction_id)
+            except Exception as e:
+                self.integration_logger.warning(f"⚠️ Could not save to comprehensive statistics: {e}")
+            
             self.integration_logger.info(f"✅ Created prediction record {prediction_id}")
             return prediction_id
             
@@ -222,6 +230,50 @@ class PredictionBettingIntegrator:
                 session.rollback()
                 session.close()
             return None
+            
+    def _save_to_comprehensive_statistics(self, prediction_result: Dict, prediction_id: int):
+        """Save prediction data to comprehensive statistics system"""
+        try:
+            match_context = prediction_result.get('match_context', {})
+            
+            # Determine predicted winner
+            underdog_player = prediction_result.get('underdog_player', 'player1')
+            if underdog_player == 'player1':
+                predicted_winner = match_context.get('player1', 'Unknown')
+            else:
+                predicted_winner = match_context.get('player2', 'Unknown')
+            
+            # Create match data for comprehensive statistics
+            match_data = {
+                'match_id': f"real_match_live_{prediction_id}",
+                'player1_name': match_context.get('player1', 'Unknown'),
+                'player2_name': match_context.get('player2', 'Unknown'),
+                'tournament': match_context.get('tournament', 'Unknown'),
+                'surface': match_context.get('surface', 'Hard'),
+                'round_name': match_context.get('round', 'Unknown'),
+                'match_date': self._parse_match_date(match_context).isoformat(),
+                
+                # Prediction data
+                'predicted_winner': predicted_winner,
+                'our_probability': prediction_result.get('underdog_second_set_probability', 0),
+                'confidence': prediction_result.get('confidence', 'Medium'),
+                'ml_system': 'SecondSetUnderdogML',
+                'key_factors': prediction_result.get('strategic_insights', []),
+                'betting_recommendation': 'BET' if prediction_result.get('underdog_second_set_probability', 0) > 0.55 else 'SKIP',
+                'edge_percentage': prediction_result.get('edge', 0),
+                
+                # System metadata
+                'data_source': 'real_live_prediction',
+                'notes': f"Live prediction from telegram notification, prediction_id: {prediction_id}",
+                'caught_by_system': True
+            }
+            
+            # Record in comprehensive statistics
+            match_id = self.stats_service.record_match_statistics(match_data)
+            self.integration_logger.info(f"📊 Recorded in comprehensive statistics: {match_id}")
+            
+        except Exception as e:
+            self.integration_logger.error(f"❌ Error saving to comprehensive statistics: {e}")
             
     def _create_betting_record(self, prediction_result: Dict, prediction_id: int) -> Optional[str]:
         """Create a betting record in the database"""
@@ -654,7 +706,7 @@ if __name__ == "__main__":
         },
         'strategic_insights': [
             'Strong underdog opportunity detected',
-            'Ranking gap creates upset potential'
+            'Ranking Gap: 75 positions'
         ]
     }
     

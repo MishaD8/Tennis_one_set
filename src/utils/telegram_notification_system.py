@@ -338,6 +338,9 @@ class TelegramNotificationSystem:
             favorite_name = player1
             favorite_rank = player1_rank
         
+        # Calculate ranking gap for clarity
+        ranking_gap = underdog_rank - favorite_rank
+        
         # Build message
         message_lines = [
             "🎾 <b>TENNIS UNDERDOG ALERT</b> 🚀",
@@ -350,7 +353,7 @@ class TelegramNotificationSystem:
             f"📊 <b>Second Set Win Probability:</b> {underdog_prob:.1%}",
             f"🔮 <b>Confidence:</b> {confidence}",
             "",
-            f"⚡ <b>Opportunity:</b> {underdog_name} vs {favorite_name} (#{favorite_rank})",
+            f"📈 <b>Ranking Gap:</b> {ranking_gap} positions",
         ]
         
         # Add strategic insights if available
@@ -635,7 +638,7 @@ if __name__ == "__main__":
         },
         'strategic_insights': [
             '🔥 Strong underdog opportunity detected',
-            '📊 Ranking gap creates upset potential'
+            'Ranking Gap: 55 positions'
         ],
         'prediction_metadata': {
             'prediction_time': datetime.now().isoformat()

@@ -1,2 +1,1 @@
 
-Fix on dashboard -> betting statistics (should display players and matches which one included in statistics). Clear all statistics before. I want to see clear and correct statistics with all matches caught by the system. Should be also showing ratio in the bet. Ratio in beginning of second set and ration in the end of second set. 

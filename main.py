@@ -363,7 +363,8 @@ class AutomatedTennisPredictionService:
             
             # Check if match is upcoming or in progress
             final_result = match.get('event_final_result', '')
-            if final_result != '0 - 0':
+            # Accept matches that haven't finished (empty, "-", or "0 - 0")
+            if final_result not in ['0 - 0', '-', '']:
                 return False
             
             # Check if we have valid player names
@@ -621,9 +622,11 @@ class AutomatedTennisPredictionService:
             insights.append("Moderate underdog value - competitive second set expected")
         
         if rank_gap > 100:
-            insights.append(f"Large ranking gap ({rank_gap}) creates upset potential")
+            insights.append(f"Ranking Gap: {rank_gap} positions")
+        elif rank_gap > 50:
+            insights.append(f"Ranking Gap: {rank_gap} positions")
         elif rank_gap < 20:
-            insights.append("Close rankings suggest competitive match")
+            insights.append(f"Ranking Gap: {rank_gap} positions")
         
         if underdog_rank <= 50:
             insights.append("Quality underdog - established professional player")

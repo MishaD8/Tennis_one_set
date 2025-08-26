@@ -29,6 +29,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/system-health-monitor.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/notification-manager.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/betting-automation-controls.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/betting-statistics-enhanced.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/comprehensive-betting-dashboard.css') }}">
     
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
@@ -126,148 +128,22 @@
                 id="betting-statistics" 
                 class="tab-content"
                 role="tabpanel" 
-                aria-label="Betting Statistics Dashboard"
+                aria-label="Comprehensive Betting Statistics Dashboard"
                 aria-hidden="true"
             >
-                <div class="betting-statistics-dashboard">
-                    <h2>📈 Betting Statistics & Performance Analysis</h2>
+                <!-- Comprehensive Betting Dashboard Container -->
+                <div id="comprehensive-betting-dashboard" 
+                     role="region" 
+                     aria-label="Comprehensive Betting Statistics Dashboard"
+                     aria-live="polite">
                     
-                    <!-- Time Period Selector -->
-                    <div class="time-period-selector">
-                        <h3>📅 Time Period Analysis</h3>
-                        <div class="period-buttons">
-                            <button class="period-btn active" data-period="1_week">1 Week</button>
-                            <button class="period-btn" data-period="1_month">1 Month</button>
-                            <button class="period-btn" data-period="1_year">1 Year</button>
-                            <button class="period-btn" data-period="all_time">All Time</button>
-                        </div>
+                    <!-- Loading State (Initial) -->
+                    <div class="loading-container" role="status" aria-live="polite">
+                        <div class="loading-spinner" aria-hidden="true"></div>
+                        <h2>🚀 Initializing Comprehensive Dashboard...</h2>
+                        <p>Loading betting statistics, match data, and performance analytics...</p>
                     </div>
                     
-                    <!-- Key Performance Metrics -->
-                    <div class="betting-metrics-grid">
-                        <div class="metric-card total-bets">
-                            <div class="metric-icon">🎯</div>
-                            <div class="metric-content">
-                                <div class="metric-value" id="stats-total-bets">-</div>
-                                <div class="metric-label">Total Bets</div>
-                            </div>
-                        </div>
-                        
-                        <div class="metric-card win-rate">
-                            <div class="metric-icon">🏆</div>
-                            <div class="metric-content">
-                                <div class="metric-value" id="stats-win-rate">-</div>
-                                <div class="metric-label">Win Rate</div>
-                            </div>
-                        </div>
-                        
-                        <div class="metric-card net-profit">
-                            <div class="metric-icon">💰</div>
-                            <div class="metric-content">
-                                <div class="metric-value" id="stats-net-profit">-</div>
-                                <div class="metric-label">Net Profit</div>
-                            </div>
-                        </div>
-                        
-                        <div class="metric-card roi">
-                            <div class="metric-icon">📊</div>
-                            <div class="metric-content">
-                                <div class="metric-value" id="stats-roi">-</div>
-                                <div class="metric-label">ROI %</div>
-                            </div>
-                        </div>
-                        
-                        <div class="metric-card avg-odds">
-                            <div class="metric-icon">🎲</div>
-                            <div class="metric-content">
-                                <div class="metric-value" id="stats-avg-odds">-</div>
-                                <div class="metric-label">Avg Odds</div>
-                            </div>
-                        </div>
-                        
-                        <div class="metric-card sharpe-ratio">
-                            <div class="metric-icon">⚡</div>
-                            <div class="metric-content">
-                                <div class="metric-value" id="stats-sharpe-ratio">-</div>
-                                <div class="metric-label">Sharpe Ratio</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Profit/Loss Timeline Chart -->
-                    <div class="chart-section">
-                        <h3>💹 Profit/Loss Timeline</h3>
-                        <div class="chart-container">
-                            <canvas id="profit-timeline-chart"></canvas>
-                        </div>
-                    </div>
-                    
-                    <!-- Performance Analysis Charts -->
-                    <div class="charts-grid">
-                        <div class="chart-section">
-                            <h3>📈 Win Rate Trend</h3>
-                            <div class="chart-container">
-                                <canvas id="win-rate-trend-chart"></canvas>
-                            </div>
-                        </div>
-                        
-                        <div class="chart-section">
-                            <h3>🎲 Odds Distribution</h3>
-                            <div class="chart-container">
-                                <canvas id="odds-distribution-chart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Monthly Performance Breakdown -->
-                    <div class="chart-section">
-                        <h3>📅 Monthly Performance Breakdown</h3>
-                        <div class="chart-container">
-                            <canvas id="monthly-performance-chart"></canvas>
-                        </div>
-                    </div>
-                    
-                    <!-- Risk Analysis Section -->
-                    <div class="risk-analysis-section">
-                        <h3>⚠️ Risk Analysis</h3>
-                        <div class="risk-metrics-grid">
-                            <div class="risk-metric">
-                                <div class="risk-label">Largest Win</div>
-                                <div class="risk-value positive" id="stats-largest-win">-</div>
-                            </div>
-                            <div class="risk-metric">
-                                <div class="risk-label">Largest Loss</div>
-                                <div class="risk-value negative" id="stats-largest-loss">-</div>
-                            </div>
-                            <div class="risk-metric">
-                                <div class="risk-label">Current Streak</div>
-                                <div class="risk-value" id="stats-current-streak">-</div>
-                            </div>
-                            <div class="risk-metric">
-                                <div class="risk-label">Longest Win Streak</div>
-                                <div class="risk-value positive" id="stats-longest-win-streak">-</div>
-                            </div>
-                            <div class="risk-metric">
-                                <div class="risk-label">Longest Loss Streak</div>
-                                <div class="risk-value negative" id="stats-longest-loss-streak">-</div>
-                            </div>
-                            <div class="risk-metric">
-                                <div class="risk-label">Max Drawdown</div>
-                                <div class="risk-value negative" id="stats-max-drawdown">-</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Data Quality Indicator -->
-                    <div class="data-quality-section">
-                        <div class="data-quality-indicator" id="data-quality-indicator">
-                            <div class="quality-icon">📊</div>
-                            <div class="quality-text">
-                                <span class="quality-label">Data Quality:</span>
-                                <span class="quality-status" id="data-quality-status">Loading...</span>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </section>
             
@@ -528,6 +404,7 @@
     <script src="{{ url_for('static', filename='js/betting-simulation-ui.js') }}"></script>
     <script src="{{ url_for('static', filename='js/betting-filters.js') }}"></script>
     <script src="{{ url_for('static', filename='js/betting-statistics.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/comprehensive-betting-dashboard.js') }}"></script>
     <script src="{{ url_for('static', filename='js/system-health-monitor.js') }}"></script>
     <script src="{{ url_for('static', filename='js/notification-manager.js') }}"></script>
     <script src="{{ url_for('static', filename='js/betting-automation-controls.js') }}"></script>
@@ -617,7 +494,17 @@
         
         function initBettingStatisticsTab() {
             if (!window.bettingStatisticsInitialized) {
-                initBettingStatistics();
+                // Initialize comprehensive betting dashboard if available
+                if (window.ComprehensiveBettingDashboard) {
+                    const dashboardContainer = document.getElementById('comprehensive-betting-dashboard');
+                    if (dashboardContainer && !window.comprehensiveDashboard) {
+                        window.comprehensiveDashboard = new window.ComprehensiveBettingDashboard();
+                    }
+                }
+                // Fallback to basic betting statistics if comprehensive dashboard not available
+                else if (window.initBettingStatistics) {
+                    initBettingStatistics();
+                }
                 window.bettingStatisticsInitialized = true;
             }
         }
@@ -1862,6 +1749,36 @@
 
             .perf-metric {
                 padding: 5px 8px;
+            }
+        }
+        
+        /* Integration styles for comprehensive dashboard within tab system */
+        #betting-statistics #comprehensive-betting-dashboard {
+            padding: 0;
+            margin: 0;
+            background: transparent;
+            min-height: auto;
+        }
+        
+        /* Adjust dashboard header within tab */
+        #betting-statistics .dashboard-header h1 {
+            font-size: 2rem;
+            margin-bottom: var(--space-md);
+        }
+        
+        /* Ensure proper spacing for tab content */
+        #betting-statistics .dashboard-content {
+            margin-top: 0;
+        }
+        
+        /* Responsive adjustments for tab integration */
+        @media (max-width: 768px) {
+            #betting-statistics .dashboard-header h1 {
+                font-size: 1.8rem;
+            }
+            
+            #betting-statistics .filter-controls {
+                padding: var(--space-md);
             }
         }
     </style>
