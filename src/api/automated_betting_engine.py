@@ -22,9 +22,53 @@ import hmac
 from queue import Queue, Empty
 
 # Import prediction components
-from realtime_prediction_engine import PredictionEngine, MLPredictionResult, PredictionTrigger
-from websocket_tennis_client import LiveMatchEvent
-from config import get_config
+try:
+    from realtime_prediction_engine import PredictionEngine, MLPredictionResult, PredictionTrigger
+except ImportError:
+    # Create mock classes if not available
+    class MLPredictionResult:
+        def __init__(self, match_id, prediction, confidence):
+            self.match_id = match_id
+            self.prediction = prediction
+            self.confidence = confidence
+    
+    class PredictionTrigger:
+        pass
+    
+    class PredictionEngine:
+        def __init__(self, config):
+            self.config = config
+            self.prediction_callbacks = []
+        
+        def add_prediction_callback(self, callback):
+            self.prediction_callbacks.append(callback)
+        
+        def start(self):
+            pass
+        
+        def stop(self):
+            pass
+
+try:
+    from websocket_tennis_client import LiveMatchEvent
+except ImportError:
+    class LiveMatchEvent:
+        pass
+
+# Configuration getter
+def get_config():
+    """Get configuration object"""
+    try:
+        from src.config.config import get_config
+        return get_config()
+    except ImportError:
+        # Create basic config object
+        class BasicConfig:
+            BETFAIR_APP_KEY = os.getenv('BETFAIR_APP_KEY', '')
+            BETFAIR_USERNAME = os.getenv('BETFAIR_USERNAME', '')
+            BETFAIR_PASSWORD = os.getenv('BETFAIR_PASSWORD', '')
+        
+        return BasicConfig()
 
 logger = logging.getLogger(__name__)
 

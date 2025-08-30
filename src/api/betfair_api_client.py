@@ -17,7 +17,20 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 import urllib.parse
 
-from src.config.config import Config
+# Configuration getter
+def get_config():
+    """Get configuration object"""
+    try:
+        from src.config.config import get_config
+        return get_config()
+    except ImportError:
+        # Create basic config object
+        class BasicConfig:
+            BETFAIR_APP_KEY = os.getenv('BETFAIR_APP_KEY', '')
+            BETFAIR_USERNAME = os.getenv('BETFAIR_USERNAME', '')
+            BETFAIR_PASSWORD = os.getenv('BETFAIR_PASSWORD', '')
+        
+        return BasicConfig()
 
 logger = logging.getLogger(__name__)
 

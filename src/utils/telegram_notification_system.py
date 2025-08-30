@@ -308,8 +308,75 @@ class TelegramNotificationSystem:
             logger.error(f"❌ Error getting live ranking for {player_name}: {e}")
             return 150  # Safe default
     
+    def _extract_enhanced_insights(self, prediction_result: Dict) -> List[str]:
+        """Extract enhanced insights from API data for Telegram notifications"""
+        enhanced_insights = []
+        
+        try:
+            # Get prediction metadata to check if we have enhanced data
+            prediction_metadata = prediction_result.get('prediction_metadata', {})
+            match_context = prediction_result.get('match_context', {})
+            
+            # Check for enhanced prediction type
+            if prediction_metadata.get('service_type') == 'automated_ml_prediction':
+                models_used = prediction_metadata.get('models_used', [])
+                if models_used:
+                    enhanced_insights.append(f"🤖 ML Models: {len(models_used)} models used ({', '.join(models_used[:2])}...)")
+            
+            # Extract ranking-based insights
+            player1_rank = match_context.get('player1_rank', 150)
+            player2_rank = match_context.get('player2_rank', 150)
+            underdog_rank = max(player1_rank, player2_rank)
+            
+            # Tier-specific insights for our 10-300 strategy
+            if 10 <= underdog_rank <= 50:
+                enhanced_insights.append("⭐ Quality underdog (top 50) - higher success potential")
+            elif 51 <= underdog_rank <= 100:
+                enhanced_insights.append("💪 Solid underdog (51-100) - good value opportunity")
+            elif 101 <= underdog_rank <= 200:
+                enhanced_insights.append("📊 Standard underdog (101-200) - moderate risk/reward")
+            elif 201 <= underdog_rank <= 300:
+                enhanced_insights.append("🎯 Deep underdog (201-300) - high risk/high reward")
+            
+            # Extract surface-specific insights if available
+            surface = match_context.get('surface', '').lower()
+            if surface in ['clay', 'grass', 'hard']:
+                enhanced_insights.append(f"🎾 Surface: {surface.title()} court specialist advantage possible")
+            
+            # Extract tournament importance
+            tournament = match_context.get('tournament', '').lower()
+            if any(slam in tournament for slam in ['us open', 'wimbledon', 'french', 'australian']):
+                enhanced_insights.append("🏆 Grand Slam match - higher unpredictability factor")
+            elif 'masters' in tournament or '1000' in tournament:
+                enhanced_insights.append("🔥 Masters level tournament - premium competition")
+            
+            # Extract data quality insights if available from strategic insights
+            strategic_insights = prediction_result.get('strategic_insights', [])
+            for insight in strategic_insights:
+                if 'data quality' in insight.lower():
+                    enhanced_insights.append("✅ High-quality data analysis available")
+                    break
+                elif 'form' in insight.lower() and ('rising' in insight.lower() or 'declining' in insight.lower()):
+                    enhanced_insights.append("📈 Recent form trends favor underdog scenario")
+                    break
+            
+            # Confidence-based insights
+            confidence = prediction_result.get('confidence', 'Medium')
+            underdog_prob = prediction_result.get('underdog_second_set_probability', 0)
+            
+            if confidence == 'High' and underdog_prob > 0.6:
+                enhanced_insights.append("🔥 High-confidence prediction with strong probability")
+            elif confidence == 'Medium' and underdog_prob > 0.5:
+                enhanced_insights.append("⚡ Solid prediction with competitive probability")
+            
+            return enhanced_insights[:4]  # Return up to 4 insights
+            
+        except Exception as e:
+            logger.debug(f"Error extracting enhanced insights: {e}")
+            return []
+    
     def _format_underdog_message(self, prediction_result: Dict) -> str:
-        """Format the underdog prediction message for Telegram with live rankings"""
+        """Format the underdog prediction message for Telegram with enhanced API insights"""
         
         match_context = prediction_result.get('match_context', {})
         underdog_prob = prediction_result.get('underdog_second_set_probability', 0)
@@ -341,20 +408,36 @@ class TelegramNotificationSystem:
         # Calculate ranking gap for clarity
         ranking_gap = underdog_rank - favorite_rank
         
-        # Build message
+        # Enhanced header with prediction type indicator
+        prediction_metadata = prediction_result.get('prediction_metadata', {})
+        is_enhanced_api = prediction_metadata.get('service_type') == 'automated_ml_prediction'
+        
+        header_icon = "🔬" if is_enhanced_api else "🎾"
+        header_text = f"{header_icon} <b>ENHANCED UNDERDOG ALERT</b> 🚀" if is_enhanced_api else "🎾 <b>TENNIS UNDERDOG ALERT</b> 🚀"
+        
+        # Build message with enhanced data
         message_lines = [
-            "🎾 <b>TENNIS UNDERDOG ALERT</b> 🚀",
+            header_text,
             "",
             f"<b>Match:</b> {player1} vs {player2}",
             f"<b>Tournament:</b> {match_context.get('tournament', 'Unknown')}",
             f"<b>Surface:</b> {match_context.get('surface', 'Hard')}",
             "",
-            f"🎯 <b>UNDERDOG:</b> {underdog_name} (Rank #{underdog_rank})",
+            f"🎯 <b>UNDERDOG:</b> {underdog_name} (#{underdog_rank})",
+            f"⭐ <b>FAVORITE:</b> {favorite_name} (#{favorite_rank})",
             f"📊 <b>Second Set Win Probability:</b> {underdog_prob:.1%}",
-            f"🔮 <b>Confidence:</b> {confidence}",
+            f"🔮 <b>Confidence Level:</b> {confidence}",
             "",
             f"📈 <b>Ranking Gap:</b> {ranking_gap} positions",
         ]
+        
+        # Add enhanced data insights if available
+        enhanced_insights = self._extract_enhanced_insights(prediction_result)
+        if enhanced_insights:
+            message_lines.append("")
+            message_lines.append("💡 <b>Enhanced Insights:</b>")
+            for insight in enhanced_insights[:4]:  # Limit to 4 key insights
+                message_lines.append(f"   • {insight}")
         
         # Add strategic insights if available
         insights = prediction_result.get('strategic_insights', [])

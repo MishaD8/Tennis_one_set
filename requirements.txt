@@ -45,6 +45,12 @@ celery>=5.3.0
 # Monitoring and notifications
 python-telegram-bot>=20.0
 
+# Bayesian optimization
+scikit-optimize>=0.9.0
+
+# Enhanced ML features
+joblib>=1.1.0
+
 # Testing and development
 pytest>=7.0.0
 pytest-cov>=4.0.0
