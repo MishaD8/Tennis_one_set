@@ -6,7 +6,7 @@ services:
     container_name: tennis_prediction
     restart: unless-stopped
     ports:
-      - "127.0.0.1:5001:5001"
+      - "0.0.0.0:5001:5001"
     volumes:
       - ./tennis_data_enhanced:/app/tennis_data_enhanced
       - ./tennis_models:/app/tennis_models

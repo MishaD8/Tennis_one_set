@@ -10,7 +10,7 @@ from functools import wraps
 from datetime import datetime
 from typing import Optional, Dict, Any
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, redirect
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address

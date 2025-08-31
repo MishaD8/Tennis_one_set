@@ -143,20 +143,26 @@ class TelegramNotificationSystem:
     
     def _setup_logging(self):
         """Setup logging for telegram notifications"""
-        log_dir = 'logs'
-        os.makedirs(log_dir, exist_ok=True)
-        
-        file_handler = logging.FileHandler(f'{log_dir}/telegram_notifications.log')
-        file_handler.setLevel(logging.INFO)
-        
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-        file_handler.setFormatter(formatter)
-        
-        self.telegram_logger = logging.getLogger('telegram_notifications')
-        self.telegram_logger.addHandler(file_handler)
-        self.telegram_logger.setLevel(logging.INFO)
+        try:
+            log_dir = 'logs'
+            os.makedirs(log_dir, exist_ok=True)
+            
+            file_handler = logging.FileHandler(f'{log_dir}/telegram_notifications.log')
+            file_handler.setLevel(logging.INFO)
+            
+            formatter = logging.Formatter(
+                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            )
+            file_handler.setFormatter(formatter)
+            
+            self.telegram_logger = logging.getLogger('telegram_notifications')
+            self.telegram_logger.addHandler(file_handler)
+            self.telegram_logger.setLevel(logging.INFO)
+        except PermissionError as e:
+            # If we can't write to the log file, use console logging only
+            logger.warning(f"⚠️ Cannot create Telegram log file: {e}. Using console logging only.")
+            self.telegram_logger = logging.getLogger('telegram_notifications')
+            self.telegram_logger.setLevel(logging.INFO)
     
     def should_notify(self, prediction_result: Dict) -> bool:
         """Check if this prediction should trigger a notification"""
@@ -376,7 +382,7 @@ class TelegramNotificationSystem:
             return []
     
     def _format_underdog_message(self, prediction_result: Dict) -> str:
-        """Format the underdog prediction message for Telegram with enhanced API insights"""
+        """Format the underdog prediction message for Telegram - Concise version"""
         
         match_context = prediction_result.get('match_context', {})
         underdog_prob = prediction_result.get('underdog_second_set_probability', 0)
@@ -405,65 +411,47 @@ class TelegramNotificationSystem:
             favorite_name = player1
             favorite_rank = player1_rank
         
-        # Calculate ranking gap for clarity
-        ranking_gap = underdog_rank - favorite_rank
+        # Calculate ranking gap for clarity (ensure positive value)
+        ranking_gap = abs(underdog_rank - favorite_rank)
         
-        # Enhanced header with prediction type indicator
-        prediction_metadata = prediction_result.get('prediction_metadata', {})
-        is_enhanced_api = prediction_metadata.get('service_type') == 'automated_ml_prediction'
+        # Tournament and surface info
+        tournament = match_context.get('tournament', 'Unknown Tournament')
+        surface = match_context.get('surface', 'Hard')
         
-        header_icon = "🔬" if is_enhanced_api else "🎾"
-        header_text = f"{header_icon} <b>ENHANCED UNDERDOG ALERT</b> 🚀" if is_enhanced_api else "🎾 <b>TENNIS UNDERDOG ALERT</b> 🚀"
-        
-        # Build message with enhanced data
+        # Build concise message
         message_lines = [
-            header_text,
+            "🎾 <b>TENNIS UNDERDOG ALERT</b> 🚨",
             "",
-            f"<b>Match:</b> {player1} vs {player2}",
-            f"<b>Tournament:</b> {match_context.get('tournament', 'Unknown')}",
-            f"<b>Surface:</b> {match_context.get('surface', 'Hard')}",
+            f"🏆 <b>{tournament}</b>",
+            f"🎯 <b>{underdog_name}</b> (#{underdog_rank}) vs <b>{favorite_name}</b> (#{favorite_rank})",
+            f"🏟️ Surface: {surface}",
             "",
-            f"🎯 <b>UNDERDOG:</b> {underdog_name} (#{underdog_rank})",
-            f"⭐ <b>FAVORITE:</b> {favorite_name} (#{favorite_rank})",
-            f"📊 <b>Second Set Win Probability:</b> {underdog_prob:.1%}",
-            f"🔮 <b>Confidence Level:</b> {confidence}",
-            "",
-            f"📈 <b>Ranking Gap:</b> {ranking_gap} positions",
+            f"📊 <b>Second Set Win Probability: {underdog_prob:.1%}</b>",
+            f"🔮 Confidence: {confidence}",
+            f"📈 Ranking Gap: {ranking_gap} positions",
         ]
         
-        # Add enhanced data insights if available
-        enhanced_insights = self._extract_enhanced_insights(prediction_result)
-        if enhanced_insights:
-            message_lines.append("")
-            message_lines.append("💡 <b>Enhanced Insights:</b>")
-            for insight in enhanced_insights[:4]:  # Limit to 4 key insights
-                message_lines.append(f"   • {insight}")
-        
-        # Add strategic insights if available
+        # Add top strategic insights (max 2 for brevity)
         insights = prediction_result.get('strategic_insights', [])
         if insights:
-            message_lines.extend(["", "<b>📈 Strategic Insights:</b>"])
-            for insight in insights[:3]:  # Limit to 3 insights
-                # Remove emoji from insight and add bullet point
-                clean_insight = insight
+            message_lines.extend(["", "💡 <b>Key Insights:</b>"])
+            for insight in insights[:2]:  # Only show top 2 insights
+                # Clean insight and make it concise
+                clean_insight = insight.strip()
+                # Remove excessive emojis
                 for emoji in ['🔥', '⚡', '🛡️', '🏆', '📊', '⚖️']:
                     clean_insight = clean_insight.replace(emoji, '').strip()
+                # Shorten if too long
+                if len(clean_insight) > 60:
+                    clean_insight = clean_insight[:57] + "..."
                 message_lines.append(f"• {clean_insight}")
         
-        # Add metadata
-        prediction_time = prediction_result.get('prediction_metadata', {}).get('prediction_time', '')
-        if prediction_time:
-            try:
-                pred_dt = datetime.fromisoformat(prediction_time.replace('Z', '+00:00'))
-                time_str = pred_dt.strftime('%H:%M UTC')
-                message_lines.extend(["", f"⏰ <i>Prediction made at {time_str}</i>"])
-            except:
-                pass
-        
-        # Add disclaimer
+        # Add timestamp
+        from datetime import datetime
+        current_time = datetime.now().strftime('%H:%M')
         message_lines.extend([
             "",
-            "⚠️ <i>This is an AI prediction for educational purposes. Always do your own research before making any betting decisions.</i>"
+            f"⏰ <i>Alert sent at {current_time}</i>"
         ])
         
         return "\n".join(message_lines)

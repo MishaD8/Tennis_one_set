@@ -95,9 +95,9 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     """Production configuration with enhanced security"""
     DEBUG = False
-    PREFERRED_URL_SCHEME = 'https'
-    SESSION_COOKIE_SECURE = True
-    FORCE_HTTPS = True
+    PREFERRED_URL_SCHEME = 'http'  # Changed to http since no SSL certificates
+    SESSION_COOKIE_SECURE = False  # Changed to False since using HTTP
+    FORCE_HTTPS = False  # Disabled HTTPS redirect - causing infinite redirect loop
     
     # SSL Configuration
     SSL_CERT_PATH = os.getenv('SSL_CERT_PATH', '')

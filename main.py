@@ -118,8 +118,22 @@ class AutomatedTennisPredictionService:
             else:
                 logger.warning("⚠️ Telegram notifications disabled")
                 
+        except PermissionError as e:
+            logger.warning(f"⚠️ Telegram initialization permission issue (logs disabled): {e}")
+            # Try to create a minimal system without file logging
+            try:
+                from utils.telegram_notification_system import TelegramNotificationSystem
+                self.telegram_system = TelegramNotificationSystem()
+                if self.telegram_system.config.enabled:
+                    logger.info("✅ Telegram notification system initialized (console logging only)")
+                else:
+                    logger.warning("⚠️ Telegram notifications disabled")
+            except Exception as e2:
+                logger.error(f"❌ Failed to initialize Telegram (fallback): {e2}")
+                self.telegram_system = None
         except Exception as e:
             logger.error(f"❌ Failed to initialize Telegram: {e}")
+            self.telegram_system = None
     
     def _load_player_rankings(self) -> Dict[str, int]:
         """Load player rankings using dynamic API with fallback"""

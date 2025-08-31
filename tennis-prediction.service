@@ -1,0 +1,18 @@
+[Unit]
+Description=Tennis Prediction Service
+After=network.target
+
+[Service]
+Type=simple
+User=apps
+WorkingDirectory=/home/apps/Tennis_one_set
+Environment=PATH=/home/apps/Tennis_one_set/tennis_env/bin
+Environment=PYTHONPATH=/home/apps/Tennis_one_set
+ExecStart=/usr/bin/python3 main.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
