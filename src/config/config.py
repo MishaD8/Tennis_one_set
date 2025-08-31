@@ -139,14 +139,14 @@ def validate_config() -> Dict[str, Any]:
     }
     
     # Check critical API keys
-    if not config.TENNIS_API_KEY:
-        validation_results['warnings'].append('TENNIS_API_KEY not configured')
+    if not config.API_TENNIS_KEY:
+        validation_results['warnings'].append('API_TENNIS_KEY not configured - API-Tennis.com integration disabled')
     
     if not config.RAPIDAPI_KEY:
         validation_results['warnings'].append('RAPIDAPI_KEY not configured')
     
-    if not config.API_TENNIS_KEY:
-        validation_results['warnings'].append('API_TENNIS_KEY not configured - API-Tennis.com integration disabled')
+    if not config.TENNIS_API_KEY:
+        validation_results['warnings'].append('TENNIS_API_KEY not configured')
     
     # Check Betfair configuration for betting functionality
     if not config.BETFAIR_APP_KEY:
