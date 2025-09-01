@@ -418,48 +418,15 @@ class TelegramNotificationSystem:
         tournament = match_context.get('tournament', 'Unknown Tournament')
         surface = match_context.get('surface', 'Hard')
         
-        # Build concise message with CLEAR underdog identification
+        # Build very concise message format as requested by user
         message_lines = [
-            "🎾 <b>TENNIS UNDERDOG ALERT</b> 🚨",
-            "",
             f"🏆 <b>{tournament}</b>",
-            f"🎯 <b>UNDERDOG: {underdog_name}</b> (#{underdog_rank}) 🆚 <b>{favorite_name}</b> (#{favorite_rank})",
+            f"    <b>{underdog_name}</b> (#{underdog_rank}) vs <b>{favorite_name}</b> (#{favorite_rank})",
             f"🏟️ Surface: {surface}",
-            "",
-            f"📊 <b>UNDERDOG Second Set Win Probability: {underdog_prob:.1%}</b>",
-            f"🔮 Confidence: {confidence}",
-            f"📈 Ranking Gap: {ranking_gap} positions",
+            f"📊 UNDERDOG Second Set Win Probability: <b>{underdog_prob:.1%}</b>",
+            f"🔮 Confidence: <b>{confidence.title()}</b>",
+            f"🎯 PREDICTION: <b>{underdog_name} to win 2nd set</b>"
         ]
-        
-        # Add top strategic insights (max 2 for brevity)
-        insights = prediction_result.get('strategic_insights', [])
-        if insights:
-            message_lines.extend(["", "💡 <b>Key Insights:</b>"])
-            for insight in insights[:2]:  # Only show top 2 insights
-                # Clean insight and make it concise
-                clean_insight = insight.strip()
-                # Remove excessive emojis
-                for emoji in ['🔥', '⚡', '🛡️', '🏆', '📊', '⚖️']:
-                    clean_insight = clean_insight.replace(emoji, '').strip()
-                # Shorten if too long
-                if len(clean_insight) > 60:
-                    clean_insight = clean_insight[:57] + "..."
-                message_lines.append(f"• {clean_insight}")
-        
-        # Add clear recommendation
-        message_lines.extend([
-            "",
-            f"🎯 <b>PREDICTION: {underdog_name} to win the 2nd set</b>",
-            f"💰 <b>Bet on: {underdog_name} 2nd set winner</b>"
-        ])
-        
-        # Add timestamp
-        from datetime import datetime
-        current_time = datetime.now().strftime('%H:%M')
-        message_lines.extend([
-            "",
-            f"⏰ <i>Alert sent at {current_time}</i>"
-        ])
         
         return "\n".join(message_lines)
     
