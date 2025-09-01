@@ -27,9 +27,9 @@ def register_simple_routes(app: Flask):
         logger.warning(f"⚠️ Services not available: {e}")
         SERVICES_AVAILABLE = False
     
-    @app.route('/', methods=['GET'])
-    def home():
-        """Home endpoint"""
+    @app.route('/api/info', methods=['GET'])
+    def api_info():
+        """API information endpoint (moved from / to avoid dashboard conflict)"""
         return {
             'service': 'Tennis One Set - Underdog Prediction System',
             'status': 'operational',
@@ -43,9 +43,9 @@ def register_simple_routes(app: Flask):
             'timestamp': datetime.now().isoformat()
         }
     
-    @app.route('/api/health', methods=['GET'])
+    @app.route('/api/health-basic', methods=['GET'])
     def health():
-        """Health check endpoint"""
+        """Basic health check endpoint (renamed to avoid conflict with comprehensive health)"""
         try:
             # Check API key
             api_key_status = bool(os.getenv('API_TENNIS_KEY'))

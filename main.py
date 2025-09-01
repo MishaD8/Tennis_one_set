@@ -786,6 +786,9 @@ def main():
     else:
         app = create_app()
     
+    # Main routes from routes.py now include the dashboard route
+    # No need to duplicate it here since register_routes(app) handles it
+    
     # Add prediction service status endpoint to Flask app
     @app.route('/api/prediction_service/status', methods=['GET'])
     def prediction_service_status():

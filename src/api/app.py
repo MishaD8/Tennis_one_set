@@ -88,6 +88,15 @@ def create_app() -> Flask:
     except ImportError as e:
         logger.warning(f"⚠️ Enhanced routes not available: {e}")
     
+    # Register main routes with comprehensive health monitoring
+    try:
+        from src.api.routes import register_routes
+        register_routes(app)
+        logger.info("✅ Main routes registered successfully")
+        routes_registered = True
+    except ImportError as e:
+        logger.warning(f"⚠️ Main routes not available: {e}")
+    
     # Fallback minimal health endpoint only if no routes were registered
     if not routes_registered:
         @app.route('/api/health', methods=['GET'])
