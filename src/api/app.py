@@ -69,13 +69,27 @@ def create_app() -> Flask:
     app.limiter = limiter
     
     # Import and register routes here to avoid circular imports
+    routes_registered = False
+    
     try:
         from src.api.simple_routes import register_simple_routes
         register_simple_routes(app)
         logger.info("✅ Simple routes registered successfully")
+        routes_registered = True
     except ImportError as e:
         logger.warning(f"⚠️ Simple routes not available: {e}")
-        # Create minimal health endpoint if routes module is not available
+    
+    # Register enhanced routes with advanced features
+    try:
+        from src.api.enhanced_routes import register_enhanced_routes
+        register_enhanced_routes(app)
+        logger.info("✅ Enhanced routes registered successfully")
+        routes_registered = True
+    except ImportError as e:
+        logger.warning(f"⚠️ Enhanced routes not available: {e}")
+    
+    # Fallback minimal health endpoint only if no routes were registered
+    if not routes_registered:
         @app.route('/api/health', methods=['GET'])
         def health():
             return {
