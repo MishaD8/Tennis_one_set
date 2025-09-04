@@ -1097,9 +1097,24 @@ def register_routes(app: Flask):
             
             # Check for model files
             if os.path.exists('./tennis_models/'):
-                model_files = [f for f in os.listdir('./tennis_models/') if f.endswith(('.pkl', '.h5', '.json'))]
+                all_files = [f for f in os.listdir('./tennis_models/') if f.endswith(('.pkl', '.h5', '.json'))]
+                
+                # Filter to only count actual ML models (exclude support files)
+                model_files = []
+                actual_models = []
+                
+                for f in all_files:
+                    model_files.append(f)
+                    # Count only actual ML model files, exclude support files
+                    if (f.endswith('.pkl') and 
+                        not f.endswith(('_scaler.pkl', '.old_backup', 'scaler.pkl')) and
+                        not f.startswith('voting_') and
+                        not f.endswith('.pkl.backup')):
+                        actual_models.append(f)
+                
                 ml_status['model_files'] = model_files
-                ml_status['models_count'] = len([f for f in model_files if f.endswith('.pkl')])
+                ml_status['models_count'] = len(actual_models)
+                ml_status['actual_models'] = actual_models  # For debugging
             
             # Test prediction capability
             ml_status['prediction_test'] = 'skipped'

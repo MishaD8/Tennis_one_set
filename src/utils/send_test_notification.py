@@ -68,7 +68,7 @@ async def send_test_notification():
             print("❌ Failed to send test notification")
             
         # Get and display system stats
-        stats = notification_system.get_stats()
+        stats = notification_system.get_notification_stats()
         print(f"\n📈 System Statistics:")
         print(f"   Notifications this hour: {stats.get('notifications_last_hour', 0)}")
         print(f"   Rate limit remaining: {10 - stats.get('notifications_last_hour', 0)}")
