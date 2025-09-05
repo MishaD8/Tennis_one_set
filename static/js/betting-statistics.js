@@ -5,12 +5,14 @@
  */
 
 class BettingStatistics {
-    constructor() {
+    constructor(containerSelector = null) {
         // Use current host and port for API base to avoid localhost issues
         this.API_BASE = `${window.location.protocol}//${window.location.host}/api`;
+        this.containerSelector = containerSelector || '.betting-statistics-dashboard';
         this.currentTimeframe = '1_week';
         this.charts = {};
         this.data = null;
+        this.telegramData = null; // NEW: Store telegram notifications separately
         this.isLoading = false;
         this.retryCount = 0;
         this.maxRetries = 3;
@@ -26,15 +28,125 @@ class BettingStatistics {
 
     async init() {
         try {
+            this.ensureContainer(); // NEW: Ensure we have a proper container
             this.setupEventListeners();
             this.setupResizeHandler();
             await this.loadStatistics();
             this.initializeCharts();
             this.setupDataRefresh();
+            this.setupRealTimeUpdates(); // NEW: Setup real-time updates for telegram notifications
         } catch (error) {
             console.error('Error initializing betting statistics:', error);
             this.showError('Failed to initialize betting statistics dashboard');
             this.showRetryOption();
+        }
+    }
+    
+    ensureContainer() {
+        let container = document.querySelector(this.containerSelector);
+        
+        // If we're using the comprehensive dashboard container, create our structure inside it
+        if (this.containerSelector === '.betting-statistics-dashboard' && !container) {
+            // Try the comprehensive dashboard container instead
+            container = document.getElementById('comprehensive-betting-dashboard');
+            if (container) {
+                this.containerSelector = '#comprehensive-betting-dashboard';
+            }
+        }
+        
+        if (!container) {
+            console.error('Container not found:', this.containerSelector);
+            throw new Error(`Container ${this.containerSelector} not found`);
+        }
+        
+        // Clear any existing content and create our dashboard structure
+        container.innerHTML = `
+            <div class="betting-statistics-dashboard">
+                <!-- Telegram Notifications Section - ALWAYS VISIBLE -->
+                <div class="telegram-notifications-section">
+                    <h3>📱 Telegram Notification Events</h3>
+                    <p class="section-description">Live predictions sent as Telegram notifications with betting outcomes</p>
+                    <div class="telegram-notifications-content">
+                        <div class="loading-placeholder">Loading telegram notification history...</div>
+                    </div>
+                </div>
+                <!-- Other dashboard content will be populated by the class methods -->
+            </div>
+        `;
+    }
+    
+    setupRealTimeUpdates() {
+        // Check for new telegram notifications every 30 seconds
+        this.realTimeInterval = setInterval(async () => {
+            if (document.getElementById('betting-statistics').classList.contains('active')) {
+                await this.checkForNewTelegramNotifications();
+            }
+        }, 30000); // 30 seconds
+        
+        // Also listen for page visibility changes to refresh when user returns
+        document.addEventListener('visibilitychange', async () => {
+            if (!document.hidden && document.getElementById('betting-statistics').classList.contains('active')) {
+                await this.checkForNewTelegramNotifications();
+            }
+        });
+    }
+    
+    async checkForNewTelegramNotifications() {
+        try {
+            // Only check if we have existing telegram data to compare against
+            if (!this.telegramData || !this.telegramData.success) {
+                return;
+            }
+            
+            const response = await fetch(
+                `${this.API_BASE}/telegram-notifications?days=${this.getTimeframeDays()}&limit=20`,
+                { timeout: 10000 }
+            );
+            
+            if (response.ok) {
+                const newData = await response.json();
+                
+                if (newData.success && newData.data) {
+                    const currentCount = this.telegramData.data.summary.total_notifications || 0;
+                    const newCount = newData.data.summary.total_notifications || 0;
+                    
+                    // Check if there are new notifications
+                    if (newCount > currentCount) {
+                        console.log('🔔 New telegram notification detected, updating display');
+                        this.telegramData = newData;
+                        await this.updateTelegramNotifications();
+                        this.showNewNotificationAlert(newCount - currentCount);
+                    }
+                }
+            }
+        } catch (error) {
+            // Silently fail for real-time updates to avoid spam
+            console.debug('Real-time telegram update check failed:', error);
+        }
+    }
+    
+    showNewNotificationAlert(count) {
+        // Show a subtle notification that new data is available
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'real-time-alert';
+        alertDiv.innerHTML = `
+            <div class="alert-content">
+                🔔 ${count} new telegram notification${count > 1 ? 's' : ''} received
+                <button onclick="this.parentElement.parentElement.remove()" class="close-alert">×</button>
+            </div>
+        `;
+        
+        // Add to the telegram section
+        const telegramSection = document.querySelector('.telegram-notifications-section');
+        if (telegramSection) {
+            telegramSection.insertBefore(alertDiv, telegramSection.firstChild);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (alertDiv.parentElement) {
+                    alertDiv.remove();
+                }
+            }, 5000);
         }
     }
 
@@ -157,23 +269,41 @@ class BettingStatistics {
             const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
             try {
-                const response = await fetch(
-                    `${this.API_BASE}/betting/statistics?timeframe=${this.currentTimeframe}&test_mode=live`,
-                    { signal: controller.signal }
-                );
+                // Load both betting statistics and telegram notifications in parallel
+                const [bettingResponse, telegramResponse] = await Promise.all([
+                    fetch(`${this.API_BASE}/betting/statistics?timeframe=${this.currentTimeframe}&test_mode=live`, 
+                          { signal: controller.signal }),
+                    fetch(`${this.API_BASE}/telegram-notifications?days=${this.getTimeframeDays()}&limit=20`, 
+                          { signal: controller.signal })
+                ]);
+                
                 clearTimeout(timeoutId);
                 
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                if (!bettingResponse.ok) {
+                    throw new Error(`HTTP ${bettingResponse.status}: ${bettingResponse.statusText}`);
                 }
                 
                 this.updateLoadingStep('process');
-                const data = await response.json();
+                const bettingData = await bettingResponse.json();
+                
+                // Load telegram notifications (optional - don't fail if unavailable)
+                let telegramData = null;
+                if (telegramResponse.ok) {
+                    telegramData = await telegramResponse.json();
+                    console.log('✅ Loaded telegram notifications:', telegramData);
+                    console.log('📊 Telegram events count:', telegramData?.data?.telegram_events?.length || 0);
+                } else {
+                    console.warn('⚠️ Telegram notifications not available:', telegramResponse.status);
+                    console.warn('Response details:', await telegramResponse.text().catch(() => 'Could not read response'));
+                }
 
-                if (data.success) {
-                    this.data = data.statistics;
+                if (bettingData.success) {
+                    this.data = bettingData.statistics;
+                    this.telegramData = telegramData; // Store telegram data separately
+                    
                     this.updateLoadingStep('charts');
                     await this.updateMetrics();
+                    await this.updateTelegramNotifications(); // NEW: Update telegram notifications display
                     this.updateDataQuality();
                     this.updateLoadingStep('complete');
                     
@@ -183,7 +313,7 @@ class BettingStatistics {
                         this.showSuccessBanner();
                     }, 500);
                 } else {
-                    throw new Error(data.error || 'Failed to load statistics');
+                    throw new Error(bettingData.error || 'Failed to load statistics');
                 }
             } catch (error) {
                 clearTimeout(timeoutId);
@@ -195,6 +325,277 @@ class BettingStatistics {
         } finally {
             this.isLoading = false;
         }
+    }
+    
+    getTimeframeDays() {
+        // Convert timeframe to days for telegram API
+        const timeframeMap = {
+            '1_day': 1,
+            '1_week': 7,
+            '1_month': 30,
+            '3_months': 90,
+            '6_months': 180,
+            '1_year': 365
+        };
+        return timeframeMap[this.currentTimeframe] || 30;
+    }
+
+    async updateTelegramNotifications() {
+        try {
+            // Create or update telegram notifications section
+            let telegramSection = document.querySelector('.telegram-notifications-section');
+            if (!telegramSection) {
+                telegramSection = this.createTelegramNotificationsSection();
+                // Insert after match selection criteria if it exists, otherwise after metrics
+                const insertAfter = document.querySelector('.match-selection-criteria') || 
+                                   document.querySelector('.capital-growth-scenarios') ||
+                                   document.querySelector('.betting-metrics-grid') ||
+                                   document.querySelector('.betting-statistics-dashboard');
+                if (insertAfter) {
+                    insertAfter.insertAdjacentElement('afterend', telegramSection);
+                } else {
+                    // If no suitable parent found, append to container
+                    const container = document.querySelector('#comprehensive-betting-dashboard') || 
+                                    document.querySelector('.betting-statistics-dashboard') ||
+                                    document.body;
+                    container.appendChild(telegramSection);
+                }
+            }
+            
+            // Update content
+            if (this.telegramData && this.telegramData.success) {
+                console.log('📱 Updating telegram notifications with data:', this.telegramData);
+                this.populateTelegramNotifications(telegramSection, this.telegramData.data);
+            } else {
+                console.log('⚠️ No telegram data available, showing placeholder');
+                this.showTelegramNotificationsUnavailable(telegramSection);
+            }
+            
+        } catch (error) {
+            console.error('❌ Error updating telegram notifications:', error);
+            // Show error state instead of failing silently
+            this.showTelegramNotificationsError(error);
+        }
+    }
+    
+    createTelegramNotificationsSection() {
+        const section = document.createElement('div');
+        section.className = 'telegram-notifications-section';
+        section.innerHTML = `
+            <h3>📱 Telegram Notification Events</h3>
+            <p class="section-description">Live predictions sent as Telegram notifications with betting outcomes</p>
+            <div class="telegram-notifications-content">
+                <div class="loading-placeholder">Loading telegram notification history...</div>
+            </div>
+        `;
+        return section;
+    }
+    
+    populateTelegramNotifications(section, data) {
+        try {
+            const { telegram_events, summary } = data;
+            const content = section.querySelector('.telegram-notifications-content');
+            
+            if (!telegram_events || telegram_events.length === 0) {
+                content.innerHTML = `
+                    <div class="no-notifications">
+                        <div class="empty-icon">📱</div>
+                        <h4>No Telegram Notifications Yet</h4>
+                        <p>When the ML system detects strong underdog opportunities, they will appear here.</p>
+                        <p class="hint">Notifications are sent for predictions with >55% confidence and Medium/High rating.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Create summary header
+            const summaryHtml = `
+                <div class="telegram-summary">
+                    <div class="summary-stats">
+                        <div class="summary-stat">
+                            <span class="stat-value">${summary.total_notifications || 0}</span>
+                            <span class="stat-label">Total Notifications</span>
+                        </div>
+                        <div class="summary-stat">
+                            <span class="stat-value">${summary.successful_notifications || 0}</span>
+                            <span class="stat-label">Successfully Sent</span>
+                        </div>
+                        <div class="summary-stat">
+                            <span class="stat-value">${summary.period_days || 0}</span>
+                            <span class="stat-label">Days Period</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Create notifications list
+            const notificationsHtml = telegram_events.map(event => {
+                const matchTime = new Date(event.timestamp);
+                const timeAgo = this.getTimeAgo(matchTime);
+                
+                return `
+                    <div class="telegram-event" data-id="${event.id}">
+                        <div class="event-header">
+                            <div class="event-time">
+                                <span class="time-badge">${timeAgo}</span>
+                                <span class="exact-time">${matchTime.toLocaleString()}</span>
+                            </div>
+                            <div class="event-status">
+                                <span class="notification-status ${event.notification.chats_notified > 0 ? 'sent' : 'failed'}">
+                                    ${event.notification.chats_notified > 0 ? '✅ Sent' : '❌ Failed'}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="event-content">
+                            <div class="match-info">
+                                <div class="players">
+                                    <span class="underdog" title="Underdog">
+                                        🎯 ${event.match.underdog}
+                                    </span>
+                                    <span class="vs">vs</span>
+                                    <span class="favorite" title="Favorite">
+                                        ${event.match.favorite}
+                                    </span>
+                                </div>
+                                <div class="match-details">
+                                    <span class="tournament">${event.match.tournament}</span>
+                                    <span class="surface">${event.match.surface}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="prediction-info">
+                                <div class="probability">
+                                    <span class="prob-label">Underdog 2nd Set:</span>
+                                    <span class="prob-value ${event.prediction.underdog_probability >= 0.6 ? 'high' : 'medium'}">
+                                        ${event.prediction.probability_percentage}
+                                    </span>
+                                </div>
+                                <div class="confidence">
+                                    <span class="conf-label">Confidence:</span>
+                                    <span class="conf-value ${event.prediction.confidence.toLowerCase()}">
+                                        ${event.prediction.confidence}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            ${event.betting.status !== 'pending' ? `
+                                <div class="betting-outcome">
+                                    <div class="outcome-status ${event.betting.status}">
+                                        ${this.getBettingStatusIcon(event.betting.status)} ${this.getBettingStatusText(event.betting.status)}
+                                    </div>
+                                    ${event.betting.profit_loss !== null ? `
+                                        <div class="profit-loss ${event.betting.profit_loss >= 0 ? 'profit' : 'loss'}">
+                                            ${this.formatCurrency(event.betting.profit_loss)}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            ` : `
+                                <div class="betting-pending">
+                                    <span class="pending-label">⏳ Awaiting match result</span>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            content.innerHTML = summaryHtml + `
+                <div class="telegram-events-list">
+                    ${notificationsHtml}
+                </div>
+            `;
+            
+        } catch (error) {
+            console.error('Error populating telegram notifications:', error);
+            this.showTelegramNotificationsError(section);
+        }
+    }
+    
+    showTelegramNotificationsError(error) {
+        const container = document.querySelector('#comprehensive-betting-dashboard') || 
+                        document.querySelector('.betting-statistics-dashboard') ||
+                        document.body;
+        
+        const errorSection = document.createElement('div');
+        errorSection.className = 'telegram-notifications-section telegram-error';
+        errorSection.innerHTML = `
+            <h3>📱 Telegram Notification Events</h3>
+            <div class="telegram-notifications-content">
+                <div class="telegram-error-state">
+                    <div class="error-icon">❌</div>
+                    <h4>Error Loading Telegram Notifications</h4>
+                    <p>There was an issue loading telegram notification events.</p>
+                    <p class="error-details">Error: ${error.message}</p>
+                    <button onclick="location.reload()" class="retry-btn">🔄 Refresh Page</button>
+                </div>
+            </div>
+        `;
+        
+        // Remove any existing telegram sections
+        const existing = document.querySelector('.telegram-notifications-section');
+        if (existing) existing.remove();
+        
+        container.appendChild(errorSection);
+    }
+    
+    showTelegramNotificationsUnavailable(section) {
+        const content = section.querySelector('.telegram-notifications-content');
+        content.innerHTML = `
+            <div class="telegram-unavailable">
+                <div class="warning-icon">⚠️</div>
+                <h4>Telegram Notifications Unavailable</h4>
+                <p>The telegram notification system is not currently active or accessible.</p>
+                <p class="troubleshoot">Check that TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_IDS are configured.</p>
+            </div>
+        `;
+    }
+    
+    showTelegramNotificationsError(section) {
+        const content = section.querySelector('.telegram-notifications-content');
+        content.innerHTML = `
+            <div class="telegram-error">
+                <div class="error-icon">❌</div>
+                <h4>Error Loading Notifications</h4>
+                <p>Could not load telegram notification history.</p>
+                <button onclick="location.reload()" class="retry-btn">🔄 Retry</button>
+            </div>
+        `;
+    }
+    
+    getTimeAgo(date) {
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+        
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        return `${diffDays}d ago`;
+    }
+    
+    getBettingStatusIcon(status) {
+        const icons = {
+            'won': '🎉',
+            'lost': '😞',
+            'pending': '⏳',
+            'cancelled': '🚫',
+            'void': '❌'
+        };
+        return icons[status] || '❓';
+    }
+    
+    getBettingStatusText(status) {
+        const texts = {
+            'won': 'Bet Won',
+            'lost': 'Bet Lost',
+            'pending': 'Pending',
+            'cancelled': 'Cancelled',
+            'void': 'Void'
+        };
+        return texts[status] || 'Unknown';
     }
 
     handleLoadingError(error) {
@@ -1762,6 +2163,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Ensure global access for debugging and external integration
 window.initBettingStatistics = initBettingStatistics;
+window.BettingStatistics = BettingStatistics; // NEW: Expose the class globally
 
 // Add performance monitoring
 if (window.performance && performance.mark) {

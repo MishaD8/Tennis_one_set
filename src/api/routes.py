@@ -3817,6 +3817,171 @@ def register_routes(app: Flask):
                 'details': str(e)
             }), 500
 
+    @app.route('/api/telegram-notifications', methods=['GET'])
+    @app.limiter.limit("60 per minute")
+    def get_telegram_notifications_history():
+        """Get telegram notification history with betting data"""
+        try:
+            # Parse parameters
+            days_back = int(request.args.get('days', 30))
+            days_back = max(1, min(365, days_back))
+            limit = int(request.args.get('limit', 50))
+            limit = max(1, min(100, limit))
+            
+            # Get telegram notification system
+            from src.utils.telegram_notification_system import get_telegram_system
+            telegram_system = get_telegram_system()
+            
+            if not telegram_system:
+                return jsonify({
+                    'success': False,
+                    'error': 'Telegram system not available'
+                }), 503
+                
+            # Get notification history from the system
+            notification_history = telegram_system.notification_history or []
+            
+            # Filter by time period
+            from datetime import datetime, timedelta
+            cutoff_date = datetime.now() - timedelta(days=days_back)
+            
+            filtered_notifications = [
+                notification for notification in notification_history
+                if notification.get('timestamp', datetime.now()) >= cutoff_date
+            ]
+            
+            # Sort by timestamp (newest first)
+            filtered_notifications.sort(
+                key=lambda x: x.get('timestamp', datetime.min),
+                reverse=True
+            )
+            
+            # Limit results
+            filtered_notifications = filtered_notifications[:limit]
+            
+            # Convert to serializable format and enhance with betting data
+            telegram_events = []
+            for notification in filtered_notifications:
+                try:
+                    prediction = notification.get('prediction', {})
+                    match_context = prediction.get('match_context', {})
+                    
+                    # Extract player information
+                    player1 = match_context.get('player1', 'Unknown')
+                    player2 = match_context.get('player2', 'Unknown')
+                    underdog_player = prediction.get('underdog_player', 'unknown')
+                    
+                    # Determine underdog and favorite
+                    if underdog_player == 'player1':
+                        underdog_name = player1
+                        favorite_name = player2
+                    else:
+                        underdog_name = player2
+                        favorite_name = player1
+                    
+                    # Get probability and confidence
+                    underdog_probability = prediction.get('underdog_second_set_probability', 0)
+                    confidence = prediction.get('confidence', 'Medium')
+                    
+                    # Create event record
+                    event = {
+                        'id': f"tg_{int(notification.get('timestamp', datetime.now()).timestamp())}",
+                        'timestamp': notification.get('timestamp', datetime.now()).isoformat(),
+                        'type': 'telegram_notification',
+                        'match': {
+                            'player1': player1,
+                            'player2': player2,
+                            'underdog': underdog_name,
+                            'favorite': favorite_name,
+                            'tournament': match_context.get('tournament', 'Unknown'),
+                            'surface': match_context.get('surface', 'Hard'),
+                            'round': match_context.get('round', 'Unknown')
+                        },
+                        'prediction': {
+                            'underdog_probability': underdog_probability,
+                            'confidence': confidence,
+                            'probability_percentage': f"{underdog_probability * 100:.1f}%"
+                        },
+                        'notification': {
+                            'chats_notified': notification.get('chats_notified', 0),
+                            'betting_record_id': notification.get('betting_record_id')
+                        },
+                        'betting': {
+                            'status': 'pending',  # Default, will be updated if betting record exists
+                            'stake_amount': None,
+                            'odds': None,
+                            'potential_return': None
+                        }
+                    }
+                    
+                    # Try to get betting record data if betting_record_id exists
+                    betting_record_id = notification.get('betting_record_id')
+                    if betting_record_id:
+                        try:
+                            from src.data.database_models import DatabaseManager, BettingLog
+                            db_manager = DatabaseManager()
+                            session = db_manager.get_session()
+                            
+                            betting_record = session.query(BettingLog).filter(
+                                BettingLog.id == betting_record_id
+                            ).first()
+                            
+                            if betting_record:
+                                event['betting'].update({
+                                    'status': betting_record.betting_status.value if betting_record.betting_status else 'pending',
+                                    'stake_amount': float(betting_record.stake_amount) if betting_record.stake_amount else None,
+                                    'odds': float(betting_record.odds_taken) if betting_record.odds_taken else None,
+                                    'potential_return': float(betting_record.potential_return) if betting_record.potential_return else None,
+                                    'profit_loss': float(betting_record.profit_loss) if betting_record.profit_loss else None
+                                })
+                            
+                            session.close()
+                            
+                        except Exception as e:
+                            logger.debug(f"Could not load betting record for {betting_record_id}: {e}")
+                    
+                    telegram_events.append(event)
+                    
+                except Exception as e:
+                    logger.error(f"Error processing notification: {e}")
+                    continue
+            
+            # Calculate summary statistics
+            total_notifications = len(telegram_events)
+            successful_notifications = len([e for e in telegram_events if e['notification']['chats_notified'] > 0])
+            
+            # Calculate confidence distribution
+            confidence_counts = {}
+            for event in telegram_events:
+                conf = event['prediction']['confidence']
+                confidence_counts[conf] = confidence_counts.get(conf, 0) + 1
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'telegram_events': telegram_events,
+                    'summary': {
+                        'total_notifications': total_notifications,
+                        'successful_notifications': successful_notifications,
+                        'period_days': days_back,
+                        'confidence_distribution': confidence_counts
+                    },
+                    'metadata': {
+                        'query_timestamp': datetime.now().isoformat(),
+                        'period': f'Last {days_back} days',
+                        'limit_applied': limit
+                    }
+                }
+            })
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting telegram notifications: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to get telegram notifications',
+                'details': str(e)
+            }), 500
+
     # Register betting dashboard routes
     try:
         from src.api.betting_dashboard_api import register_betting_dashboard_routes
@@ -3827,4 +3992,4 @@ def register_routes(app: Flask):
     except Exception as e:
         logger.error(f"❌ Error registering betting dashboard routes: {e}")
 
-    logger.info("✅ All routes registered successfully (including comprehensive statistics and betting dashboard)")
+    logger.info("✅ All routes registered successfully (including comprehensive statistics, betting dashboard, and telegram notifications)")

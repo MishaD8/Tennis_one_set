@@ -49,6 +49,7 @@ class TelegramNotificationSystem:
         self.config = config or self._load_config_from_env()
         self.notification_history = []  # Track sent notifications
         self.rate_limiter = {}  # Rate limiting per chat
+        self.notification_history_file = 'logs/telegram_notification_history.json'
         
         # Validate configuration
         if not self._validate_config():
@@ -56,6 +57,7 @@ class TelegramNotificationSystem:
             self.config.enabled = False
         
         self._setup_logging()
+        self._load_notification_history()  # NEW: Load persisted history
         
     def _load_config_from_env(self) -> TelegramConfig:
         """Load configuration from environment variables"""
@@ -460,11 +462,46 @@ class TelegramNotificationSystem:
     def _record_notification(self, prediction_result: Dict, success_count: int):
         """Record sent notification for rate limiting and deduplication"""
         
+        match_context = prediction_result.get('match_context', {})
+        
+        # Enhanced notification record with betting-relevant data
         notification_record = {
             'timestamp': datetime.now(),
             'prediction': prediction_result,
             'chats_notified': success_count,
-            'underdog_probability': prediction_result.get('underdog_second_set_probability', 0)
+            'underdog_probability': prediction_result.get('underdog_second_set_probability', 0),
+            
+            # NEW: Enhanced betting-relevant data
+            'betting_metadata': {
+                'player1': match_context.get('player1', 'Unknown'),
+                'player2': match_context.get('player2', 'Unknown'),
+                'tournament': match_context.get('tournament', 'Unknown'),
+                'surface': match_context.get('surface', 'Hard'),
+                'round': match_context.get('round', 'Unknown'),
+                'underdog_player': prediction_result.get('underdog_player', 'unknown'),
+                'confidence': prediction_result.get('confidence', 'Medium'),
+                'probability_percentage': f"{prediction_result.get('underdog_second_set_probability', 0) * 100:.1f}%",
+                
+                # Player rankings for betting context
+                'player1_rank': self._get_live_player_ranking(match_context.get('player1', '')),
+                'player2_rank': self._get_live_player_ranking(match_context.get('player2', '')),
+                
+                # Enhanced insights for display
+                'strategic_insights': prediction_result.get('strategic_insights', []),
+                'enhanced_insights': self._extract_enhanced_insights(prediction_result),
+                
+                # Prediction source information
+                'prediction_source': prediction_result.get('prediction_metadata', {}).get('service_type', 'unknown'),
+                'models_used': prediction_result.get('prediction_metadata', {}).get('models_used', []),
+                
+                # Notification delivery details
+                'notification_delivery': {
+                    'success_count': success_count,
+                    'target_chats': len(self.config.chat_ids),
+                    'delivery_rate': success_count / len(self.config.chat_ids) if self.config.chat_ids else 0,
+                    'message_size': len(self._format_underdog_message(prediction_result))
+                }
+            }
         }
         
         self.notification_history.append(notification_record)
@@ -475,6 +512,67 @@ class TelegramNotificationSystem:
             n for n in self.notification_history 
             if n.get('timestamp', datetime.now()) > cutoff_time
         ]
+        
+        # Log enhanced notification details
+        self.telegram_logger.info(
+            f"📊 Notification recorded - {match_context.get('player1', 'Unknown')} vs {match_context.get('player2', 'Unknown')} "
+            f"({prediction_result.get('underdog_second_set_probability', 0)*100:.1f}% confidence, "
+            f"{success_count}/{len(self.config.chat_ids)} chats delivered)"
+        )
+        
+        # NEW: Persist notification history to disk
+        self._save_notification_history()
+    
+    def _load_notification_history(self):
+        """Load notification history from disk"""
+        try:
+            import json
+            if os.path.exists(self.notification_history_file):
+                with open(self.notification_history_file, 'r') as f:
+                    history_data = json.load(f)
+                    
+                # Convert timestamp strings back to datetime objects
+                for record in history_data:
+                    if 'timestamp' in record and isinstance(record['timestamp'], str):
+                        try:
+                            record['timestamp'] = datetime.fromisoformat(record['timestamp'])
+                        except ValueError:
+                            record['timestamp'] = datetime.now()
+                
+                # Only keep recent history (last 24 hours)
+                cutoff_time = datetime.now() - timedelta(hours=24)
+                self.notification_history = [
+                    record for record in history_data
+                    if record.get('timestamp', datetime.now()) > cutoff_time
+                ]
+                
+                logger.info(f"✅ Loaded {len(self.notification_history)} notification records from history")
+                
+        except Exception as e:
+            logger.warning(f"⚠️ Could not load notification history: {e}")
+            self.notification_history = []
+    
+    def _save_notification_history(self):
+        """Save notification history to disk"""
+        try:
+            import json
+            
+            # Ensure logs directory exists
+            os.makedirs(os.path.dirname(self.notification_history_file), exist_ok=True)
+            
+            # Convert datetime objects to strings for JSON serialization
+            serializable_history = []
+            for record in self.notification_history:
+                serializable_record = record.copy()
+                if 'timestamp' in serializable_record:
+                    serializable_record['timestamp'] = serializable_record['timestamp'].isoformat()
+                serializable_history.append(serializable_record)
+            
+            with open(self.notification_history_file, 'w') as f:
+                json.dump(serializable_history, f, indent=2, default=str)
+                
+        except Exception as e:
+            logger.warning(f"⚠️ Could not save notification history: {e}")
     
     def _create_betting_record_for_prediction(self, prediction_result: Dict):
         """Create a betting record for this prediction notification"""

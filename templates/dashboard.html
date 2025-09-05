@@ -494,14 +494,24 @@
         
         function initBettingStatisticsTab() {
             if (!window.bettingStatisticsInitialized) {
-                // Initialize comprehensive betting dashboard if available
-                if (window.ComprehensiveBettingDashboard) {
+                // Use our enhanced betting statistics with telegram notifications
+                if (window.BettingStatistics) {
+                    const dashboardContainer = document.getElementById('comprehensive-betting-dashboard');
+                    if (dashboardContainer) {
+                        // Clear loading state and initialize our enhanced system
+                        dashboardContainer.innerHTML = '';
+                        window.bettingStatsInstance = new window.BettingStatistics();
+                        console.log('✅ Enhanced betting statistics with telegram notifications initialized');
+                    }
+                }
+                // Fallback to comprehensive dashboard if our enhanced system isn't available
+                else if (window.ComprehensiveBettingDashboard) {
                     const dashboardContainer = document.getElementById('comprehensive-betting-dashboard');
                     if (dashboardContainer && !window.comprehensiveDashboard) {
                         window.comprehensiveDashboard = new window.ComprehensiveBettingDashboard();
                     }
                 }
-                // Fallback to basic betting statistics if comprehensive dashboard not available
+                // Final fallback
                 else if (window.initBettingStatistics) {
                     initBettingStatistics();
                 }

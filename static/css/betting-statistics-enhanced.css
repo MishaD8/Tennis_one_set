@@ -200,6 +200,451 @@
     font-size: 0.85rem;
 }
 
+/* Telegram Notifications Section */
+.telegram-notifications-section {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 20px;
+    padding: 30px;
+    margin: 25px 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.telegram-notifications-section h3 {
+    margin: 0 0 20px 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1.4rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.section-description {
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 25px;
+    font-style: italic;
+}
+
+/* Telegram Summary Stats */
+.telegram-summary {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 25px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.summary-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 20px;
+    text-align: center;
+}
+
+.summary-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.summary-stat .stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #6bcf7f;
+    font-variant-numeric: tabular-nums;
+}
+
+.summary-stat .stat-label {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Telegram Events List */
+.telegram-events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.telegram-event {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 20px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.telegram-event:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(107, 207, 127, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+.event-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.event-time {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.time-badge {
+    background: rgba(74, 158, 255, 0.2);
+    color: #4a9eff;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid rgba(74, 158, 255, 0.3);
+}
+
+.exact-time {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.notification-status {
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid;
+}
+
+.notification-status.sent {
+    background: rgba(107, 207, 127, 0.2);
+    color: #6bcf7f;
+    border-color: rgba(107, 207, 127, 0.3);
+}
+
+.notification-status.failed {
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
+    border-color: rgba(255, 107, 107, 0.3);
+}
+
+/* Event Content */
+.event-content {
+    display: grid;
+    gap: 15px;
+}
+
+.match-info {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    padding: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.players {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.underdog {
+    font-weight: 700;
+    color: #6bcf7f;
+    font-size: 1.1rem;
+}
+
+.vs {
+    color: rgba(255, 255, 255, 0.6);
+    font-weight: 500;
+}
+
+.favorite {
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1.1rem;
+}
+
+.match-details {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.tournament {
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 500;
+}
+
+.surface {
+    background: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+    padding: 3px 8px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+/* Prediction Info */
+.prediction-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    padding: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.probability, .confidence {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.prob-label, .conf-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+}
+
+.prob-value {
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.prob-value.high {
+    color: #6bcf7f;
+}
+
+.prob-value.medium {
+    color: #ffc107;
+}
+
+.conf-value {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid;
+}
+
+.conf-value.high {
+    background: rgba(107, 207, 127, 0.2);
+    color: #6bcf7f;
+    border-color: rgba(107, 207, 127, 0.3);
+}
+
+.conf-value.medium {
+    background: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+    border-color: rgba(255, 193, 7, 0.3);
+}
+
+.conf-value.low {
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
+    border-color: rgba(255, 107, 107, 0.3);
+}
+
+/* Betting Outcome */
+.betting-outcome {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    padding: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.outcome-status {
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 12px;
+    border: 1px solid;
+}
+
+.outcome-status.won {
+    background: rgba(107, 207, 127, 0.2);
+    color: #6bcf7f;
+    border-color: rgba(107, 207, 127, 0.3);
+}
+
+.outcome-status.lost {
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
+    border-color: rgba(255, 107, 107, 0.3);
+}
+
+.profit-loss {
+    font-weight: 700;
+    font-size: 1.1rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.profit-loss.profit {
+    color: #6bcf7f;
+}
+
+.profit-loss.loss {
+    color: #ff6b6b;
+}
+
+.betting-pending {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    padding: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+}
+
+.pending-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-style: italic;
+}
+
+/* Empty States */
+.no-notifications, .telegram-unavailable, .telegram-error {
+    text-align: center;
+    padding: 40px 20px;
+    border-radius: 15px;
+    border: 2px dashed rgba(255, 255, 255, 0.2);
+}
+
+.empty-icon, .warning-icon, .error-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+    opacity: 0.7;
+}
+
+.no-notifications h4, .telegram-unavailable h4, .telegram-error h4 {
+    margin: 0 0 15px 0;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.no-notifications p, .telegram-unavailable p, .telegram-error p {
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 10px;
+}
+
+.hint {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9rem;
+    font-style: italic;
+}
+
+.troubleshoot {
+    color: rgba(255, 193, 7, 0.8);
+    font-size: 0.9rem;
+    font-style: italic;
+}
+
+.retry-btn {
+    background: rgba(107, 207, 127, 0.2);
+    color: #6bcf7f;
+    border: 1px solid rgba(107, 207, 127, 0.3);
+    padding: 10px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    margin-top: 10px;
+}
+
+.retry-btn:hover {
+    background: rgba(107, 207, 127, 0.3);
+    transform: translateY(-2px);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .telegram-notifications-section {
+        padding: 20px;
+    }
+    
+    .summary-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .event-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .players {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .prediction-info {
+        grid-template-columns: 1fr;
+    }
+    
+    .betting-outcome {
+        flex-direction: column;
+        gap: 10px;
+    }
+}
+
+/* Real-time Updates */
+.real-time-alert {
+    background: linear-gradient(135deg, rgba(107, 207, 127, 0.2), rgba(74, 158, 255, 0.2));
+    border: 1px solid rgba(107, 207, 127, 0.4);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+    animation: slideInFromTop 0.3s ease-out;
+}
+
+.alert-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 500;
+}
+
+.close-alert {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease;
+}
+
+.close-alert:hover {
+    color: rgba(255, 255, 255, 1);
+}
+
+@keyframes slideInFromTop {
+    0% {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
 #next-update-countdown {
     color: #4a9eff;
     font-weight: bold;
