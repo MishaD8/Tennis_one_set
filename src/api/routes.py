@@ -729,10 +729,16 @@ def format_match_for_dashboard(match_data: Dict, source: str = "unknown") -> Dic
         prediction = formatted.get('prediction', {})
         odds = formatted.get('odds', {})
         
+        # Extract probability - handle different field names from different analyzers
+        probability = prediction.get('underdog_probability', prediction.get('probability', 0.5))
+        confidence = prediction.get('confidence', 0.7)
+        
         formatted.update({
             'prediction_type': prediction.get('prediction_type', 'ANALYSIS'),
-            'underdog_probability': prediction.get('probability', 0.5),
-            'value_bet': prediction.get('probability', 0.5) > (1 / odds.get('player1', 2.0)) if odds.get('player1', 0) > 0 else False,
+            'underdog_probability': probability,
+            'underdog_second_set_probability': probability,  # Map to expected field for notifications
+            'confidence': confidence,
+            'value_bet': probability > (1 / odds.get('player1', 2.0)) if odds.get('player1', 0) > 0 else False,
             'key_factors': prediction.get('key_factors', [])
         })
         

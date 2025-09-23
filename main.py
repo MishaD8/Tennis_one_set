@@ -528,56 +528,159 @@ class AutomatedTennisPredictionService:
         return True
     
     def _create_ml_features(self, match: Dict, player1_rank: int, player2_rank: int) -> np.ndarray:
-        """Create ML features for prediction"""
+        """Create ML features for prediction - supporting both 5-feature and 76-feature models"""
         try:
-            # Basic features based on ranking and tournament
-            features = [
-                player1_rank,
-                player2_rank,
-                abs(player1_rank - player2_rank),  # ranking gap
-                min(player1_rank, player2_rank),   # favorite rank
-                max(player1_rank, player2_rank),   # underdog rank
-                1.0,  # hard court (default)
-                0.0,  # clay court
-                0.0,  # grass court
-                2.5,  # tournament importance (ATP 250 level)
-                1.0,  # first set assumed close
-                0.5,  # break points saved
-                0.65, # first serve percentage
-                0.0,  # had tiebreak
-            ]
+            # Determine which type of features to create based on loaded models
+            has_76_feature_models = any(
+                hasattr(model, 'n_features_in_') and model.n_features_in_ == 76 
+                for model in self.models.values()
+            )
             
-            # Pad to expected feature count (76 from metadata)
-            expected_features = self.metadata.get('feature_columns', [])
-            if expected_features:
-                while len(features) < len(expected_features):
-                    features.append(0.0)
-                features = features[:len(expected_features)]
-            
-            return np.array(features).reshape(1, -1)
+            if has_76_feature_models:
+                # Create enhanced 76-feature set using the enhanced feature engineering
+                return self._create_enhanced_features(match, player1_rank, player2_rank)
+            else:
+                # Create basic 5-feature set for simple models
+                return self._create_basic_features(match, player1_rank, player2_rank)
             
         except Exception as e:
             logger.error(f"❌ Feature creation failed: {e}")
-            # Return minimal feature set
-            return np.array([player1_rank, player2_rank, abs(player1_rank - player2_rank)]).reshape(1, -1)
+            # Fallback to basic features
+            return self._create_basic_features(match, player1_rank, player2_rank)
+    
+    def _create_basic_features(self, match: Dict, player1_rank: int, player2_rank: int) -> np.ndarray:
+        """Create basic 5 features for simple models"""
+        features = [
+            abs(player1_rank - player2_rank),  # ranking_difference
+            0.5,   # first_set_momentum (default neutral)
+            0.6,   # surface_advantage (default hard court advantage)
+            player1_rank,  # player1_ranking
+            player2_rank,  # player2_ranking
+        ]
+        return np.array(features).reshape(1, -1)
+    
+    def _create_enhanced_features(self, match: Dict, player1_rank: int, player2_rank: int) -> np.ndarray:
+        """Create enhanced 76 features for advanced models"""
+        try:
+            # Import enhanced feature engineering
+            from src.ml.enhanced_feature_engineering import EnhancedTennisFeatureEngineer, MatchContext, FirstSetStats
+            
+            engineer = EnhancedTennisFeatureEngineer()
+            
+            # Create match context
+            context = MatchContext(
+                tournament_tier='ATP250',
+                surface='Hard',
+                round='R32',
+                is_indoor=False
+            )
+            
+            # Create mock first set stats (since we don't have real first set data)
+            first_set_stats = FirstSetStats(
+                winner='player1',  # Assume favorite won first set
+                score='6-4',
+                duration_minutes=45,
+                total_games=10,
+                break_points_player1={'faced': 2, 'saved': 1, 'converted': 1},
+                break_points_player2={'faced': 3, 'saved': 2, 'converted': 1},
+                service_points_player1={'won': 28, 'total': 40},
+                service_points_player2={'won': 25, 'total': 38},
+                unforced_errors_player1=8,
+                unforced_errors_player2=12,
+                winners_player1=15,
+                winners_player2=10,
+                double_faults_player1=1,
+                double_faults_player2=2
+            )
+            
+            # Create player data
+            player1_data = {
+                'ranking': player1_rank,
+                'age': 26,
+                'last_match_date': datetime.now() - timedelta(days=3),
+                'matches_last_14_days': 2,
+                'hard_win_percentage': 0.6,
+                'indoor_win_percentage': 0.55,
+                'recent_form': [1, 1, 0, 1, 0]  # W-W-L-W-L
+            }
+            
+            player2_data = {
+                'ranking': player2_rank,
+                'age': 24,
+                'last_match_date': datetime.now() - timedelta(days=5),
+                'matches_last_14_days': 1,
+                'hard_win_percentage': 0.55,
+                'indoor_win_percentage': 0.50,
+                'recent_form': [0, 1, 1, 0, 1]  # L-W-W-L-W
+            }
+            
+            # H2H data
+            h2h_data = {
+                'overall': {'player1_wins': 1, 'player2_wins': 0},
+                'recent_3': {'player1_wins': 1, 'player2_wins': 0}
+            }
+            
+            # Generate all feature categories using correct method names
+            momentum_features = engineer.create_momentum_features(first_set_stats, player1_data, player2_data)
+            fatigue_features = engineer.create_fatigue_features(player1_data, player2_data, datetime.now())
+            pressure_features = engineer.create_pressure_features(player1_data, player2_data, context)
+            surface_features = engineer.create_surface_adaptation_features(player1_data, player2_data, context, datetime.now())
+            contextual_features = engineer.create_contextual_features(player1_data, player2_data, context, h2h_data)
+            
+            # Combine all features into a single vector
+            all_features = {}
+            all_features.update(momentum_features)
+            all_features.update(fatigue_features)
+            all_features.update(pressure_features)
+            all_features.update(surface_features)
+            all_features.update(contextual_features)
+            
+            # Convert to ordered feature vector
+            feature_vector = list(all_features.values())
+            
+            logger.debug(f"Generated {len(feature_vector)} enhanced features")
+            
+            # Ensure exactly 76 features
+            while len(feature_vector) < 76:
+                feature_vector.append(0.0)
+            feature_vector = feature_vector[:76]
+            
+            return np.array(feature_vector).reshape(1, -1)
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Enhanced features failed: {e}, using basic features")
+            return self._create_basic_features(match, player1_rank, player2_rank)
     
     def _predict_with_ml_models(self, features: np.ndarray) -> float:
-        """Make prediction using ensemble of ML models"""
+        """Make prediction using ensemble of ML models - handling different feature dimensions"""
         try:
             predictions = []
             weights = self.metadata.get('ensemble_weights', {})
             
             for model_name, model in self.models.items():
                 try:
+                    # Check if model's feature requirement matches our features
+                    expected_features = getattr(model, 'n_features_in_', None)
+                    provided_features = features.shape[1]
+                    
+                    if expected_features and expected_features != provided_features:
+                        logger.debug(f"Model {model_name} expects {expected_features} features, got {provided_features} - skipping")
+                        continue
+                    
                     if hasattr(model, 'predict_proba'):
                         # Get probability of underdog winning
-                        pred_proba = model.predict_proba(features)[0, 1] if len(model.predict_proba(features)[0]) > 1 else model.predict_proba(features)[0, 0]
+                        pred_proba = model.predict_proba(features)[0]
+                        if len(pred_proba) > 1:
+                            underdog_prob = pred_proba[1]  # Class 1 = underdog wins
+                        else:
+                            underdog_prob = pred_proba[0]
                     else:
                         # Binary prediction
-                        pred_proba = float(model.predict(features)[0])
+                        underdog_prob = float(model.predict(features)[0])
                     
                     weight = weights.get(model_name, 0.25)
-                    predictions.append((pred_proba, weight))
+                    predictions.append((underdog_prob, weight))
+                    logger.debug(f"Model {model_name}: {underdog_prob:.3f} (weight: {weight:.3f})")
                     
                 except Exception as e:
                     logger.debug(f"Model {model_name} prediction failed: {e}")
@@ -590,9 +693,12 @@ class AutomatedTennisPredictionService:
                 else:
                     ensemble_pred = sum(pred for pred, _ in predictions) / len(predictions)
                 
+                logger.info(f"Ensemble prediction from {len(predictions)}/{len(self.models)} models: {ensemble_pred:.1%}")
+                
                 # Clamp to reasonable range
                 return max(0.15, min(0.85, ensemble_pred))
             else:
+                logger.warning("No models could make predictions - using fallback")
                 return 0.5
                 
         except Exception as e:
