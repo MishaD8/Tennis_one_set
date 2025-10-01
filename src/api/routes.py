@@ -981,6 +981,7 @@ def register_routes(app: Flask):
 
 
     @app.route('/api/health', methods=['GET'])
+    @app.limiter.exempt
     def health_check():
         """Comprehensive health check with security and infrastructure monitoring"""
         redis_health = check_redis_health()
@@ -1033,6 +1034,7 @@ def register_routes(app: Flask):
         })
 
     @app.route('/api/health-check', methods=['GET'])
+    @app.limiter.exempt
     def health_check_endpoint():
         """Simple health check endpoint for load balancers"""
         return jsonify({
