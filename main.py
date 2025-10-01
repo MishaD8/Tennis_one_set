@@ -20,7 +20,7 @@ from typing import Dict, List, Any, Optional
 # Add src directory to Python path for imports
 # Import dynamic rankings API
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
-from api.dynamic_rankings_api import dynamic_rankings
+from src.api.dynamic_rankings_api import dynamic_rankings
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.api.app import create_app, create_production_app
@@ -110,7 +110,7 @@ class AutomatedTennisPredictionService:
     def _initialize_telegram(self):
         """Initialize Telegram notification system"""
         try:
-            from utils.telegram_notification_system import get_telegram_system
+            from src.utils.telegram_notification_system import get_telegram_system
             self.telegram_system = get_telegram_system()
             
             if self.telegram_system.config.enabled:
@@ -122,7 +122,7 @@ class AutomatedTennisPredictionService:
             logger.warning(f"⚠️ Telegram initialization permission issue (logs disabled): {e}")
             # Try to create a minimal system without file logging
             try:
-                from utils.telegram_notification_system import TelegramNotificationSystem
+                from src.utils.telegram_notification_system import TelegramNotificationSystem
                 self.telegram_system = TelegramNotificationSystem()
                 if self.telegram_system.config.enabled:
                     logger.info("✅ Telegram notification system initialized (console logging only)")
